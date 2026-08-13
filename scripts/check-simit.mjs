@@ -362,7 +362,7 @@ const reporte = { fecha: new Date().toISOString(), placa: opciones.placa, dns: n
 
 try {
 	if (!opciones.json) {
-		console.log('─ Dinamo Rent — Chequeo SIMIT ────────────────────────────');
+		console.log('─ DynaRent — Chequeo SIMIT ────────────────────────────');
 		console.log(`⏱  ${new Date().toLocaleString('es-CO')}`);
 	}
 

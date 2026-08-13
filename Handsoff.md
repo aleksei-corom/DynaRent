@@ -1,4 +1,4 @@
-# Handsoff — Dinamo Rent ERP (Tauri + SvelteKit + Firebird)
+# Handsoff — DynaRent ERP (Tauri + SvelteKit + Firebird)
 
 > Última actualización: **2026-08-14** · Estado: **todos los módulos operativos, validación verde · instalación limpia validada E2E · release v1.0.12 publicada y firmada (auto-update activo; secret `TAURI_SIGNING_PRIVATE_KEY` configurado) · contrato en 2 hojas con firmas amplias, campo Gasolina, km sin cola de ceros y errores de BD visibles verificados en el equipo de operaciones · herramientas de operación (importador de datos + verifier de despliegue) en §6**
 
@@ -30,7 +30,7 @@
 > intento (el exe quedó en 19:50, anterior a los fixes de las 20:56), se relanzó
 > `npm run tauri build` completo desacoplado (`Start-Process`) y terminó sin el `os error 32`.
 > Artefactos en `src-tauri/target/release/bundle/`:
-> **`nsis/DinamoRent_1.0.0_x64-setup.exe`** (23,8 MB) y **`msi/DinamoRent_1.0.0_x64_en-US.msi`**
+> **`nsis/DynaRent_1.0.0_x64-setup.exe`** (23,8 MB) y **`msi/DynaRent_1.0.0_x64_en-US.msi`**
 > (35,4 MB) · `dinamo-rent.exe` relinkeado a las 22:25 (v1.0.0, 12,2 MB) con las **16
 > migraciones embebidas verificadas** (grep de 0001/0005/0010/0016 en el binario). Suites
 > validadas antes del build: `cargo test --lib` **43/43** · `migraciones_integration` **11/11**.
@@ -50,7 +50,7 @@
 > Reproducible con `scripts/dinamorent-sandbox.wsb` + `scripts/smoke-test-sandbox.ps1`
 > (resultado en `scripts/smoke-result.txt`).
 > 🚀 **Release v1.0.1 publicada (12-08):** [github.com/CORJAR-Computers/dinamo_rent_tr/releases/tag/v1.0.1]
-> — instaladores `DinamoRent_1.0.1_x64-setup.exe` (NSIS, 20 MB) y `.msi` (31 MB) construidos
+> — instaladores `DynaRent_1.0.1_x64-setup.exe` (NSIS, 20 MB) y `.msi` (31 MB) construidos
 > **por CI** (workflow `release.yml`, disparado por el tag `v1.0.1`) con los fixes de
 > instalación limpia ya fusionados en main. Notas de la release documentan el bug.
 > 🚀 **Release v1.0.2 publicada (14-08):** [github.com/CORJAR-Computers/dinamo_rent_tr/releases/tag/v1.0.2]
@@ -519,7 +519,7 @@ y `IntoParams` para tuplas de **≤15**. Cualquier SELECT largo debe partirse en
       arg `r` de informeExcel). Validación: `npm run lint` 0 problemas, `npm run check` 0/0,
       `npm run test` 190/190, `npm run build` ✅ — el pre-commit (`bun run lint`) ya no bloquea.
 - [x] **Configurar `business.impuesto_porcentaje`** en el `config.ini` real de producción (dev usa 19).
-      *Hecho (10-08): el config real (`%APPDATA%\com.corjar.dinamorent\config.ini`) ya trae
+      *Hecho (10-08): el config real (`%APPDATA%\com.dynarent.app\config.ini`) ya trae
       `impuesto_porcentaje = 19` en `[business]` (auto-generado con los defaults) y la app lo lee al
       arrancar. Para CAMBIAR la tasa en producción: editar esa clave en `[business]` del config.ini y
       reiniciar la app (sin rebuild; `AppConfig::save()` preserva la clave — no la pisa). Se documentó
@@ -680,7 +680,7 @@ con `firebird-driver`, `cryptography` y `openpyxl`; corren contra la BD de una i
 
 ### 6.1 Importador de Autos/Clientes — `scripts/importar_autos_clientes.py`
 
-Lleva datos de **AUTOS** y **CLIENTES** a la BD de una instalación DinamoRent desde un dump SQL
+Lleva datos de **AUTOS** y **CLIENTES** a la BD de una instalación DynaRent desde un dump SQL
 o desde una hoja de cálculo. Caso de uso: el cliente tiene una copia de su BD (exportada a
 SQL) o los datos están recopilados en Excel y hay que poblar la instalación.
 
@@ -736,11 +736,11 @@ actualizados) → auditoría registrada. Fixtures de ejemplo en `scripts/fixture
 
 Post-instalación en el equipo del cliente: comprueba exe **v1.0.3** instalado, **arranca la
 app** y verifica que siga viva 10 s (el check crítico — el bug del v1.0.0 moría ahí), y luego
-valida los datos que crea el **primer arranque** (`%APPDATA%\com.corjar.dinamorent`: `config.ini`
+valida los datos que crea el **primer arranque** (`%APPDATA%\com.dynarent.app`: `config.ini`
 + `dinamo_rent_v3.fdb`). Veredicto `OK` / `FALLOS` con checks numerados, exit 0/1.
 
 > **Orden de checks (fix 12-08):** primero se arranca la app y después se comprueban los
-datos — la carpeta `%APPDATA%\com.corjar.dinamorent` se crea en el primer arranque (el
+datos — la carpeta `%APPDATA%\com.dynarent.app` se crea en el primer arranque (el
 propio fix de instalación limpia), así que comprobarla antes producía FALLOS falsos.
 Validado de punta a punta en Windows Sandbox con la v1.0.1 oficial: **VEREDICTO OK (6/6)**.
 Harness reutilizable: `scripts/verificar-despliegue-sandbox.ps1` +

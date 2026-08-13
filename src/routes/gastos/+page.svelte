@@ -228,7 +228,7 @@
 </script>
 
 <svelte:head>
-	<title>Gastos — Dinamo Rent ERP</title>
+	<title>Gastos — DynaRent ERP</title>
 </svelte:head>
 
 <div class="space-y-5">

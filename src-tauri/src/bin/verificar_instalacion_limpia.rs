@@ -11,7 +11,7 @@
 //!   cargo run --features dev --bin verificar_instalacion_limpia -- <data_dir>
 //!
 //! Con un `<data_dir>` se verifica un directorio ya creado por la app (p.ej.
-//! `%APPDATA%\com.corjar.dinamorent` tras un smoke test del release).
+//! `%APPDATA%\com.dynarent.app` tras un smoke test del release).
 //!
 //! ⚠️ Solo debug (mismo mecanismo que dev_reset_admin/sync_dev): no se compila
 //! en release salvo con `--features dev`.
@@ -54,7 +54,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let resource_dir = manifest.join("resources");
 
-    // 1) Directorio de datos limpio (simula %APPDATA%\com.corjar.dinamorent vacío)
+    // 1) Directorio de datos limpio (simula %APPDATA%\com.dynarent.app vacío)
     let data_dir: PathBuf = match std::env::args().nth(1) {
         Some(p) => PathBuf::from(p),
         None => std::env::temp_dir().join(format!(

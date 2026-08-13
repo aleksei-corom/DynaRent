@@ -1,6 +1,6 @@
-# Licencias de Terceros — Dinamo Rent ERP
+# Licencias de Terceros — DynaRent ERP
 
-Este documento enumera las dependencias de terceros redistribuidas con el binario de Dinamo Rent ERP, sus licencias y dónde encontrar el texto completo.
+Este documento enumera las dependencias de terceros redistribuidas con el binario de DynaRent ERP, sus licencias y dónde encontrar el texto completo.
 
 > Última actualización: 2026-08-09 · Versión ERP: 4.0.0-beta
 
@@ -9,7 +9,7 @@ Este documento enumera las dependencias de terceros redistribuidas con el binari
 ## 1. Firebird SQL 5.0.3 (motor de base de datos embebido)
 
 - **Licencia**: Dual **IDPL** (Initial Developer's Public License) + **IPL** (InterBase Public License). Ambas aprobadas por OSI.
-- **Estado**: Redistribuible. Se incluye el motor *embedded* (`fbclient.dll`, `fbembed.dll`, `icudt*.dll`, `icuuc*.dll`, `icuin*.dll`, `engine13.dll`, etc.) dentro del instalador de Dinamo Rent ERP.
+- **Estado**: Redistribuible. Se incluye el motor *embedded* (`fbclient.dll`, `fbembed.dll`, `icudt*.dll`, `icuuc*.dll`, `icuin*.dll`, `engine13.dll`, etc.) dentro del instalador de DynaRent ERP.
 - **Ubicación en el repo**: `src-tauri/resources/firebird/` (recursos empaquetados por Tauri).
 - **Textos de licencia**: los archivos `IDPLicense.txt` y `IPLicense.txt` acompañan a los binarios en el directorio mencionado y también se incluyen en la carpeta de instalación del producto final.
 - **Web oficial / licencias**: https://firebirdsql.org/en/legal/licensing/

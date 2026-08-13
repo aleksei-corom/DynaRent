@@ -1,8 +1,8 @@
 [package]
 name = "dinamo-rent"
 version = "1.0.12"
-description = "Dinamo Rent ERP — Tauri V2 + Rust + Firebird Embedded 5.0"
-authors = ["Dinamo Rent a Car"]
+description = "DynaRent ERP — Tauri V2 + Rust + Firebird Embedded 5.0"
+authors = ["DynaRent"]
 edition = "2021"
 default-run = "dinamo-rent"
 

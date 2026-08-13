@@ -238,7 +238,7 @@ const isFullscreen = $derived(['/login', '/cambiar-password'].includes(page.url.
 		for (const [k, v] of Object.entries(map)) {
 			if (path.startsWith(k)) return v;
 		}
-		return 'Dinamo Rent ERP';
+		return 'DynaRent ERP';
 	}
 </script>
 

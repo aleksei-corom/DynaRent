@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
 dinamorent-sandbox.wsb — Windows Sandbox para probar el instalador de
-DinamoRent en un entorno aislado (Windows limpio por sesión).
+DynaRent en un entorno aislado (Windows limpio por sesión).
 
 Uso:
   1. Requiere Windows Sandbox habilitado (Containers-DisposableClientVM) y

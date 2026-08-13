@@ -254,7 +254,7 @@
 </script>
 
 <svelte:head>
-	<title>Flota de Autos — Dinamo Rent ERP</title>
+	<title>Flota de Autos — DynaRent ERP</title>
 </svelte:head>
 
 <div class="space-y-5">

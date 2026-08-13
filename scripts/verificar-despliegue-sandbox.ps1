@@ -19,7 +19,7 @@ function Write-Log([string]$msg) {
     Add-Content -Path $log -Value $line -Encoding UTF8
 }
 
-$installer = 'C:\shared\bundle\nsis\DinamoRent_1.0.1_x64-setup.exe'
+$installer = 'C:\shared\bundle\nsis\DynaRent_1.0.1_x64-setup.exe'
 if (-not (Test-Path $installer)) {
     Write-Log "FALLO: no se encontro el instalador en $installer"
     exit 1

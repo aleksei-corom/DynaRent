@@ -1,5 +1,5 @@
 #![allow(linker_messages)]
-//! Dinamo Rent ERP — Tauri V2 backend
+//! DynaRent ERP — Tauri V2 backend
 
 pub mod commands;
 pub mod core;

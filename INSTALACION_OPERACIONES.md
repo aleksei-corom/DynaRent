@@ -1,4 +1,4 @@
-# Instalación de Dinamo Rent ERP — v1.0.12 (estable)
+# Instalación de DynaRent ERP — v1.0.12 (estable)
 
 > Guía para el equipo de operaciones. **Última versión estable: v1.0.12** — con el
 > **auto-update** activo desde la v1.0.3 (la app detecta y ofrece instalar las versiones
@@ -19,8 +19,8 @@ Página de la release: <https://github.com/CORJAR-Computers/dinamo_rent_tr/relea
 
 | Instalador | Enlace directo | Tamaño | Uso |
 |---|---|---|---|
-| **NSIS** (`DinamoRent_1.0.12_x64-setup.exe`) | <https://github.com/CORJAR-Computers/dinamo_rent_tr/releases/download/v1.0.12/DinamoRent_1.0.12_x64-setup.exe> | ~21 MB | **Recomendado** — instalación asistida con atajo de escritorio |
-| **MSI** (`DinamoRent_1.0.12_x64_en-US.msi`) | <https://github.com/CORJAR-Computers/dinamo_rent_tr/releases/download/v1.0.12/DinamoRent_1.0.12_x64_en-US.msi> | ~33 MB | Despliegue empresarial / GPO |
+| **NSIS** (`DynaRent_1.0.12_x64-setup.exe`) | <https://github.com/CORJAR-Computers/dinamo_rent_tr/releases/download/v1.0.12/DynaRent_1.0.12_x64-setup.exe> | ~21 MB | **Recomendado** — instalación asistida con atajo de escritorio |
+| **MSI** (`DynaRent_1.0.12_x64_en-US.msi`) | <https://github.com/CORJAR-Computers/dinamo_rent_tr/releases/download/v1.0.12/DynaRent_1.0.12_x64_en-US.msi> | ~33 MB | Despliegue empresarial / GPO |
 
 > ⚠️ **No usar la v1.0.0** (descontinuada): falla en equipos sin BD previa. Si un equipo
 > ya la tiene instalada **con datos**, no hay que desinstalar — la v1.0.12 abre la BD
@@ -36,25 +36,25 @@ Página de la release: <https://github.com/CORJAR-Computers/dinamo_rent_tr/relea
   automáticamente si el sistema no lo tiene (requiere conexión a internet en el primer
   arranque del instalador en ese caso).
 - **No** se necesita servidor de base de datos: Firebird Embedded usa un archivo `.fdb`
-  local en `%APPDATA%\com.corjar.dinamorent\`.
+  local en `%APPDATA%\com.dynarent.app\`.
 
 ---
 
 ## 3. Instalación
 
 ### Opción A — Asistida (NSIS, recomendada)
-1. Ejecutar `DinamoRent_1.0.12_x64-setup.exe` como usuario normal.
+1. Ejecutar `DynaRent_1.0.12_x64-setup.exe` como usuario normal.
 2. Seguir el asistente (siguiente → instalar → finalizar).
 
 ### Opción B — Silenciosa (NSIS)
 ```powershell
 # Instala sin interacción, sin atajo ni ejecución al final
-DinamoRent_1.0.12_x64-setup.exe /S
+DynaRent_1.0.12_x64-setup.exe /S
 ```
 
 ### Opción C — Silenciosa (MSI, para GPO/Intune)
 ```powershell
-msiexec /i DinamoRent_1.0.12_x64_en-US.msi /qn /norestart
+msiexec /i DynaRent_1.0.12_x64_en-US.msi /qn /norestart
 ```
 
 ---
@@ -64,7 +64,7 @@ msiexec /i DinamoRent_1.0.12_x64_en-US.msi /qn /norestart
 La app crea automáticamente en el primer arranque:
 
 ```
-%APPDATA%\com.corjar.dinamorent\
+%APPDATA%\com.dynarent.app\
 ├── config.ini            # configuración inicial
 └── dinamo_rent_v3.fdb    # base de datos Firebird Embedded (portable)
 ```
@@ -120,11 +120,11 @@ embebida y reinicia la app al terminar).
 - **Actualizar desde v1.0.3+**: desde el diálogo de la app, o a mano instalando la release
   nueva encima (idempotente).
 - **Rollback**: si algo fallara, desinstalar y reinstalar la versión anterior conservando
-  `%APPDATA%\com.corjar.dinamorent\` (los datos están ahí, no en la carpeta de programa).
+  `%APPDATA%\com.dynarent.app\` (los datos están ahí, no en la carpeta de programa).
   Un rollback manual funciona igual tras un auto-update (desinstalar la versión actual e
   instalar la anterior).
-- **Desinstalar**: Panel de control → Programas → Dinamo Rent ERP (o `uninstall.exe` en
-  `%LOCALAPPDATA%\DinamoRent\`).
+- **Desinstalar**: Panel de control → Programas → DynaRent ERP (o `uninstall.exe` en
+  `%LOCALAPPDATA%\DynaRent\`).
 
 ---
 

@@ -10,13 +10,16 @@
 import { empresaApi, type EmpresaConfig } from '$lib/api';
 
 /** Branding por defecto cuando la empresa aún no configuró nada. */
-export const FALLBACK_NOMBRE = 'Dinamo Rent';
-export const FALLBACK_LOGO = '/LogoDinamo.png';
-export const FALLBACK_NIT = '900694866-3';
-export const FALLBACK_TELEFONO = '301 613 85 30 • 321 839 44 22';
-export const FALLBACK_EMAIL = 'info@dinamorentacar.com';
-export const FALLBACK_WEB = 'www.dinamorentacar.com';
-export const FALLBACK_DIRECCION = 'Carrera 2 #70-53, Barrio Crespo, Cartagena, Colombia';
+export const FALLBACK_NOMBRE = 'DynaRent';
+export const FALLBACK_LOGO = '/LogoDynaRent.svg';
+// Datos de la empresa VACÍOS por defecto: cada empresa compradora configura los
+// suyos en el setup inicial (/empresa); el contrato y las impresiones omiten
+// los campos vacíos (renderizado condicional del ContratoRenta).
+export const FALLBACK_NIT = '';
+export const FALLBACK_TELEFONO = '';
+export const FALLBACK_EMAIL = '';
+export const FALLBACK_WEB = '';
+export const FALLBACK_DIRECCION = '';
 
 /** Añade +57 a los celulares colombianos (10 dígitos que empiezan por 3) de un
  *  texto de contacto separado por • | , ; - , sin duplicar si ya tienen prefijo. */
@@ -34,7 +37,7 @@ function conPrefijo57(tel: string): string {
 		})
 		.join(' • ');
 }
-export const FALLBACK_CIUDAD = 'CARTAGENA';
+export const FALLBACK_CIUDAD = '';
 
 class EmpresaStore {
 	// Vista pública (login / menú lateral)

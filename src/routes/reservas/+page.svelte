@@ -367,7 +367,7 @@
 </script>
 
 <svelte:head>
-	<title>Reservas — Dinamo Rent ERP</title>
+	<title>Reservas — DynaRent ERP</title>
 </svelte:head>
 
 <div class="space-y-5">

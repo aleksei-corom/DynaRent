@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """importar_autos_clientes.py — Importa las tablas AUTOS y CLIENTES desde un
-dump SQL o desde un archivo Excel hacia la BD de DinamoRent.
+dump SQL o desde un archivo Excel hacia la BD de DynaRent.
 
 Caso de uso: el cliente tiene una copia de su BD (exportada a SQL) o los datos
 están recopilados en una hoja de cálculo, y hay que llevarlos a la instalación.

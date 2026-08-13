@@ -66,7 +66,7 @@
 </script>
 
 <svelte:head>
-	<title>Cambiar contraseña — Dinamo Rent ERP</title>
+	<title>Cambiar contraseña — DynaRent ERP</title>
 </svelte:head>
 
 <div class="min-h-screen flex items-center justify-center bg-fondo p-4 relative overflow-hidden">

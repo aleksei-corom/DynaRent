@@ -33,7 +33,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 NORMALIZAR="$SCRIPT_DIR/scripts/normalizar_doble_cifrado.py"
 FIREBIRD_DIR="$SCRIPT_DIR/src-tauri/resources/firebird"
-TAURI_IDENTIFIER="com.corjar.dinamorent"
+TAURI_IDENTIFIER="com.dynarent.app"
 
 DEV_ONLY=0
 PROD_ONLY=0

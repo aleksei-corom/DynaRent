@@ -1,4 +1,4 @@
-# verificar-despliegue.ps1 - Verificacion post-instalacion de DinamoRent v1.0.9
+# verificar-despliegue.ps1 - Verificacion post-instalacion de DynaRent v1.0.9
 #
 # Corre en el equipo objetivo como usuario normal:
 #   powershell -ExecutionPolicy Bypass -File scripts\verificar-despliegue.ps1
@@ -6,7 +6,7 @@
 # IMPORTANTE: ASCII puro a proposito (Windows PowerShell 5.1 lee los .ps1 sin BOM
 # como ANSI/CP1252 y los acentos/guiones largos UTF-8 rompen el parseo).
 #
-# Comprueba: exe instalado (v1.0.9), %APPDATA%\com.corjar.dinamorent (config.ini
+# Comprueba: exe instalado (v1.0.9), %APPDATA%\com.dynarent.app (config.ini
 # + dinamo_rent_v3.fdb) y que la app arranca y queda viva 10 s (el bug del v1.0.0
 # era justamente morirse antes del Login). Ver DEPLOYMENT_CLIENTES.md.
 
@@ -24,14 +24,14 @@ function Check([string]$name, [bool]$cond, [string]$detail = '') {
     }
 }
 
-Write-Host "=== Verificacion de despliegue DinamoRent $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') ==="
+Write-Host "=== Verificacion de despliegue DynaRent $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') ==="
 
 # 1) Ejecutable instalado y version
 $exe = $null
 $cands = @(
-    "$env:LOCALAPPDATA\DinamoRent\dinamo-rent.exe",
-    "$env:LOCALAPPDATA\Programs\DinamoRent\dinamo-rent.exe",
-    "$env:ProgramFiles\DinamoRent\dinamo-rent.exe"
+    "$env:LOCALAPPDATA\DynaRent\dinamo-rent.exe",
+    "$env:LOCALAPPDATA\Programs\DynaRent\dinamo-rent.exe",
+    "$env:ProgramFiles\DynaRent\dinamo-rent.exe"
 )
 foreach ($c in $cands) { if (Test-Path $c) { $exe = $c; break } }
 if (-not $exe) {
@@ -46,7 +46,7 @@ if ($exe) {
 }
 
 # 2) Arranque: proceso vivo tras 10 s (PRIMERO: el primer arranque es el que
-#    crea %APPDATA%\com.corjar.dinamorent\ con config.ini + BD. Si los datos se
+#    crea %APPDATA%\com.dynarent.app\ con config.ini + BD. Si los datos se
 #    comprobaran antes, una instalacion recien hecha fallaria falsamente.)
 $app = $null
 if ($exe) {
@@ -64,7 +64,7 @@ if ($exe) {
 }
 
 # 3) Carpeta de datos (debe existir tras el primer arranque)
-$data = "$env:APPDATA\com.corjar.dinamorent"
+$data = "$env:APPDATA\com.dynarent.app"
 $fdb = Join-Path $data 'dinamo_rent_v3.fdb'
 $ini = Join-Path $data 'config.ini'
 Check "Carpeta de datos creada" (Test-Path $data) $data

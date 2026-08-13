@@ -1,4 +1,4 @@
-# 🖥️ Dinamo Rent ERP - Sistema de Gestión de Flota (Tauri V2)
+# 🖥️ DynaRent ERP - Sistema de Gestión de Flota (Tauri V2)
 
 > Sistema de gestión de flota para renta de vehículos. Administración integral: flota, clientes, rentas, reservas, finanzas, taller y más.
 > **Nueva versión reescrita** utilizando Tauri V2, Rust, SvelteKit y Tailwind CSS.
@@ -15,15 +15,15 @@ Ve a la página de [releases de GitHub](https://github.com/CORJAR-Computers/dina
 
 | Instalador | Cuándo usarlo |
 |---|---|
-| `DinamoRent_1.0.12_x64-setup.exe` (NSIS, ~21 MB) | **Recomendado** — instalación asistida con atajo de escritorio |
-| `DinamoRent_1.0.12_x64_en-US.msi` (MSI, ~33 MB) | Despliegue empresarial / GPO (instalación silenciosa con `msiexec`) |
+| `DynaRent_1.0.12_x64-setup.exe` (NSIS, ~21 MB) | **Recomendado** — instalación asistida con atajo de escritorio |
+| `DynaRent_1.0.12_x64_en-US.msi` (MSI, ~33 MB) | Despliegue empresarial / GPO (instalación silenciosa con `msiexec`) |
 
 > ⚠️ **No uses la v1.0.0** (descontinuada): en equipos nuevos sin BD previa se colgaba antes de llegar al Login. Si ya la tienes instalada **con datos**, no necesitas desinstalar — la v1.0.12 abre tu BD actual tal cual.
 
 ### 2. Instalar
 
 - Ejecuta el `.exe` (o despliega el `.msi`) en el equipo objetivo. **Windows x64**.
-- En el primer arranque la app crea automáticamente en `%APPDATA%\com.corjar.dinamorent\`:
+- En el primer arranque la app crea automáticamente en `%APPDATA%\com.dynarent.app\`:
   - `config.ini` — configuración inicial.
   - `dinamo_rent_v3.fdb` — la base de datos Firebird Embedded (portable, no requiere instalación de servidor).
 - **No hace falta instalar nada más**: el runtime de Firebird y el de Visual C++ viajan dentro del instalador, y WebView2 se instala automáticamente si el sistema no lo tiene.
@@ -41,7 +41,7 @@ La app pedirá **cambiar la contraseña** en el primer ingreso. En una instalaci
 
 ### 4. Actualizar desde versiones anteriores
 
-Solo instala la v1.0.12 encima (o desinstala y reinstala conservando `%APPDATA%\com.corjar.dinamorent\`): el arranque es idempotente y aplica únicamente las migraciones pendientes. **No se pierde ningún dato.**
+Solo instala la v1.0.12 encima (o desinstala y reinstala conservando `%APPDATA%\com.dynarent.app\`): el arranque es idempotente y aplica únicamente las migraciones pendientes. **No se pierde ningún dato.**
 
 ---
 
@@ -347,7 +347,7 @@ El sistema cifra datos PII de clientes (cédula, teléfono, licencia) con **AES-
 
 ## 📦 Licencias de terceros
 
-Dinamo Rent ERP redistribuye binarios de Firebird 5.0.3 (licencia dual IDPL+IPL) y VCRedist 14.3 (EULA Microsoft) en `src-tauri/resources/firebird/`. El listado completo de dependencias y sus licencias está en:
+DynaRent ERP redistribuye binarios de Firebird 5.0.3 (licencia dual IDPL+IPL) y VCRedist 14.3 (EULA Microsoft) en `src-tauri/resources/firebird/`. El listado completo de dependencias y sus licencias está en:
 
 - **[THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md)**
 

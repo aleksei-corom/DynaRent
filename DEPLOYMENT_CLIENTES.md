@@ -1,4 +1,4 @@
-# Plan de despliegue en equipos de clientes — Dinamo Rent v1.0.12
+# Plan de despliegue en equipos de clientes — DynaRent v1.0.12
 
 > Procedimiento operativo para dejar los equipos de los clientes en la **v1.0.12** (última
 > versión estable, con **auto-actualización** activa desde la v1.0.3): instalación
@@ -14,7 +14,7 @@
 1. **Siempre la v1.0.12 (o superior)** — la v1.0.0 está descontinuada (falla en
    instalaciones nuevas) y la v1.0.2 no tiene updater (se actualiza una vez a mano a la
    v1.0.3+ y desde ahí el auto-update).
-2. **Los datos viven en `%APPDATA%\com.corjar.dinamorent\`**, NO en la carpeta de
+2. **Los datos viven en `%APPDATA%\com.dynarent.app\`**, NO en la carpeta de
    programa. Nunca borrar esa carpeta: es la BD del cliente.
 3. La instalación **no requiere desinstalar** la versión anterior ni borrar nada
    previamente — el instalador reemplaza la app y el arranque migra la BD.
@@ -33,7 +33,7 @@
 |---|---|
 | Versión de Windows (debe ser x64, 10 1803+ / 11) | `winver` o `systeminfo` |
 | ¿Versión anterior instalada? (v1.0.0) | `Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*' , 'HKLM:\SOFTWARE\WOW6432Node\...' | Where-Object DisplayName -like '*Dinamo*'` |
-| ¿BD existente? (`%APPDATA%\com.corjar.dinamorent\dinamo_rent_v3.fdb`) | `Test-Path "$env:APPDATA\com.corjar.dinamorent\dinamo_rent_v3.fdb"` |
+| ¿BD existente? (`%APPDATA%\com.dynarent.app\dinamo_rent_v3.fdb`) | `Test-Path "$env:APPDATA\com.dynarent.app\dinamo_rent_v3.fdb"` |
 | ¿Backup reciente de la BD? | Crearlo antes de tocar nada (ver §4) |
 
 > Si el equipo **ya tiene una versión anterior con datos**: no hay nada especial —
@@ -52,14 +52,14 @@
 
 ```powershell
 # NSIS — silenciosa total (sin atajos, sin ejecutar al final)
-& "D:\deploy\DinamoRent_1.0.12_x64-setup.exe" /S
+& "D:\deploy\DynaRent_1.0.12_x64-setup.exe" /S
 # Esperar a que termine (NSIS /S es síncrono al esperar al proceso)
-# Start-Process -Wait -FilePath "D:\deploy\DinamoRent_1.0.12_x64-setup.exe" -ArgumentList "/S"
+# Start-Process -Wait -FilePath "D:\deploy\DynaRent_1.0.12_x64-setup.exe" -ArgumentList "/S"
 ```
 
 ```powershell
 # MSI — para GPO / Intune / SCCM
-msiexec /i "D:\deploy\DinamoRent_1.0.12_x64_en-US.msi" /qn /norestart
+msiexec /i "D:\deploy\DynaRent_1.0.12_x64_en-US.msi" /qn /norestart
 ```
 
 > **WebView2**: si el equipo no lo tiene, el instalador lo descarga e instala
@@ -75,7 +75,7 @@ equipos y ejecutar con una herramienta de gestión (Intune, SCCM, GPO `msi` + `c
 
 ```powershell
 # Ejemplo con psexec (máquina de operaciones):
-psexec \\PC-CLIENTE-01 -s -d "D:\deploy\DinamoRent_1.0.12_x64-setup.exe" /S
+psexec \\PC-CLIENTE-01 -s -d "D:\deploy\DynaRent_1.0.12_x64-setup.exe" /S
 ```
 
 ---
@@ -94,9 +94,9 @@ powershell -ExecutionPolicy Bypass -File scripts\verificar-despliegue.ps1
 
 | # | Comprobación | Esperado |
 |---|---|---|
-| 1 | Exe instalado (`%LOCALAPPDATA%\DinamoRent\dinamo-rent.exe`) | existe, versión **1.0.12** |
+| 1 | Exe instalado (`%LOCALAPPDATA%\DynaRent\dinamo-rent.exe`) | existe, versión **1.0.12** |
 | 2 | Arranque: proceso vivo a los 10 s | **no** se cuelga ni muere (el bug del v1.0.0) |
-| 3 | `%APPDATA%\com.corjar.dinamorent\` | existe (la crea el **primer arranque**; por eso se comprueba después del arranque) |
+| 3 | `%APPDATA%\com.dynarent.app\` | existe (la crea el **primer arranque**; por eso se comprueba después del arranque) |
 | 4 | `config.ini` | existe |
 | 5 | `dinamo_rent_v3.fdb` | existe y pesa > 0 (BD creada o migrada) |
 | 6 | Migraciones: `schema_migrations` tiene 20 versiones | 20 (comprobación opcional con tooling dev) |
@@ -124,14 +124,14 @@ powershell -ExecutionPolicy Bypass -File scripts\verificar-despliegue.ps1
 ```powershell
 # Copia del archivo (Firebird Embedded: copiar solo con la app cerrada)
 Stop-Process -Name dinamo-rent -ErrorAction SilentlyContinue
-Copy-Item "$env:APPDATA\com.corjar.dinamorent\dinamo_rent_v3.fdb" "D:\backups\dinamo_$(Get-Date -Format yyyyMMdd_HHmmss).fdb"
+Copy-Item "$env:APPDATA\com.dynarent.app\dinamo_rent_v3.fdb" "D:\backups\dinamo_$(Get-Date -Format yyyyMMdd_HHmmss).fdb"
 ```
 
 > **Importante**: copiar el `.fdb` **con la app cerrada** (Firebird Embedded usa WAL y
 > una copia en caliente puede quedar inconsistente). Alternativa robusta: usar `gbak`
 > del runtime de Firebird (`firebird\gbak.exe` en la carpeta de instalación) para un
 > backup consistente:
-> `"$env:LOCALAPPDATA\DinamoRent\firebird\gbak.exe" -b -user SYSDBA -password <pass> "$env:APPDATA\com.corjar.dinamorent\dinamo_rent_v3.fdb" "D:\backups\dinamo_$(Get-Date -Format yyyyMMdd_HHmmss).fbk"`
+> `"$env:LOCALAPPDATA\DynaRent\firebird\gbak.exe" -b -user SYSDBA -password <pass> "$env:APPDATA\com.dynarent.app\dinamo_rent_v3.fdb" "D:\backups\dinamo_$(Get-Date -Format yyyyMMdd_HHmmss).fbk"`
 
 ### 4.2 Rollback (volver a una versión anterior o recuperarse)
 

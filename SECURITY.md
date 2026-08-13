@@ -1,6 +1,6 @@
-# Seguridad — Dinamo Rent ERP
+# Seguridad — DynaRent ERP
 
-Este documento describe las políticas de manejo de secretos, rotación de claves y reporte de vulnerabilidades para el proyecto **Dinamo Rent ERP** (Tauri V2 + Rust + SvelteKit + Firebird Embedded).
+Este documento describe las políticas de manejo de secretos, rotación de claves y reporte de vulnerabilidades para el proyecto **DynaRent ERP** (Tauri V2 + Rust + SvelteKit + Firebird Embedded).
 
 ---
 
@@ -63,9 +63,9 @@ en memoria (`AppState.pii_key`). Ubicaciones actuales de la clave:
 | Entorno | Archivo | Estado |
 |---|---|---|
 | Desarrollo | `<repo>/data/config.ini` → `[security] db_encryption_key` | Configurada (10-08-2026) |
-| Producción | `%APPDATA%\com.corjar.dinamorent\config.ini` → `[security] db_encryption_key` | Configurada (10-08-2026) |
+| Producción | `%APPDATA%\com.dynarent.app\config.ini` → `[security] db_encryption_key` | Configurada (10-08-2026) |
 
-> ℹ️ La ruta de producción deriva del `identifier` de Tauri (`com.corjar.dinamorent`, ver
+> ℹ️ La ruta de producción deriva del `identifier` de Tauri (`com.dynarent.app`, ver
 > `src-tauri/tauri.conf.json`). Si se cambia el identifier, la app leería un `config.ini` nuevo
 > **sin** la clave y los datos PII quedarían ocultos — actualizar la ruta en esta tabla.
 
@@ -79,7 +79,7 @@ son **irrecuperables** — no existe mecanismo de recuperación ni puerta traser
 
 **Verificación (2026-08-11)**: con la clave almacenada en los `config.ini` anteriores, un
 diagnóstico de solo lectura contra ambas BD (`data/dinamo_rent_v3.fdb` y
-`%APPDATA%\com.corjar.dinamorent\dinamo_rent_v3.fdb`) confirmó que **los 42 clientes / 238 tokens
+`%APPDATA%\com.dynarent.app\dinamo_rent_v3.fdb`) confirmó que **los 42 clientes / 238 tokens
 PII descifran al 100% con esa clave** en cada BD (cero campos ocultos, cero tokens Fernet legacy
 pendientes). La clave se carga en memoria al arrancar: tras cambiar o reconfigurar la clave,
 **reiniciar la app** para que el estado en caliente se actualice.
@@ -248,7 +248,7 @@ rm -f /tmp/new_key.txt /tmp/replacements.txt
 
 ### 3.3 Alcance
 
-- Aplicación Dinamo Rent ERP (binarios Windows distribuidos).
+- Aplicación DynaRent ERP (binarios Windows distribuidos).
 - Backend Rust y repositorios (`src-tauri/src/`).
 - Configuración por defecto del instalador.
 - Manejo de PII de clientes.

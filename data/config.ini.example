@@ -1,9 +1,9 @@
 # COPIA este archivo a config.ini y rellena con tus valores reales. NUNCA commitees config.ini.
 
 [application]
-author = Dinamo Rent a Car
+author = DynaRent
 language = es
-name = Dinamo Rent ERP
+name = DynaRent ERP
 production_mode = false
 setup_completed = false
 timezone = America/Bogota

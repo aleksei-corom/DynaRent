@@ -47,9 +47,9 @@ const DEFAULTS: &[(&str, &str, &str)] = &[
     ("logging", "audit_enabled", "true"),
     ("logging", "audit_retention_days", "30"),
     // [application]
-    ("application", "name", "Dinamo Rent ERP"),
+    ("application", "name", "DynaRent ERP"),
     ("application", "version", "3.2.0"),
-    ("application", "author", "Dinamo Rent a Car"),
+    ("application", "author", "DynaRent"),
     ("application", "language", "es"),
     ("application", "timezone", "America/Bogota"),
     ("application", "production_mode", "false"),
@@ -295,7 +295,7 @@ impl AppConfig {
             impuesto_porcentaje: get_str(&map, "business", "impuesto_porcentaje", "19")
                 .parse::<f64>()
                 .unwrap_or(19.0),
-            app_name: get_str(&map, "application", "name", "Dinamo Rent ERP"),
+            app_name: get_str(&map, "application", "name", "DynaRent ERP"),
             app_version: get_str(&map, "application", "version", "3.2.0"),
             ui_color_primario: get_str(&map, "ui", "color_primario", "#1e40af"),
             ui_color_fondo: get_str(&map, "ui", "color_fondo", "#f8fafc"),

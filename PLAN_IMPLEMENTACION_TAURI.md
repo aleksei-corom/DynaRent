@@ -1,4 +1,4 @@
-# Plan de Migración — Dinamo Rent ERP → Tauri V2 + Rust + SvelteKit + Tailwind CSS
+# Plan de Migración — DynaRent ERP → Tauri V2 + Rust + SvelteKit + Tailwind CSS
 
 > **Autor:** Ingeniería de Software (Senior Full Stack)
 > **Proyecto origen:** `Dinamo_Rent` (Python + PySide6 + SQLAlchemy) v3.2.1
@@ -9,7 +9,7 @@
 
 ## 1. Resumen ejecutivo
 
-**Dinamo Rent ERP** es un sistema de gestión de flota para renta de vehículos (autos, clientes, rentas, reservas, finanzas, taller, comparendos, alertas, informes, usuarios y auditoría) construido sobre **Python + PySide6 + SQLAlchemy**. El motor de base de datos productivo es **Firebird Embedded** (ya es el valor por defecto en `config.ini`: `engine = firebird`, archivo `dinamo_rent_v3.fdb` con `fbclient.dll` embebida en la carpeta `Firebird-*` del proyecto).
+**DynaRent ERP** es un sistema de gestión de flota para renta de vehículos (autos, clientes, rentas, reservas, finanzas, taller, comparendos, alertas, informes, usuarios y auditoría) construido sobre **Python + PySide6 + SQLAlchemy**. El motor de base de datos productivo es **Firebird Embedded** (ya es el valor por defecto en `config.ini`: `engine = firebird`, archivo `dinamo_rent_v3.fdb` con `fbclient.dll` embebida en la carpeta `Firebird-*` del proyecto).
 
 Esta migración reescribe la aplicación con:
 
@@ -406,9 +406,9 @@ Pasos:
    ```json
    {
      "$schema": "https://schema.tauri.app/config/2",
-     "productName": "DinamoRent",
+     "productName": "DynaRent",
      "version": "0.1.0",
-     "identifier": "com.corjar.dinamorent",
+     "identifier": "com.dynarent.app",
      "build": {
        "beforeDevCommand": "npm run dev",
        "devUrl": "http://localhost:5173",
@@ -416,7 +416,7 @@ Pasos:
        "frontendDist": "../build"
      },
      "app": {
-       "windows": [{ "title": "Dinamo Rent ERP", "width": 1366, "height": 768 }],
+       "windows": [{ "title": "DynaRent ERP", "width": 1366, "height": 768 }],
        "security": { "csp": null }
      },
      "bundle": {

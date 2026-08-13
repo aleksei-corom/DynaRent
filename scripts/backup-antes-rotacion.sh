@@ -25,7 +25,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DATA_DIR="$SCRIPT_DIR/data"
 
 # La producción guarda config/BD en %APPDATA%/<identifier> (tauri.conf.json)
-TAURI_IDENTIFIER="com.corjar.dinamorent"
+TAURI_IDENTIFIER="com.dynarent.app"
 
 DEV_ONLY=0
 PROD_ONLY=0

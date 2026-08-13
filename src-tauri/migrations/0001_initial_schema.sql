@@ -1,5 +1,5 @@
 -- 0001_initial_schema.sql
--- Esquema inicial Dinamo Rent ERP — dialecto Firebird 5.0
+-- Esquema inicial DynaRent ERP — dialecto Firebird 5.0
 -- Extraído del .fdb de producción (ODS 13.1). Orden de creación respeta FKs.
 --
 -- IDEMPOTENCIA (auto-reparación de instalaciones nuevas): cada CREATE TABLE /
