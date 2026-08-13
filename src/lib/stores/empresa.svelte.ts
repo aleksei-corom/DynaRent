@@ -11,7 +11,7 @@ import { empresaApi, type EmpresaConfig } from '$lib/api';
 
 /** Branding por defecto cuando la empresa aún no configuró nada. */
 export const FALLBACK_NOMBRE = 'DynaRent';
-export const FALLBACK_LOGO = '/LogoDynaRent.svg';
+export const FALLBACK_LOGO = '/dynarent.png';
 // Datos de la empresa VACÍOS por defecto: cada empresa compradora configura los
 // suyos en el setup inicial (/empresa); el contrato y las impresiones omiten
 // los campos vacíos (renderizado condicional del ContratoRenta).
