@@ -1,6 +1,6 @@
-# Instalación de DynaRent ERP — v1.0.13 (estable)
+# Instalación de DynaRent ERP — v1.0.14 (estable)
 
-> Guía para el equipo de operaciones. **Última versión estable: v1.0.13** — con el
+> Guía para el equipo de operaciones. **Última versión estable: v1.0.14** — con el
 > **auto-update** activo desde la v1.0.3 (la app detecta y ofrece instalar las versiones
 > nuevas al arrancar, ver sección 6) y, sobre las features previas (IVA por renta,
 > auto-cálculo de días/horas, cambio de vehículo, combos con búsqueda, errores de BD
@@ -15,15 +15,15 @@
 
 ## 1. Descarga de los instaladores
 
-Página de la release: <https://github.com/aleksei-corom/DynaRent/releases/tag/v1.0.13>
+Página de la release: <https://github.com/aleksei-corom/DynaRent/releases/tag/v1.0.14>
 
 | Instalador | Enlace directo | Tamaño | Uso |
 |---|---|---|---|
-| **NSIS** (`DynaRent_1.0.13_x64-setup.exe`) | <https://github.com/aleksei-corom/DynaRent/releases/download/v1.0.13/DynaRent_1.0.13_x64-setup.exe> | ~21 MB | **Recomendado** — instalación asistida con atajo de escritorio |
-| **MSI** (`DynaRent_1.0.13_x64_en-US.msi`) | <https://github.com/aleksei-corom/DynaRent/releases/download/v1.0.13/DynaRent_1.0.13_x64_en-US.msi> | ~33 MB | Despliegue empresarial / GPO |
+| **NSIS** (`DynaRent_1.0.14_x64-setup.exe`) | <https://github.com/aleksei-corom/DynaRent/releases/download/v1.0.14/DynaRent_1.0.14_x64-setup.exe> | ~23 MB | **Recomendado** — instalación asistida con atajo de escritorio |
+| **MSI** (`DynaRent_1.0.14_x64_en-US.msi`) | <https://github.com/aleksei-corom/DynaRent/releases/download/v1.0.14/DynaRent_1.0.14_x64_en-US.msi> | ~33 MB | Despliegue empresarial / GPO |
 
 > ⚠️ **No usar la v1.0.0** (descontinuada): falla en equipos sin BD previa. Si un equipo
-> ya la tiene instalada **con datos**, no hay que desinstalar — la v1.0.13 abre la BD
+> ya la tiene instalada **con datos**, no hay que desinstalar — la v1.0.14 abre la BD
 > existente tal cual (arranque idempotente, solo aplica migraciones pendientes).
 
 ---
@@ -43,18 +43,18 @@ Página de la release: <https://github.com/aleksei-corom/DynaRent/releases/tag/v
 ## 3. Instalación
 
 ### Opción A — Asistida (NSIS, recomendada)
-1. Ejecutar `DynaRent_1.0.13_x64-setup.exe` como usuario normal.
+1. Ejecutar `DynaRent_1.0.14_x64-setup.exe` como usuario normal.
 2. Seguir el asistente (siguiente → instalar → finalizar).
 
 ### Opción B — Silenciosa (NSIS)
 ```powershell
 # Instala sin interacción, sin atajo ni ejecución al final
-DynaRent_1.0.13_x64-setup.exe /S
+DynaRent_1.0.14_x64-setup.exe /S
 ```
 
 ### Opción C — Silenciosa (MSI, para GPO/Intune)
 ```powershell
-msiexec /i DynaRent_1.0.13_x64_en-US.msi /qn /norestart
+msiexec /i DynaRent_1.0.14_x64_en-US.msi /qn /norestart
 ```
 
 ---
@@ -66,7 +66,7 @@ La app crea automáticamente en el primer arranque:
 ```
 %APPDATA%\com.dynarent.app\
 ├── config.ini            # configuración inicial
-└── dinamo_rent_v3.fdb    # base de datos Firebird Embedded (portable)
+└── dynarent_v3.fdb       # base de datos Firebird Embedded (portable)
 ```
 
 **Credenciales iniciales** (instalación nueva):
@@ -115,8 +115,8 @@ embebida y reinicia la app al terminar).
   la clave privada de firma vive solo en el secret `TAURI_SIGNING_PRIVATE_KEY` del repo
   (nunca en el instalador). Publicación: ver `RELEASE_CHECKLIST.md`.
 
-- **Actualizar desde v1.0.0**: instalar la v1.0.13 encima. Idempotente, sin pérdida de datos.
-- **Actualizar desde v1.0.2**: instalar la v1.0.13 encima (transición al auto-update).
+- **Actualizar desde v1.0.0**: instalar la v1.0.14 encima. Idempotente, sin pérdida de datos.
+- **Actualizar desde v1.0.2**: instalar la v1.0.14 encima (transición al auto-update).
 - **Actualizar desde v1.0.3+**: desde el diálogo de la app, o a mano instalando la release
   nueva encima (idempotente).
 - **Rollback**: si algo fallara, desinstalar y reinstalar la versión anterior conservando

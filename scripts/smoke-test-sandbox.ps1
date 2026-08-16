@@ -12,12 +12,12 @@
 # dynarent_v3.fdb y que el proceso responde (no se cuelga).
 #
 # El log se escribe en la carpeta compartida con el host (C:\shared\out,
-# mapeada en el .wsb a D:\dinamo_rent_tr\scripts\) para leerlo tras cerrar
+# mapeada en el .wsb a D:\Proyectos\DynaRent\scripts\) para leerlo tras cerrar
 # el Sandbox.
 
 $ErrorActionPreference = 'Continue'
 $log = 'C:\shared\out\smoke-result.txt'   # carpeta compartida con el host (scripts/)
-$installer = 'C:\shared\bundle\nsis\DynaRent_1.0.1_x64-setup.exe'
+$installer = 'C:\shared\bundle\nsis\DynaRent_1.0.14_x64-setup.exe'
 
 function Write-Log([string]$msg) {
     $line = "[{0}] {1}" -f (Get-Date -Format 'HH:mm:ss'), $msg

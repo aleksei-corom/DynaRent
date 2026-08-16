@@ -1,6 +1,6 @@
 # Handsoff — DynaRent ERP (Tauri + SvelteKit + Firebird)
 
-> Última actualización: **2026-08-14** · Estado: **todos los módulos operativos, validación verde · instalación limpia validada E2E · release v1.0.12 publicada y firmada (auto-update activo; secret `TAURI_SIGNING_PRIVATE_KEY` configurado) · contrato en 2 hojas con firmas amplias, campo Gasolina, km sin cola de ceros y errores de BD visibles verificados en el equipo de operaciones · herramientas de operación (importador de datos + verifier de despliegue) en §6**
+> Última actualización: **2026-08-16** · Estado: **todos los módulos operativos, validación verde · instalación limpia validada E2E en sandbox · release v1.0.14 publicada y firmada — primera release pública con auto-update operativo (repo público, historial saneado, clave de firma rotada; secret `TAURI_SIGNING_PRIVATE_KEY` configurado) · contrato en 2 hojas con firmas amplias, campo Gasolina, km sin cola de ceros y errores de BD visibles verificados en el equipo de operaciones · herramientas de operación (importador de datos + verifier de despliegue) en §6**
 
 > **Instalación limpia validada de punta a punta (11-08, noche):** se cerró el hueco del
 > release v1.0.0 en equipos nuevos (la app se colgaba esperando una BD inexistente).
@@ -101,6 +101,35 @@
 > 10px — imposible firmar), compensado con espaciados internos (cláusula adicional
 > 40→18px, títulos 3→2px) y verificado con el PDF real: sigue en 2 hojas Carta con las
 > firmas completas.
+> 🚀 **Release v1.0.14 publicada (16-08) — primera release pública con auto-update
+> operativo:** [github.com/aleksei-corom/DynaRent/releases/tag/v1.0.14]. El repo quedó
+> **público** con el historial saneado (`git filter-repo`: purgados de todo el historial
+> los PNG de contratos de `static/preview-shots/`, `data/config.ini`, la BD y
+> `Contrato_Dinamo.docx`; el backup pre-saneamiento de /tmp y los restos del `.git` local
+> —rama `backup-clon-pre-v1012`, reflog y tags v1.0.0–v1.0.13 realineados al historial
+> reescrito— quedaron destruidos/purgados) y la **clave de firma del updater rotada**
+> (`~/.tauri/dynarent.key`, pubkey en `tauri.conf.json` + secret
+> `TAURI_SIGNING_PRIVATE_KEY`). Validado de punta a punta: E2E del updater contra el
+> endpoint real, y smoke test + `verificar-despliegue.ps1` en **Windows Sandbox limpio**
+> (v1.0.14, 6/6 comprobaciones OK).
+> **Pipeline del release (constancia):** workflow **Release** (`release.yml`), trigger
+> **push del tag `v1.0.14`**, run
+> [#31973941450](https://github.com/aleksei-corom/DynaRent/actions/runs/31973941450),
+> **success** (21:35:25Z → 21:45:57Z, ~10,5 min). Pasos: checkout → setup Node 24 / Bun /
+> Rust → cache cargo → `bun install` → **test verificador de paginación** (Chrome/Edge
+> headless) → **changelog automático** (`v1.0.13..HEAD`, 15 commits, commit `e68d3c6`) →
+> **`tauri build` + publicar** (tauri-action): MSI con `light` (WiX) y NSIS con `makensis`
+> (nsis-3.11) → `DynaRent_1.0.14_x64-setup.exe` + `DynaRent_1.0.14_x64_en-US.msi`;
+> **"Finished 2 updater signatures"** (`*.exe.sig` + `*.msi.sig`) con la clave nueva —
+> **0 warnings de mismatch** (el único "mismatch" del log es el chequeo rutinario de
+> versiones de tauri-action); release creada ("Couldn't find release with tag v1.0.14.
+> Creating one.") con los **5 assets** (NSIS, MSI, 2 `.sig`, `latest.json`). E2E positivo
+> contra la release real (app simulada en 1.0.13): `check()` detectó la v1.0.14,
+> `download()` bajó el MSI real (34.997.970 B) y **la firma del CI validó contra la
+> pubkey de producción**. Avisos menores del run: el identifier `com.dynarent.app` termina
+> en `.app` (advertencia de tauri-action; inofensivo en Windows — es el directorio de
+> datos `%APPDATA%\com.dynarent.app`) y el aviso estándar de Node 20 deprecado en un
+> action de post-paso.
 > 🐛 **Hallazgo del CI (12-08) — el feature `linking` de rsfbclient rompía el build de
 > release**: el release v1.0.0 **nunca había pasado por CI** (se publicó con artefactos
 > locales) y el primer build en GitHub Actions fallaba en el linkeo de `dynarent_lib.dll`

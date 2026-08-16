@@ -22,13 +22,13 @@ cerrar el Sandbox.
   <MappedFolders>
     <!-- Carpeta del host con el instalador (solo lectura dentro del Sandbox) -->
     <MappedFolder>
-      <HostFolder>D:\dinamo_rent_tr\src-tauri\target\release\bundle</HostFolder>
+      <HostFolder>D:\Proyectos\DynaRent\src-tauri\target\release\bundle</HostFolder>
       <SandboxFolder>C:\shared\bundle</SandboxFolder>
       <ReadOnly>true</ReadOnly>
     </MappedFolder>
     <!-- Carpeta compartida para escribir el resultado del smoke test -->
     <MappedFolder>
-      <HostFolder>D:\dinamo_rent_tr\scripts</HostFolder>
+      <HostFolder>D:\Proyectos\DynaRent\scripts</HostFolder>
       <SandboxFolder>C:\shared\out</SandboxFolder>
       <ReadOnly>false</ReadOnly>
     </MappedFolder>
