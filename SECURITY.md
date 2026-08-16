@@ -38,7 +38,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 Por orden de preferencia:
 
 1. **OS Keyring** (recomendado para producción): Windows Credential Manager, macOS Keychain, Linux Secret Service. La aplicación la lee en runtime y nunca toca disco.
-2. **Variable de entorno** `DINAMO_DB_ENCRYPTION_KEY` inyectada por el launcher del sistema operativo (Systemd, supervisor, o el instalador NSIS mediante `[Environment]::SetEnvironmentVariable`).
+2. **Variable de entorno** `DYNARENT_DB_ENCRYPTION_KEY` inyectada por el launcher del sistema operativo (Systemd, supervisor, o el instalador NSIS mediante `[Environment]::SetEnvironmentVariable`).
 3. **`data/config.ini` local** (solo para desarrollo): con permisos `0600`, propiedad del usuario que ejecuta la app, fuera del control de versiones.
 
 ❌ **NUNCA** en código fuente, archivos commiteados, logs, capturas de pantalla, ni issues/PRs.
@@ -47,8 +47,8 @@ Por orden de preferencia:
 
 El backend Rust permite override del `config.ini` mediante variables de entorno (ver `.env.example`):
 
-- `DINAMO_DB_ENCRYPTION_KEY` — reemplaza `security.db_encryption_key`.
-- `DINAMO_FB_USER` / `DINAMO_FB_PASSWORD` — reemplazan `database.user` / `database.password`.
+- `DYNARENT_DB_ENCRYPTION_KEY` — reemplaza `security.db_encryption_key`.
+- `DYNARENT_FB_USER` / `DYNARENT_FB_PASSWORD` — reemplazan `database.user` / `database.password`.
 
 Esto facilita despliegues en CI o servidores donde no se desea escribir `config.ini`.
 
@@ -113,7 +113,7 @@ Equivalente manual mínimo (solo la BD de desarrollo):
 
 ```bash
 # Asumiendo que la app está detenida
-cp data/dinamo_rent_v3.fdb data/dinamo_rent_v3.fdb.pre-rotation.bak
+cp data/dynarent_v3.fdb data/dynarent_v3.fdb.pre-rotation.bak
 # (el .bak está ignorado en .git)
 ```
 
@@ -136,7 +136,7 @@ La rotación implica **descifrar cada fila PII con la clave vieja y re-cifrarla 
 cargo run --features dev --bin rotate_pii_key -- \
   --old-key "CLAVE_VIEJA" \
   --new-key "$NEW_KEY" \
-  --db "ruta/al/dinamo_rent_v3.fdb"
+  --db "ruta/al/dynarent_v3.fdb"
 ```
 
 > ⚠️ Hacer backup previo (§2.1 Paso 0) y ejecutar UNA vez por cada instalación
@@ -225,7 +225,7 @@ git push --force --tags
 Solo cuando la app lleve ≥72h funcionando con la nueva clave sin incidentes:
 
 ```bash
-shred -u data/dinamo_rent_v3.fdb.pre-rotation.bak
+shred -u data/dynarent_v3.fdb.pre-rotation.bak
 rm -f /tmp/new_key.txt /tmp/replacements.txt
 ```
 
@@ -235,7 +235,7 @@ rm -f /tmp/new_key.txt /tmp/replacements.txt
 
 ### 3.1 Canal de reporte
 
-- **Email**: seguridad@dinamorent.com (placeholder — actualizar con correo real de operaciones antes de producción).
+- **Email**: seguridad@dynarent.com (placeholder — actualizar con correo real de operaciones antes de producción).
 - **PGP**: el equipo de seguridad puede proporcionar una clave pública para cifrado del reporte bajo petición.
 - **Respuesta**: confirmación de recepción en **≤ 48h hábiles**. Evaluación inicial y plan de mitigación en **≤ 5 días hábiles**.
 

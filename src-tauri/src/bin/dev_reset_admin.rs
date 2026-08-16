@@ -31,7 +31,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .cloned()
         .unwrap_or_else(|| "Admin123!".to_string());
 
-    // Localiza data_dir: primero D:/dinamo_rent_tr/data, sino CARGO_MANIFEST_DIR/../data
+    // Localiza data_dir: primero D:/Proyectos/DynaRent/data, sino CARGO_MANIFEST_DIR/../data
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let data_dir = manifest.join("../data");
     let resource_dir = manifest.join("resources");

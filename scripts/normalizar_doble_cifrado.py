@@ -26,7 +26,7 @@ import os
 import sys
 
 os.environ["PATH"] = (
-    r"D:\dinamo_rent_tr\src-tauri\resources\firebird"
+    r"D:\Proyectos\DynaRent\src-tauri\resources\firebird"
     + os.pathsep
     + os.environ.get("PATH", "")
 )
@@ -96,8 +96,8 @@ def unwrap(aes_key: bytes, valor, reporte):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--db", default=r"D:\dinamo_rent_tr\data\dynarent_v3.fdb")
-    parser.add_argument("--ini", default=r"D:\dinamo_rent_tr\data\config.ini")
+    parser.add_argument("--db", default=r"D:\Proyectos\DynaRent\data\dynarent_v3.fdb")
+    parser.add_argument("--ini", default=r"D:\Proyectos\DynaRent\data\config.ini")
     parser.add_argument("--commit", action="store_true", help="Escribe los cambios")
     args = parser.parse_args()
 

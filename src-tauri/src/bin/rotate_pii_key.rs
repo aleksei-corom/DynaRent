@@ -11,7 +11,7 @@
 //!   cargo run --features dev --bin rotate_pii_key -- \
 //!       --old-key "CLAVE_VIEJA" \
 //!       --new-key "CLAVE_NUEVA" \
-//!       --db "D:/dinamo_rent_tr/data/dynarent_v3.fdb"
+//!       --db "D:/Proyectos/DynaRent/data/dynarent_v3.fdb"
 //!
 //! La clave NUEVA se genera con `openssl rand -base64 32`.
 //!
