@@ -219,7 +219,7 @@ app compilada (WebView2) ← CDP ← smoke-test-app.mjs → PDFs reales
 ```bash
 # 1) Lanzar la app con depuración remota de WebView2 habilitada
 WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222 \
-  ./src-tauri/target/release/dinamo-rent.exe
+  ./src-tauri/target/release/dynarent.exe
 
 # 2) Ejecutar el humo-test
 npm run smoke:app
@@ -275,7 +275,7 @@ Recorrido de extremo a extremo para validar los documentos imprimibles con la
 
 ```bash
 npx tauri build
-# exe: src-tauri/target/release/dinamo-rent.exe
+# exe: src-tauri/target/release/dynarent.exe
 ```
 
 - El bundle incluye el runtime Firebird embedded completo (el glob de
@@ -287,11 +287,11 @@ npx tauri build
 
 ```bash
 WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222 \
-  ./src-tauri/target/release/dinamo-rent.exe
+  ./src-tauri/target/release/dynarent.exe
 ```
 
 La depuración remota de WebView2 expone el puerto CDP (9222) que usa el smoke
-test. Para el binario debug: `./src-tauri/target/debug/dinamo-rent.exe`.
+test. Para el binario debug: `./src-tauri/target/debug/dynarent.exe`.
 
 ## 3) Smoke test
 
@@ -364,7 +364,7 @@ MSYS: `C:\Program Files\nodejs`, `%USERPROFILE%\.cargo\bin` y
 
 Con `--integra` corre además `cargo test --tests` (suites de integración:
 migraciones, rentas y el resto), que **requieren la BD de desarrollo**
-(`data/dinamo_rent_v3.fdb`, gitignored). Antes de correr, el script avisa si
+(`data/dynarent_v3.fdb`, gitignored). Antes de correr, el script avisa si
 la BD **no existe** o está **sin flota** (0 autos), sugiriendo
 `bash scripts/setup-bd-dev.sh` (la receta completa de la §6.3 del Handsoff:
 crea la BD, aplica las migraciones y siembra autos/clientes de prueba).
@@ -377,7 +377,7 @@ Códigos de salida: `0` todo verde · `1` falló el entorno o algún test ·
 # BD de desarrollo lista desde cero (un comando)
 
 `scripts/setup-bd-dev.sh` ejecuta los **7 pasos de la receta del Handsoff
-(§6.3)** para dejar `data/dinamo_rent_v3.fdb` funcional en un clon nuevo —
+(§6.3)** para dejar `data/dynarent_v3.fdb` funcional en un clon nuevo —
 sin esto, `cargo test --tests` sale verde sin probar nada (las suites con
 flota ahora fallan con un mensaje que indica correr este script):
 
@@ -428,7 +428,7 @@ bash scripts/verificar-updater-e2e.sh
 Que valida:
 
 1. **Firma real**: firma un instalador de prueba (1 MiB) con la clave privada
-   de `~/.tauri/dinamorent.key` (la misma que usara el CI con el secret
+   de `~/.tauri/dynarent.key` (la misma que usara el CI con el secret
    `TAURI_SIGNING_PRIVATE_KEY`).
 2. **latest.json**: arma un `latest.json` (siguiente patch > version del repo,
    derivado de `tauri.conf.json`) con la firma y lo sirve en un puerto libre

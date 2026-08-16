@@ -43,9 +43,9 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDRCQjk2OUJDN0IwRUQ1MkYKUldRdjFRNTd2R201UzlISy9QNzFHaXdqMVJ4ZTVHV0ZqSURONk9LeFBiWUluSmRoU2dUb3dLcm8K",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDczRjk2RUY3RjVFNjlGQ0UKUldUT24rYjE5Mjc1YzQ1aEZUZjRVakJsTTR6Y3hOUm9udFhnVm0xTjk2WENoYTlZSlBlZ1dSdjcK",
       "endpoints": [
-        "https://github.com/CORJAR-Computers/dinamo_rent_tr/releases/latest/download/latest.json"
+        "https://github.com/aleksei-corom/DynaRent/releases/latest/download/latest.json"
       ]
     }
   }

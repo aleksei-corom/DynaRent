@@ -33,7 +33,7 @@
 	// desde el primer frame y no dependa del orden onMount→$effect.
 	function temaInicial(): Tema {
 		if (typeof window === 'undefined') return 'light';
-		const t = localStorage.getItem('dinamo.theme');
+		const t = localStorage.getItem('dynarent.theme');
 		return t === 'dark' || t === 'auto' ? t : 'light';
 	}
 	let tema = $state<Tema>(temaInicial());
@@ -101,7 +101,7 @@
 	$effect(() => {
 		if (typeof document !== 'undefined') {
 			document.documentElement.classList.toggle('dark', darkMode);
-			localStorage.setItem('dinamo.theme', tema);
+			localStorage.setItem('dynarent.theme', tema);
 		}
 	});
 

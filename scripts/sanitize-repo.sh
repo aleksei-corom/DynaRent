@@ -8,7 +8,7 @@
 #      duplicada — el bundle real está en src-tauri/resources/firebird/).
 #   2. git rm --cached de archivos que NO deben estar en el índice pero que
 #      sí pueden existir en el working tree del desarrollador:
-#         data/dinamo_rent_v3.fdb        (BD Firebird, binaria)
+#         data/dynarent_v3.fdb        (BD Firebird, binaria)
 #         data/config.ini                (contiene secretos)
 #         Contrato_Dinamo.docx           (artefacto de negocio)
 #         informe_*.xlsx                 (artefactos de negocio)
@@ -110,7 +110,7 @@ log "---- Acción 2: git rm --cached de artefactos no commiteables ----"
 
 # Lista de patrones a sacar del índice (no se borran del disco)
 PATTERNS=(
-  "data/dinamo_rent_v3.fdb"
+  "data/dynarent_v3.fdb"
   "data/config.ini"
   "Contrato_Dinamo.docx"
   "informe_*.xlsx"
@@ -162,7 +162,7 @@ log ""
 log "  # 3a. Eliminar archivos sensibles del historial completo:"
 log "  git filter-repo --invert-paths \\"
 log "    --path data/config.ini \\"
-log "    --path data/dinamo_rent_v3.fdb \\"
+log "    --path data/dynarent_v3.fdb \\"
 log "    --path Contrato_Dinamo.docx \\"
 log "    --path-glob 'informe_*.xlsx' \\"
 log "    --path-glob 'static/preview-shots/*.pdf'"

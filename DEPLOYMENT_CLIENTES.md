@@ -94,7 +94,7 @@ powershell -ExecutionPolicy Bypass -File scripts\verificar-despliegue.ps1
 
 | # | Comprobación | Esperado |
 |---|---|---|
-| 1 | Exe instalado (`%LOCALAPPDATA%\DynaRent\dinamo-rent.exe`) | existe, versión **1.0.12** |
+| 1 | Exe instalado (`%LOCALAPPDATA%\DynaRent\dynarent.exe`) | existe, versión **1.0.12** |
 | 2 | Arranque: proceso vivo a los 10 s | **no** se cuelga ni muere (el bug del v1.0.0) |
 | 3 | `%APPDATA%\com.dynarent.app\` | existe (la crea el **primer arranque**; por eso se comprueba después del arranque) |
 | 4 | `config.ini` | existe |
@@ -123,7 +123,7 @@ powershell -ExecutionPolicy Bypass -File scripts\verificar-despliegue.ps1
 
 ```powershell
 # Copia del archivo (Firebird Embedded: copiar solo con la app cerrada)
-Stop-Process -Name dinamo-rent -ErrorAction SilentlyContinue
+Stop-Process -Name dynarent -ErrorAction SilentlyContinue
 Copy-Item "$env:APPDATA\com.dynarent.app\dinamo_rent_v3.fdb" "D:\backups\dinamo_$(Get-Date -Format yyyyMMdd_HHmmss).fdb"
 ```
 
@@ -135,7 +135,7 @@ Copy-Item "$env:APPDATA\com.dynarent.app\dinamo_rent_v3.fdb" "D:\backups\dinamo_
 
 ### 4.2 Rollback (volver a una versión anterior o recuperarse)
 
-1. **Cerrar la app** (`Stop-Process -Name dinamo-rent`).
+1. **Cerrar la app** (`Stop-Process -Name dynarent`).
 2. **Restaurar la BD** desde el backup (reemplazar `dinamo_rent_v3.fdb`).
 3. **Reinstalar la versión deseada** (desinstalar e instalar, o instalar encima).
 4. Arrancar y verificar login + datos.

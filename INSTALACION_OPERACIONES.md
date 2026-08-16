@@ -15,12 +15,12 @@
 
 ## 1. Descarga de los instaladores
 
-Página de la release: <https://github.com/CORJAR-Computers/dinamo_rent_tr/releases/tag/v1.0.13>
+Página de la release: <https://github.com/aleksei-corom/DynaRent/releases/tag/v1.0.13>
 
 | Instalador | Enlace directo | Tamaño | Uso |
 |---|---|---|---|
-| **NSIS** (`DynaRent_1.0.13_x64-setup.exe`) | <https://github.com/CORJAR-Computers/dinamo_rent_tr/releases/download/v1.0.13/DynaRent_1.0.13_x64-setup.exe> | ~21 MB | **Recomendado** — instalación asistida con atajo de escritorio |
-| **MSI** (`DynaRent_1.0.13_x64_en-US.msi`) | <https://github.com/CORJAR-Computers/dinamo_rent_tr/releases/download/v1.0.13/DynaRent_1.0.13_x64_en-US.msi> | ~33 MB | Despliegue empresarial / GPO |
+| **NSIS** (`DynaRent_1.0.13_x64-setup.exe`) | <https://github.com/aleksei-corom/DynaRent/releases/download/v1.0.13/DynaRent_1.0.13_x64-setup.exe> | ~21 MB | **Recomendado** — instalación asistida con atajo de escritorio |
+| **MSI** (`DynaRent_1.0.13_x64_en-US.msi`) | <https://github.com/aleksei-corom/DynaRent/releases/download/v1.0.13/DynaRent_1.0.13_x64_en-US.msi> | ~33 MB | Despliegue empresarial / GPO |
 
 > ⚠️ **No usar la v1.0.0** (descontinuada): falla en equipos sin BD previa. Si un equipo
 > ya la tiene instalada **con datos**, no hay que desinstalar — la v1.0.13 abre la BD
@@ -130,5 +130,5 @@ embebida y reinicia la app al terminar).
 
 ## 7. Soporte
 
-- Issues del proyecto: <https://github.com/CORJAR-Computers/dinamo_rent_tr/issues>
+- Issues del proyecto: <https://github.com/aleksei-corom/DynaRent/issues>
 - Detalle técnico del fix y políticas de seguridad: `SECURITY.md` y `Handsoff.md` del repo.

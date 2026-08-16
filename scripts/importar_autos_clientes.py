@@ -460,7 +460,7 @@ def main():
     parser.add_argument("--excel", help="Libro Excel con hojas autos/clientes")
     parser.add_argument("--hoja-autos", default="autos")
     parser.add_argument("--hoja-clientes", default="clientes")
-    parser.add_argument("--db", default=r"D:\dinamo_rent_tr\data\dinamo_rent_v3.fdb")
+    parser.add_argument("--db", default=r"D:\dinamo_rent_tr\data\dynarent_v3.fdb")
     parser.add_argument("--ini", default=r"D:\dinamo_rent_tr\data\config.ini")
     parser.add_argument("--commit", action="store_true", help="Escribe los cambios")
     parser.add_argument("--quiet", action="store_true", help="Solo resumen final")

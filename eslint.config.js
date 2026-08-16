@@ -1,4 +1,4 @@
-// ESLint flat config para dinamo_rent_tr (TAREA E6 del Grupo E).
+// ESLint flat config para DynaRent (TAREA E6 del Grupo E).
 //
 // Requiere (añadidas a package.json devDependencies; el usuario debe instalarlas
 // con `bun install` o `npm install`):

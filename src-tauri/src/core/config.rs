@@ -18,8 +18,8 @@ const DEFAULTS: &[(&str, &str, &str)] = &[
     ("database", "port", "3050"),
     ("database", "user", "sysdba"),
     ("database", "password", "masterkey"),
-    ("database", "database", "dinamo_rent"),
-    ("database", "path", "dinamo_rent_v3.fdb"),
+    ("database", "database", "dynarent"),
+    ("database", "path", "dynarent_v3.fdb"),
     ("database", "timeout", "10"),
     ("database", "pool_size", "10"),
     ("database", "pool_max_overflow", "20"),
@@ -218,7 +218,7 @@ impl AppConfig {
         }
 
         // 2) Leer config.ini (o defaults si falla la lectura)
-        let map = match std::fs::read_to_string(&config_path) {
+        let mut map = match std::fs::read_to_string(&config_path) {
             Ok(content) => parse_ini(&content),
             Err(e) => {
                 log::warn!(
@@ -230,11 +230,17 @@ impl AppConfig {
             }
         };
 
+        // 2.5) Migración del nombre de la BD legacy (dinamo_rent_v3.fdb →
+        // dynarent_v3.fdb): renombra el archivo si existe y actualiza
+        // config.ini. Best-effort — si el rename falla (archivo en uso), se
+        // conserva el path legacy y la app sigue usando su BD con datos.
+        migrate_legacy_db_path(&mut map, data_dir, &config_path);
+
         // 3) Resolver fbclient.dll
         let fbclient_path = find_fbclient(resource_dir, manifest_dir);
 
         // 4) Resolver ruta del .fdb (relativa al data_dir)
-        let db_name = get_str(&map, "database", "path", "dinamo_rent_v3.fdb");
+        let db_name = get_str(&map, "database", "path", "dynarent_v3.fdb");
         let db_path = if Path::new(&db_name).is_absolute() {
             PathBuf::from(&db_name)
         } else {
@@ -367,6 +373,72 @@ fn find_fbclient(resource_dir: &Path, manifest_dir: &Path) -> PathBuf {
     log::warn!("No se encontró fbclient.dll (se probaron: resources/firebird y manifest resources)");
     // Fallback: devuelve la ruta más probable para dar un error claro al conectar
     manifest_dir.join("resources").join("firebird").join("fbclient.dll")
+}
+
+/// Migra instalaciones legacy cuyo path de BD es `dinamo_rent_v3.fdb` al nuevo
+/// nombre `dynarent_v3.fdb`: renombra el archivo si existe (sin tocar el resto
+/// del directorio) y persiste el path nuevo en config.ini.
+///
+/// Best-effort: si el rename falla (p. ej. archivo en uso por otro proceso), se
+/// conserva el path legacy para no perder datos y se reintenta en el próximo
+/// arranque. Si el archivo legacy no existe (ini viejo en instalación nueva o
+/// migración previa sin persistir), se apunta al nombre nuevo y `create_pool`
+/// creará el archivo si hace falta.
+fn migrate_legacy_db_path(map: &mut IniMap, data_dir: &Path, config_path: &Path) {
+    const LEGACY_DB: &str = "dinamo_rent_v3.fdb";
+    const NUEVO_DB: &str = "dynarent_v3.fdb";
+
+    let cfg_path = get_str(map, "database", "path", NUEVO_DB);
+    if Path::new(&cfg_path).file_name().and_then(|n| n.to_str()) != Some(LEGACY_DB) {
+        return; // ya usa el nombre nuevo (o uno personalizado): nada que migrar
+    }
+
+    let resolved = if Path::new(&cfg_path).is_absolute() {
+        PathBuf::from(&cfg_path)
+    } else {
+        data_dir.join(&cfg_path)
+    };
+    let nuevo = resolved.with_file_name(NUEVO_DB);
+
+    // ¿Apuntamos al nombre nuevo? Solo si el rename funcionó o no hay archivo
+    // legacy que preservar. Si el rename falla, seguimos con el archivo legacy.
+    let usar_nuevo = if resolved.exists() {
+        match std::fs::rename(&resolved, &nuevo) {
+            Ok(_) => {
+                log::info!(
+                    "BD migrada de nombre: {} → {}",
+                    resolved.display(),
+                    nuevo.display()
+                );
+                true
+            }
+            Err(e) => {
+                log::warn!(
+                    "No se pudo renombrar la BD legacy {:?}: {e} — se sigue usando el archivo legacy",
+                    resolved
+                );
+                false
+            }
+        }
+    } else {
+        // No existe el legacy: ya migrada antes (ini sin actualizar) o instalación
+        // nueva con ini viejo → apuntar al nombre nuevo (create_pool lo creará).
+        true
+    };
+
+    if usar_nuevo {
+        let valor = if Path::new(&cfg_path).is_absolute() {
+            nuevo.to_string_lossy().to_string()
+        } else {
+            NUEVO_DB.to_string()
+        };
+        map.entry("database".into())
+            .or_default()
+            .insert("path".into(), valor);
+        if let Err(e) = std::fs::write(config_path, serialize_ini(map)) {
+            log::warn!("No se pudo persistir el path nuevo de BD en config.ini: {e}");
+        }
+    }
 }
 
 /// Texto INI con todos los defaults (espejo de `_DEFAULTS`)
@@ -525,5 +597,67 @@ mod tests {
         assert_eq!(get_u64(&ini, "security", "session_timeout", 0), 3600);
         // Retraso inicial del Agente SIMIT (10 min): no debe competir con el arranque
         assert_eq!(get_u64(&ini, "simit", "start_delay_minutes", 0), 10);
+    }
+
+    #[test]
+    fn migra_ini_legacy_al_nuevo_nombre_de_bd() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let legacy = dir.path().join("dinamo_rent_v3.fdb");
+        std::fs::write(&legacy, b"datos-fake").expect("escribir BD legacy");
+        std::fs::write(
+            dir.path().join("config.ini"),
+            "[database]\nengine = firebird\npath = dinamo_rent_v3.fdb\n",
+        )
+        .expect("escribir ini legacy");
+
+        let cfg = AppConfig::load(dir.path(), dir.path(), dir.path());
+
+        assert_eq!(
+            cfg.db_path,
+            dir.path().join("dynarent_v3.fdb"),
+            "db_path debe apuntar al nombre nuevo"
+        );
+        assert!(!legacy.exists(), "el archivo legacy debe haberse renombrado");
+        assert!(
+            dir.path().join("dynarent_v3.fdb").exists(),
+            "el archivo nuevo debe existir"
+        );
+        let ini = std::fs::read_to_string(dir.path().join("config.ini")).expect("leer ini");
+        assert!(
+            ini.contains("path = dynarent_v3.fdb"),
+            "config.ini debe apuntar al nombre nuevo: {ini}"
+        );
+    }
+
+    #[test]
+    fn ini_legacy_sin_archivo_apunta_al_nombre_nuevo() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("config.ini"),
+            "[database]\npath = dinamo_rent_v3.fdb\n",
+        )
+        .expect("escribir ini legacy");
+
+        let cfg = AppConfig::load(dir.path(), dir.path(), dir.path());
+        assert_eq!(cfg.db_path, dir.path().join("dynarent_v3.fdb"));
+        let ini = std::fs::read_to_string(dir.path().join("config.ini")).unwrap();
+        assert!(ini.contains("path = dynarent_v3.fdb"));
+    }
+
+    #[test]
+    fn no_toca_ini_con_nombre_nuevo() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let nueva = dir.path().join("dynarent_v3.fdb");
+        std::fs::write(&nueva, b"datos").expect("escribir BD nueva");
+        std::fs::write(
+            dir.path().join("config.ini"),
+            "[database]\npath = dynarent_v3.fdb\n",
+        )
+        .expect("escribir ini");
+
+        let cfg = AppConfig::load(dir.path(), dir.path(), dir.path());
+        assert_eq!(cfg.db_path, nueva);
+        assert!(nueva.exists());
+        assert!(!dir.path().join("dinamo_rent_v3.fdb").exists());
     }
 }

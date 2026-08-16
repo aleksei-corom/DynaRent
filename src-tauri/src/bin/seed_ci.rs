@@ -1,6 +1,6 @@
 //! seed_ci — Herramienta de DESARROLLO / CI
 //!
-//! Siembra una BD mínima y determinista en `data/dinamo_rent_v3.fdb` para que
+//! Siembra una BD mínima y determinista en `data/dynarent_v3.fdb` para que
 //! los tests de integración (`src-tauri/tests/*.rs`) puedan EJECUTARSE
 //! completos en CI, no solo compilarse:
 //!
@@ -22,16 +22,16 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use dinamo_rent_lib::core::config::AppConfig;
-use dinamo_rent_lib::core::crypto::PiiCipher;
-use dinamo_rent_lib::core::db::create_pool;
-use dinamo_rent_lib::core::migrations::run_migrations;
-use dinamo_rent_lib::core::security;
-use dinamo_rent_lib::repositories::auto::{AutoDatos, AutoRepository};
-use dinamo_rent_lib::repositories::cliente::{ClienteDatos, ClienteRepository};
-use dinamo_rent_lib::repositories::usuario::UsuarioRepository;
-use dinamo_rent_lib::services::auto::AutoService;
-use dinamo_rent_lib::services::cliente::ClienteService;
+use dynarent_lib::core::config::AppConfig;
+use dynarent_lib::core::crypto::PiiCipher;
+use dynarent_lib::core::db::create_pool;
+use dynarent_lib::core::migrations::run_migrations;
+use dynarent_lib::core::security;
+use dynarent_lib::repositories::auto::{AutoDatos, AutoRepository};
+use dynarent_lib::repositories::cliente::{ClienteDatos, ClienteRepository};
+use dynarent_lib::repositories::usuario::UsuarioRepository;
+use dynarent_lib::services::auto::AutoService;
+use dynarent_lib::services::cliente::ClienteService;
 
 /// Logger mínimo a stderr (el bin no arranca Tauri, así que `log::` no tiene
 /// receptor por defecto). Muestra el progreso de las migraciones.
@@ -67,7 +67,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     let resource_dir = manifest.join("resources");
     std::fs::create_dir_all(&data_dir)?;
-    let fdb = data_dir.join("dinamo_rent_v3.fdb");
+    let fdb = data_dir.join("dynarent_v3.fdb");
     let ya_existia = fdb.exists();
     println!("== Sembrando BD mínima para tests de integración ==");
     println!("  data_dir    : {}", data_dir.display());
@@ -93,7 +93,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("✓ Migraciones aplicadas");
 
     // 4) Admin por defecto + contraseña conocida para los tests de login
-    dinamo_rent_lib::seed_admin(&pool)?;
+    dynarent_lib::seed_admin(&pool)?;
     let password = "Admin123!";
     let hash = security::hash_password(password)?;
     {

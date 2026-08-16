@@ -1,7 +1,7 @@
 # Checklist de publicación de release — Dinamo Rent ERP
 
 > Procedimiento operativo para publicar una versión nueva en
-> `github.com/CORJAR-Computers/dinamo_rent_tr`: el bump de versión, el tag que
+> `github.com/aleksei-corom/DynaRent`: el bump de versión, el tag que
 > dispara el CI, la verificación de los assets y el anuncio. Complementa a
 > `INSTALACION_OPERACIONES.md` (instalación), `DEPLOYMENT_CLIENTES.md`
 > (despliegue a clientes) y `ANUNCIO_RELEASE_TEMPLATE.md` (mensajes de anuncio).
@@ -34,7 +34,7 @@ release `v1.0.4` con instaladores `DinamoRent_1.0.3_*` (si el bump quedara a med
       del repo (y `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` solo si la clave tiene password).
       Sin él, `tauri build` NO firma los bundles y la release saldría sin `.sig`/`latest.json`
       → la app instalada no podría auto-actualizarse. La clave privada vive SOLO en
-      `~/.tauri/dinamorent.key` de la máquina que la generó: respáldala (si se pierde,
+      `~/.tauri/dynarent.key` de la máquina que la generó: respáldala (si se pierde,
       las instalaciones v1.0.3+ dejarían de actualizarse).
       → Configurar y verificar por CLI: [`SECRET_FIRMA_UPDATER.md`](SECRET_FIRMA_UPDATER.md)
 
@@ -45,7 +45,7 @@ Editar la versión en los **tres** archivos (deben coincidir):
 | Archivo | Campo |
 |---|---|
 | `package.json` | `"version": "1.0.4"` |
-| `src-tauri/Cargo.toml` | `version = "1.0.4"` (crate `dinamo-rent`) |
+| `src-tauri/Cargo.toml` | `version = "1.0.4"` (crate `dynarent`) |
 | `src-tauri/tauri.conf.json` | `"version": "1.0.4"` |
 
 Verificar la consistencia:
@@ -104,7 +104,7 @@ changelog automático → `tauri build` (NSIS + MSI) → crea la release
 
 ## 6. Verificar la release (no confiar a ciegas en el CI)
 
-- [ ] Release `v1.0.4` existe en <https://github.com/CORJAR-Computers/dinamo_rent_tr/releases/tag/v1.0.4>
+- [ ] Release `v1.0.4` existe en <https://github.com/aleksei-corom/DynaRent/releases/tag/v1.0.4>
       con **5 assets**: los 2 instaladores (`DinamoRent_1.0.4_x64-setup.exe` NSIS ~21 MB y
       `DinamoRent_1.0.4_x64_en-US.msi` ~32 MB), sus firmas del updater (`*.exe.sig` / `*.msi.sig`)
       y `latest.json`. Los `.sig` son de **minisign** (verificación del updater), NO firma de

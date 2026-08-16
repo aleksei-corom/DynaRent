@@ -2,7 +2,7 @@
 //!
 //! Verifica de punta a punta el flujo de auto-actualización
 //! (`tauri-plugin-updater`) contra un endpoint que sirve un `latest.json`
-//! firmado con la clave real de firma (`~/.tauri/dinamorent.key`).
+//! firmado con la clave real de firma (`~/.tauri/dynarent.key`).
 //!
 //! Uso:
 //!   cargo run --features dev --bin updater_e2e -- --endpoint <URL> \

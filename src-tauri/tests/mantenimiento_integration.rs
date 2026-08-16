@@ -1,5 +1,5 @@
 //! mantenimiento_integration.rs — Pruebas de integración del servicio de
-//! mantenimiento contra el .fdb de desarrollo (data/dinamo_rent_v3.fdb).
+//! mantenimiento contra el .fdb de desarrollo (data/dynarent_v3.fdb).
 //!
 //! Usa un auto real de la BD (solo lectura) y crea/elimina mantenimientos
 //! temporales en cada test. Verifica además la sincronización de
@@ -11,20 +11,20 @@ use std::sync::{Arc, Mutex};
 use chrono::Local;
 use serial_test::serial;
 
-use dinamo_rent_lib::core::config::AppConfig;
-use dinamo_rent_lib::core::rbac::SessionStore;
-use dinamo_rent_lib::core::security::LoginAttemptTracker;
-use dinamo_rent_lib::repositories::auto::AutoRepository;
-use dinamo_rent_lib::repositories::mantenimiento::MantenimientoDatos;
-use dinamo_rent_lib::services::mantenimiento::MantenimientoService;
-use dinamo_rent_lib::services::AppState;
+use dynarent_lib::core::config::AppConfig;
+use dynarent_lib::core::rbac::SessionStore;
+use dynarent_lib::core::security::LoginAttemptTracker;
+use dynarent_lib::repositories::auto::AutoRepository;
+use dynarent_lib::repositories::mantenimiento::MantenimientoDatos;
+use dynarent_lib::services::mantenimiento::MantenimientoService;
+use dynarent_lib::services::AppState;
 
 fn dev_state() -> AppState {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let data_dir = manifest.join("../data");
     let resource_dir = manifest.join("resources");
     let cfg = Arc::new(AppConfig::load(&data_dir, &resource_dir, &manifest));
-    let pool = dinamo_rent_lib::core::db::create_pool(&cfg).expect("pool embedded");
+    let pool = dynarent_lib::core::db::create_pool(&cfg).expect("pool embedded");
     AppState {
         pool,
         sessions: Mutex::new(SessionStore::new(3600)),

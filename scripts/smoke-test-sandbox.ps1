@@ -9,7 +9,7 @@
 # Que valida (el bug del release v1.0.0): en un equipo limpio la app se colgaba
 # esperando una BD Firebird inexistente. Este script instala, arranca y
 # verifica que la app crea %APPDATA%\com.dynarent.app\ con config.ini +
-# dinamo_rent_v3.fdb y que el proceso responde (no se cuelga).
+# dynarent_v3.fdb y que el proceso responde (no se cuelga).
 #
 # El log se escribe en la carpeta compartida con el host (C:\shared\out,
 # mapeada en el .wsb a D:\dinamo_rent_tr\scripts\) para leerlo tras cerrar
@@ -38,21 +38,21 @@ Write-Log "Instalando silenciosamente..."
 $proc = Start-Process -FilePath $installer -ArgumentList '/S' -PassThru -Wait
 Write-Log "Instalador termino con codigo: $($proc.ExitCode)"
 
-# Ruta real de instalacion NSIS (el exe se llama dinamo-rent.exe y va a
+# Ruta real de instalacion NSIS (el exe se llama dynarent.exe y va a
 # %LOCALAPPDATA%\DynaRent, no a Programs\... como los Templates viejos)
 $exe = $null
 $cands = @(
-    "$env:LOCALAPPDATA\DynaRent\dinamo-rent.exe",
+    "$env:LOCALAPPDATA\DynaRent\dynarent.exe",
     "$env:LOCALAPPDATA\DynaRent\DynaRent.exe",
-    "$env:LOCALAPPDATA\Programs\DynaRent\dinamo-rent.exe",
+    "$env:LOCALAPPDATA\Programs\DynaRent\dynarent.exe",
     "$env:LOCALAPPDATA\Programs\DynaRent\DynaRent.exe",
-    "$env:ProgramFiles\DynaRent\dinamo-rent.exe",
+    "$env:ProgramFiles\DynaRent\dynarent.exe",
     "$env:ProgramFiles\DynaRent\DynaRent.exe"
 )
 foreach ($c in $cands) { if (Test-Path $c) { $exe = $c; break } }
 if (-not $exe) {
-    Write-Log "Buscando por wildcard *dinamo*.exe..."
-    $found = Get-ChildItem $env:LOCALAPPDATA, $env:ProgramFiles -Recurse -Filter '*dinamo*.exe' -ErrorAction SilentlyContinue | Select-Object -First 3
+    Write-Log "Buscando por wildcard *dynarent*.exe..."
+    $found = Get-ChildItem $env:LOCALAPPDATA, $env:ProgramFiles -Recurse -Filter '*dynarent*.exe' -ErrorAction SilentlyContinue | Select-Object -First 3
     foreach ($f in $found) { Write-Log "  candidato: $($f.FullName)" }
     if ($found) { $exe = $found[0].FullName }
 }
@@ -76,7 +76,7 @@ Write-Log "Proceso vivo tras 12s (PID $($app.Id), sin cuelgue aparente)"
 
 # 3) Verificacion de la BD y config
 $data = "$env:APPDATA\com.dynarent.app"
-$fdb = Join-Path $data 'dinamo_rent_v3.fdb'
+$fdb = Join-Path $data 'dynarent_v3.fdb'
 $ini = Join-Path $data 'config.ini'
 
 if (-not (Test-Path $data)) { Write-Log "FALLO: no se creo $data" } else { Write-Log "OK: $data creado" }

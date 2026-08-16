@@ -17,8 +17,8 @@ y reemplazarlos en el texto de las dos secciones.
 La versión estable v1.0.3 ya está publicada en GitHub, construida por CI y
 validada en Windows limpio (instalación sin colgarse en equipos nuevos).
 
-📦 Descarga: release v1.0.3 → https://github.com/CORJAR-Computers/dinamo_rent_tr/releases/download/v1.0.3/DynaRent_1.0.3_x64-setup.exe
-(~21 MB, NSIS) o el .msi (~32 MB): https://github.com/CORJAR-Computers/dinamo_rent_tr/releases/download/v1.0.3/DynaRent_1.0.3_x64_en-US.msi
+📦 Descarga: release v1.0.3 → https://github.com/aleksei-corom/DynaRent/releases/download/v1.0.3/DynaRent_1.0.3_x64-setup.exe
+(~21 MB, NSIS) o el .msi (~32 MB): https://github.com/aleksei-corom/DynaRent/releases/download/v1.0.3/DynaRent_1.0.3_x64_en-US.msi
 Credenciales iniciales: admin / admin123 (cambio forzado al primer ingreso).
 ⚠️ No instalar versiones anteriores descontinuadas.
 
@@ -47,7 +47,7 @@ DEPLOYMENT_CLIENTES.md (despliegue y rollback) ·
 RESUMEN_EJECUTIVO.md (estado completo).
 
 Resumen completo:
-https://github.com/CORJAR-Computers/dinamo_rent_tr/blob/main/RESUMEN_EJECUTIVO.md
+https://github.com/aleksei-corom/DynaRent/blob/main/RESUMEN_EJECUTIVO.md
 ```
 
 ## Versión corta (anuncio rápido, 2-3 líneas)
@@ -58,7 +58,7 @@ sin colgarse en equipos nuevos (crea BD, migraciones embebidas, sin runtime
 extra). Desde esta versión la app se actualiza sola; las instalaciones v1.0.2
 se actualizan una vez a mano. Descarga solo desde la release v1.0.3 (versiones
 anteriores descontinuadas):
-https://github.com/CORJAR-Computers/dinamo_rent_tr/releases/tag/v1.0.3
+https://github.com/aleksei-corom/DynaRent/releases/tag/v1.0.3
 Guías y kit de operaciones en el repo:
 RESUMEN_EJECUTIVO.md · INSTALACION_OPERACIONES.md · DEPLOYMENT_CLIENTES.md
 ```
@@ -66,15 +66,15 @@ RESUMEN_EJECUTIVO.md · INSTALACION_OPERACIONES.md · DEPLOYMENT_CLIENTES.md
 ## Referencia rápida para rellenar
 
 - **Producto:** Dinamo Rent ERP
-- **Repo:** https://github.com/CORJAR-Computers/dinamo_rent_tr
+- **Repo:** https://github.com/aleksei-corom/DynaRent
 - **Assets de la v1.0.13:** `DynaRent_1.0.13_x64-setup.exe` (NSIS, ~21 MB, sha256 por calcular al publicar) y `DynaRent_1.0.13_x64_en-US.msi` (~33 MB, sha256 por calcular al publicar)
 - **Credenciales iniciales:** `admin` / `admin123` (cambio forzado)
 - **URLs directas de assets v1.0.13:**
-  - NSIS: https://github.com/CORJAR-Computers/dinamo_rent_tr/releases/download/v1.0.13/DynaRent_1.0.13_x64-setup.exe
-  - MSI: https://github.com/CORJAR-Computers/dinamo_rent_tr/releases/download/v1.0.13/DynaRent_1.0.13_x64_en-US.msi
-  - Release (con changelog automático de commits): https://github.com/CORJAR-Computers/dinamo_rent_tr/releases/tag/v1.0.13
+  - NSIS: https://github.com/aleksei-corom/DynaRent/releases/download/v1.0.13/DynaRent_1.0.13_x64-setup.exe
+  - MSI: https://github.com/aleksei-corom/DynaRent/releases/download/v1.0.13/DynaRent_1.0.13_x64_en-US.msi
+  - Release (con changelog automático de commits): https://github.com/aleksei-corom/DynaRent/releases/tag/v1.0.13
   - Firmas del updater: `DynaRent_1.0.13_x64-setup.exe.sig` / `DynaRent_1.0.13_x64_en-US.msi.sig`
-  - Endpoint del auto-update (latest.json): https://github.com/CORJAR-Computers/dinamo_rent_tr/releases/latest/download/latest.json
+  - Endpoint del auto-update (latest.json): https://github.com/aleksei-corom/DynaRent/releases/latest/download/latest.json
 - **Conteos de tests** (actualizarlos si cambian): vitest 242 · svelte-check 0/0 · cargo 48 lib + integración completa (seed_ci) · importador 16
 - **Pasos al publicar:** crear tag `vX.Y.Z` → `release.yml` (CI) construye y publica → marcar versiones anteriores como pre-release/descontinuadas si aplica → pegar el anuncio.
 - **Changelog automático:** `release.yml` genera el body de la release con los commits entre el tag anterior y el nuevo (`git log prev..tag`); el anuncio puede enlazar a la página de la release en lugar de repetir la lista de cambios.

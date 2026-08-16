@@ -84,16 +84,16 @@ die() { printf '\033[1;31m[error]\033[0m %s\n' "$*" >&2; exit 1; }
 # ── Guarda: la verificación necesita acceso exclusivo a la BD embedded ───────
 app_running() {
   if command -v tasklist >/dev/null 2>&1; then
-    tasklist 2>/dev/null | grep -qi 'dinamo-rent' && return 0
+    tasklist 2>/dev/null | grep -qi 'dynarent' && return 0
   fi
   if command -v pgrep >/dev/null 2>&1; then
-    pgrep -f 'dinamo-rent' >/dev/null 2>&1 && return 0
+    pgrep -f 'dynarent' >/dev/null 2>&1 && return 0
   fi
   return 1
 }
 
 if app_running && [[ "$FORCE" -ne 1 ]]; then
-  die "La app (dinamo-rent.exe) está corriendo y bloquea la BD embedded. Ciérrala y reintenta, o usa --force si sabes lo que haces."
+  die "La app (dynarent.exe) está corriendo y bloquea la BD embedded. Ciérrala y reintenta, o usa --force si sabes lo que haces."
 fi
 
 # ── Utilidades ───────────────────────────────────────────────────────────────
@@ -170,17 +170,17 @@ if [[ -n "$DB_CUSTOM" && -n "$INI_CUSTOM" ]]; then
   fi
 else
   if [[ "$PROD_ONLY" -eq 0 ]]; then
-    verificar_dry_run "$SCRIPT_DIR/data/dinamo_rent_v3.fdb" "$SCRIPT_DIR/data/config.ini" "dev"
+    verificar_dry_run "$SCRIPT_DIR/data/dynarent_v3.fdb" "$SCRIPT_DIR/data/config.ini" "dev"
     if [[ "$EXIGE_EVENTO" -eq 1 ]]; then
-      verificar_evento_rotacion "$SCRIPT_DIR/data/dinamo_rent_v3.fdb" "$SCRIPT_DIR/data/config.ini" "dev"
+      verificar_evento_rotacion "$SCRIPT_DIR/data/dynarent_v3.fdb" "$SCRIPT_DIR/data/config.ini" "dev"
     fi
   fi
   if [[ "$DEV_ONLY" -eq 0 && -n "${APPDATA:-}" ]]; then
     local_prod_dir="$APPDATA/$TAURI_IDENTIFIER"
     if [[ -d "$local_prod_dir" ]]; then
-      verificar_dry_run "$local_prod_dir/dinamo_rent_v3.fdb" "$local_prod_dir/config.ini" "prod"
+      verificar_dry_run "$local_prod_dir/dynarent_v3.fdb" "$local_prod_dir/config.ini" "prod"
       if [[ "$EXIGE_EVENTO" -eq 1 ]]; then
-        verificar_evento_rotacion "$local_prod_dir/dinamo_rent_v3.fdb" "$local_prod_dir/config.ini" "prod"
+        verificar_evento_rotacion "$local_prod_dir/dynarent_v3.fdb" "$local_prod_dir/config.ini" "prod"
       fi
     else
       warn "No existe el directorio de producción $local_prod_dir (omitido)"

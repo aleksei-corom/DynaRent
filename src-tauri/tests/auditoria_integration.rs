@@ -1,5 +1,5 @@
 //! auditoria_integration.rs — Pruebas de integración del servicio de auditoría
-//! contra el .fdb de desarrollo (data/dinamo_rent_v3.fdb).
+//! contra el .fdb de desarrollo (data/dynarent_v3.fdb).
 //!
 //! Los tests insertan eventos temporales de auditoría y los eliminan al final
 //! para no ensuciar el log real.
@@ -9,22 +9,22 @@ use std::sync::{Arc, Mutex};
 
 use serial_test::serial;
 
-use dinamo_rent_lib::core::audit::log_audit;
-use dinamo_rent_lib::core::config::AppConfig;
-use dinamo_rent_lib::core::rbac::SessionStore;
-use dinamo_rent_lib::core::security::LoginAttemptTracker;
+use dynarent_lib::core::audit::log_audit;
+use dynarent_lib::core::config::AppConfig;
+use dynarent_lib::core::rbac::SessionStore;
+use dynarent_lib::core::security::LoginAttemptTracker;
 use rsfbclient::{Execute, Queryable};
 
-use dinamo_rent_lib::repositories::auditoria::AuditoriaFiltros;
-use dinamo_rent_lib::services::auditoria::AuditoriaService;
-use dinamo_rent_lib::services::AppState;
+use dynarent_lib::repositories::auditoria::AuditoriaFiltros;
+use dynarent_lib::services::auditoria::AuditoriaService;
+use dynarent_lib::services::AppState;
 
 fn dev_state() -> AppState {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let data_dir = manifest.join("../data");
     let resource_dir = manifest.join("resources");
     let cfg = Arc::new(AppConfig::load(&data_dir, &resource_dir, &manifest));
-    let pool = dinamo_rent_lib::core::db::create_pool(&cfg).expect("pool embedded");
+    let pool = dynarent_lib::core::db::create_pool(&cfg).expect("pool embedded");
     AppState {
         pool,
         sessions: Mutex::new(SessionStore::new(3600)),

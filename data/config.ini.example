@@ -38,11 +38,11 @@ tipos_mantenimiento = Cambio Aceite, Frenos, Llantas, Batería, Tecno-Mecánica,
 tipos_transmision = Automática, Mecánica
 
 [database]
-database = dinamo_rent
+database = dynarent
 engine = firebird
 host = localhost
 password = CAMBIAR_PASSWORD_SYSDBA
-path = dinamo_rent_v3.fdb
+path = dynarent_v3.fdb
 pool_max_overflow = 20
 pool_size = 10
 port = 3050

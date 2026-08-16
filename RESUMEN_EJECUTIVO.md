@@ -26,7 +26,7 @@
 | v1.0.1 | ✅ Estable anterior (sigue funcionando) | Actualizar a v1.0.3+ |
 | v1.0.0 | ⚠️ **Descontinuada** (prerelease + aviso de deprecación) | Solo referencia — **no instalarla** |
 
-**Assets de la v1.0.12:** [`DynaRent_1.0.12_x64-setup.exe`](https://github.com/CORJAR-Computers/dinamo_rent_tr/releases/download/v1.0.12/DynaRent_1.0.12_x64-setup.exe) (NSIS, ~21 MB, recomendado) y [`DynaRent_1.0.12_x64_en-US.msi`](https://github.com/CORJAR-Computers/dinamo_rent_tr/releases/download/v1.0.12/DynaRent_1.0.12_x64_en-US.msi) (~33 MB, despliegue GPO; sha256 publicados en la release). La release incluye además los `.sig` y el `latest.json` para el auto-update. Enlaces y credenciales iniciales en [`INSTALACION_OPERACIONES.md`](INSTALACION_OPERACIONES.md).
+**Assets de la v1.0.12:** [`DynaRent_1.0.12_x64-setup.exe`](https://github.com/aleksei-corom/DynaRent/releases/download/v1.0.12/DynaRent_1.0.12_x64-setup.exe) (NSIS, ~21 MB, recomendado) y [`DynaRent_1.0.12_x64_en-US.msi`](https://github.com/aleksei-corom/DynaRent/releases/download/v1.0.12/DynaRent_1.0.12_x64_en-US.msi) (~33 MB, despliegue GPO; sha256 publicados en la release). La release incluye además los `.sig` y el `latest.json` para el auto-update. Enlaces y credenciales iniciales en [`INSTALACION_OPERACIONES.md`](INSTALACION_OPERACIONES.md).
 
 **Auto-actualización (activa desde la v1.0.3):** la app chequea al arrancar el
 `latest.json` de GitHub Releases y ofrece instalar la versión nueva (firma minisign
@@ -57,7 +57,7 @@ embebida.
 
 **Qué añaden las v1.0.4 → v1.0.12** (14-08, diagnóstico y documento):
 
-1. **Errores de BD visibles** (v1.0.4) — el toast de error ahora muestra el detalle real de Firebird (SQLCODE, columna, lock) y el logging se activa en producción (`%APPDATA%\com.corjar.dinamorent\logs\app.log`, 5 MB por archivo con rotación conservada).
+1. **Errores de BD visibles** (v1.0.4) — el toast de error ahora muestra el detalle real de Firebird (SQLCODE, columna, lock) y el logging se activa en producción (`%APPDATA%\com.dynarent.app\logs\app.log`, 5 MB por archivo con rotación conservada).
 2. **Fix del error -303** (v1.0.5) — los campos monetarios vacíos en rentas/reservas/autos se normalizan a `0.00` antes del `CAST(? AS DECIMAL)` de Firebird (antes: `conversion error from string ""` al crear/modificar rentas).
 3. **Contrato y orden más legibles** (v1.0.6) — contrato en **2 hojas Carta** (tipografía ajustada), `+57` automático a los celulares del encabezado, cláusula 4 con la multa en **blanco** (espacio para llenar a mano en vez de `$0`), póliza de lucro cesante con valores 40/50/70 mil, y **campo Gasolina** en el formulario de renta (migración 0020, se muestra en la orden).
 4. **Fix del INSERT de rentas** (v1.0.8) — conteo de placeholders corregido (34=34) tras el error -804 que apareció al crear rentas en la v1.0.6/v1.0.7.

@@ -2,7 +2,7 @@
 //!
 //! Resetea la contraseña del usuario admin a una conocida (Argon2id).
 //! Uso: `cargo run --features dev --bin dev_reset_admin -- <nueva_password>`
-//! Se usa sobre la BD de desarrollo (data/dinamo_rent_v3.fdb).
+//! Se usa sobre la BD de desarrollo (data/dynarent_v3.fdb).
 //!
 //! ⚠️ Este binario NO se compila en builds de release por dos mecanismos
 //! complementarios:
@@ -17,9 +17,9 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use dinamo_rent_lib::core::config::AppConfig;
-use dinamo_rent_lib::core::security;
-use dinamo_rent_lib::repositories::usuario::UsuarioRepository;
+use dynarent_lib::core::config::AppConfig;
+use dynarent_lib::core::security;
+use dynarent_lib::repositories::usuario::UsuarioRepository;
 
 /// Implementación real del reseteo (sólo debug).
 #[cfg(debug_assertions)]
@@ -37,7 +37,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let resource_dir = manifest.join("resources");
     let cfg = Arc::new(AppConfig::load(&data_dir, &resource_dir, &manifest));
 
-    let pool = dinamo_rent_lib::core::db::create_pool(&cfg)?;
+    let pool = dynarent_lib::core::db::create_pool(&cfg)?;
     let mut conn = pool.get()?;
 
     let usuario = UsuarioRepository::obtener_para_autenticacion(&mut conn, "admin")?;

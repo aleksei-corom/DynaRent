@@ -3,8 +3,8 @@
 
 import { authApi, type LoginResult, type SessionData } from '$lib/api';
 
-const TOKEN_KEY = 'dinamo.session.token';
-const USER_KEY = 'dinamo.session.user';
+const TOKEN_KEY = 'dynarent.session.token';
+const USER_KEY = 'dynarent.session.user';
 
 interface StoredUser {
 	username: string;

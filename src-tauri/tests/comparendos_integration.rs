@@ -1,5 +1,5 @@
 //! comparendos_integration.rs — Pruebas de integración del servicio de
-//! comparendos contra el .fdb de desarrollo (data/dinamo_rent_v3.fdb).
+//! comparendos contra el .fdb de desarrollo (data/dynarent_v3.fdb).
 //!
 //! Usa un auto real de la BD (solo lectura) y crea/elimina comparendos
 //! temporales en cada test. Verifica CRUD, marcado de pago y totales.
@@ -10,22 +10,22 @@ use std::sync::{Arc, Mutex};
 use chrono::{Duration, Local};
 use serial_test::serial;
 
-use dinamo_rent_lib::core::config::AppConfig;
-use dinamo_rent_lib::core::rbac::SessionStore;
-use dinamo_rent_lib::core::security::LoginAttemptTracker;
-use dinamo_rent_lib::repositories::auto::AutoRepository;
-use dinamo_rent_lib::repositories::comparendo::ComparendoDatos;
-use dinamo_rent_lib::repositories::renta::RentaDatos;
-use dinamo_rent_lib::services::comparendo::ComparendoService;
-use dinamo_rent_lib::services::renta::RentaService;
-use dinamo_rent_lib::services::AppState;
+use dynarent_lib::core::config::AppConfig;
+use dynarent_lib::core::rbac::SessionStore;
+use dynarent_lib::core::security::LoginAttemptTracker;
+use dynarent_lib::repositories::auto::AutoRepository;
+use dynarent_lib::repositories::comparendo::ComparendoDatos;
+use dynarent_lib::repositories::renta::RentaDatos;
+use dynarent_lib::services::comparendo::ComparendoService;
+use dynarent_lib::services::renta::RentaService;
+use dynarent_lib::services::AppState;
 
 fn dev_state() -> AppState {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let data_dir = manifest.join("../data");
     let resource_dir = manifest.join("resources");
     let cfg = Arc::new(AppConfig::load(&data_dir, &resource_dir, &manifest));
-    let pool = dinamo_rent_lib::core::db::create_pool(&cfg).expect("pool embedded");
+    let pool = dynarent_lib::core::db::create_pool(&cfg).expect("pool embedded");
     AppState {
         pool,
         sessions: Mutex::new(SessionStore::new(3600)),
@@ -212,7 +212,7 @@ fn comparendo_totales() {
 fn comparendo_numero_oficial_y_dedup() {
     // Verifica el número oficial (fuente SIMIT): round-trip del campo y los
     // métodos de deduplicación que usa el Agente SIMIT.
-    use dinamo_rent_lib::repositories::comparendo::ComparendoRepository;
+    use dynarent_lib::repositories::comparendo::ComparendoRepository;
 
     let state = dev_state();
     let cfg = &state.config;

@@ -1,5 +1,5 @@
 //! autos_clientes_integration.rs — Pruebas de integración de los servicios de
-//! vehículos y clientes contra el .fdb de desarrollo (data/dinamo_rent_v3.fdb).
+//! vehículos y clientes contra el .fdb de desarrollo (data/dynarent_v3.fdb).
 //!
 //! Cada test crea registros temporales con claves únicas y los elimina al final.
 
@@ -8,22 +8,22 @@ use std::sync::{Arc, Mutex};
 
 use serial_test::serial;
 
-use dinamo_rent_lib::core::config::AppConfig;
-use dinamo_rent_lib::core::crypto::PiiCipher;
-use dinamo_rent_lib::core::rbac::SessionStore;
-use dinamo_rent_lib::core::security::LoginAttemptTracker;
-use dinamo_rent_lib::repositories::auto::AutoDatos;
-use dinamo_rent_lib::repositories::cliente::ClienteDatos;
-use dinamo_rent_lib::services::auto::AutoService;
-use dinamo_rent_lib::services::cliente::ClienteService;
-use dinamo_rent_lib::services::AppState;
+use dynarent_lib::core::config::AppConfig;
+use dynarent_lib::core::crypto::PiiCipher;
+use dynarent_lib::core::rbac::SessionStore;
+use dynarent_lib::core::security::LoginAttemptTracker;
+use dynarent_lib::repositories::auto::AutoDatos;
+use dynarent_lib::repositories::cliente::ClienteDatos;
+use dynarent_lib::services::auto::AutoService;
+use dynarent_lib::services::cliente::ClienteService;
+use dynarent_lib::services::AppState;
 
 fn dev_state() -> AppState {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let data_dir = manifest.join("../data");
     let resource_dir = manifest.join("resources");
     let cfg = Arc::new(AppConfig::load(&data_dir, &resource_dir, &manifest));
-    let pool = dinamo_rent_lib::core::db::create_pool(&cfg).expect("pool embedded");
+    let pool = dynarent_lib::core::db::create_pool(&cfg).expect("pool embedded");
     AppState {
         pool,
         sessions: Mutex::new(SessionStore::new(3600)),

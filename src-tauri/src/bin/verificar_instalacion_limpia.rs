@@ -19,14 +19,14 @@
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-use dinamo_rent_lib::core::config::AppConfig;
-use dinamo_rent_lib::core::db::create_pool;
-use dinamo_rent_lib::core::migrations::{run_migrations, MIGRACIONES_EMBEDIDAS};
-use dinamo_rent_lib::core::rbac::SessionStore;
-use dinamo_rent_lib::core::security::LoginAttemptTracker;
-use dinamo_rent_lib::repositories::usuario::UsuarioRepository;
-use dinamo_rent_lib::services::auth::AuthService;
-use dinamo_rent_lib::services::AppState;
+use dynarent_lib::core::config::AppConfig;
+use dynarent_lib::core::db::create_pool;
+use dynarent_lib::core::migrations::{run_migrations, MIGRACIONES_EMBEDIDAS};
+use dynarent_lib::core::rbac::SessionStore;
+use dynarent_lib::core::security::LoginAttemptTracker;
+use dynarent_lib::repositories::usuario::UsuarioRepository;
+use dynarent_lib::services::auth::AuthService;
+use dynarent_lib::services::AppState;
 use rsfbclient::Queryable;
 
 /// Logger mínimo a stderr (el bin no arranca Tauri, así que `log::` no tiene
@@ -58,7 +58,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let data_dir: PathBuf = match std::env::args().nth(1) {
         Some(p) => PathBuf::from(p),
         None => std::env::temp_dir().join(format!(
-            "dinamo_instalacion_limpia_{}",
+            "dynarent_instalacion_limpia_{}",
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| d.as_nanos())
@@ -66,7 +66,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )),
     };
     std::fs::create_dir_all(&data_dir)?;
-    let fdb = data_dir.join("dinamo_rent_v3.fdb");
+    let fdb = data_dir.join("dynarent_v3.fdb");
     let ya_existia = fdb.exists();
     println!("== Simulando equipo limpio ==");
     println!("  data_dir     : {}", data_dir.display());
@@ -99,7 +99,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 4) Migraciones con un directorio INEXISTENTE (equipo limpio: el bundle no
     //    incluye migrations/ y CARGO_MANIFEST_DIR es la ruta de la máquina de
     //    build) → el runner debe usar las MIGRACIONES_EMBEDIDAS.
-    let dir_inexistente = std::env::temp_dir().join("dinamo_migrations_NO_EXISTE_EN_LIMPIO");
+    let dir_inexistente = std::env::temp_dir().join("dynarent_migrations_NO_EXISTE_EN_LIMPIO");
     let _ = std::fs::remove_dir_all(&dir_inexistente);
     assert!(!dir_inexistente.exists(), "precondición: dir de migraciones ausente");
     run_migrations(&pool, &dir_inexistente)?;
@@ -124,7 +124,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 6) seed_admin: crea el admin por defecto en una BD vacía (solo si no hay usuarios)
     if UsuarioRepository::contar(&mut conn)? == 0 {
-        dinamo_rent_lib::seed_admin(&pool)?;
+        dynarent_lib::seed_admin(&pool)?;
     }
     let n_admin = UsuarioRepository::contar(&mut conn)?;
     assert_eq!(n_admin, 1, "debe existir exactamente 1 usuario tras el seed");

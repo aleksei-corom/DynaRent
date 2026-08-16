@@ -7,7 +7,7 @@
 # como ANSI/CP1252 y los acentos/guiones largos UTF-8 rompen el parseo).
 #
 # Comprueba: exe instalado (v1.0.9), %APPDATA%\com.dynarent.app (config.ini
-# + dinamo_rent_v3.fdb) y que la app arranca y queda viva 10 s (el bug del v1.0.0
+# + dynarent_v3.fdb) y que la app arranca y queda viva 10 s (el bug del v1.0.0
 # era justamente morirse antes del Login). Ver DEPLOYMENT_CLIENTES.md.
 
 $ErrorActionPreference = 'Continue'
@@ -29,20 +29,20 @@ Write-Host "=== Verificacion de despliegue DynaRent $(Get-Date -Format 'yyyy-MM-
 # 1) Ejecutable instalado y version
 $exe = $null
 $cands = @(
-    "$env:LOCALAPPDATA\DynaRent\dinamo-rent.exe",
-    "$env:LOCALAPPDATA\Programs\DynaRent\dinamo-rent.exe",
-    "$env:ProgramFiles\DynaRent\dinamo-rent.exe"
+    "$env:LOCALAPPDATA\DynaRent\dynarent.exe",
+    "$env:LOCALAPPDATA\Programs\DynaRent\dynarent.exe",
+    "$env:ProgramFiles\DynaRent\dynarent.exe"
 )
 foreach ($c in $cands) { if (Test-Path $c) { $exe = $c; break } }
 if (-not $exe) {
-    $exe = Get-ChildItem $env:LOCALAPPDATA, $env:ProgramFiles -Recurse -Filter 'dinamo-rent.exe' -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+    $exe = Get-ChildItem $env:LOCALAPPDATA, $env:ProgramFiles -Recurse -Filter 'dynarent.exe' -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
 }
 if ($exe) {
     $ver = (Get-Item $exe).VersionInfo.ProductVersion
     Check "Ejecutable instalado" $true $exe
     Check "Version 1.0.12" ($ver -like '1.0.12*') "ProductVersion=$ver"
 } else {
-    Check "Ejecutable instalado" $false 'no se encontro dinamo-rent.exe'
+    Check "Ejecutable instalado" $false 'no se encontro dynarent.exe'
 }
 
 # 2) Arranque: proceso vivo tras 10 s (PRIMERO: el primer arranque es el que
@@ -65,15 +65,15 @@ if ($exe) {
 
 # 3) Carpeta de datos (debe existir tras el primer arranque)
 $data = "$env:APPDATA\com.dynarent.app"
-$fdb = Join-Path $data 'dinamo_rent_v3.fdb'
+$fdb = Join-Path $data 'dynarent_v3.fdb'
 $ini = Join-Path $data 'config.ini'
 Check "Carpeta de datos creada" (Test-Path $data) $data
 Check "config.ini generado" (Test-Path $ini)
 if (Test-Path $fdb) {
     $sz = (Get-Item $fdb).Length
-    Check "BD dinamo_rent_v3.fdb existe" ($sz -gt 0) ("$([math]::Round($sz/1MB,1)) MB")
+    Check "BD dynarent_v3.fdb existe" ($sz -gt 0) ("$([math]::Round($sz/1MB,1)) MB")
 } else {
-    Check "BD dinamo_rent_v3.fdb existe" $false 'no se creo (bug v1.0.0: cuelgue aqui)'
+    Check "BD dynarent_v3.fdb existe" $false 'no se creo (bug v1.0.0: cuelgue aqui)'
 }
 
 # 4) Cierre de prueba
