@@ -1,6 +1,6 @@
 # Handsoff — DynaRent ERP (Tauri + SvelteKit + Firebird)
 
-> Última actualización: **2026-08-16** · Estado: **todos los módulos operativos, validación verde · instalación limpia validada E2E en sandbox · release v1.0.14 publicada y firmada — primera release pública con auto-update operativo (repo público, historial saneado, clave de firma rotada; secret `TAURI_SIGNING_PRIVATE_KEY` configurado) · contrato en 2 hojas con firmas amplias, campo Gasolina, km sin cola de ceros y errores de BD visibles verificados en el equipo de operaciones · herramientas de operación (importador de datos + verifier de despliegue) en §6**
+> Última actualización: **2026-08-17** · Estado: **todos los módulos operativos, validación verde · instalación limpia validada E2E en sandbox · release v1.0.15 publicada y firmada — SetUp Inicial con País (teléfonos de contacto con el código del país), pie de contacto (dirección + teléfonos) en Órdenes de Renta y Reserva, modal «Acerca de» con la versión real, override de config.ini por env vars `DYNARENT_*` y barrido final de marca Dinamo · auto-update operativo (repo público, historial saneado, clave de firma rotada; secret `TAURI_SIGNING_PRIVATE_KEY` configurado) · suite completa en verde: 254 vitest · 54 cargo lib + integración completa**
 
 > **Instalación limpia validada de punta a punta (11-08, noche):** se cerró el hueco del
 > release v1.0.0 en equipos nuevos (la app se colgaba esperando una BD inexistente).
@@ -101,6 +101,28 @@
 > 10px — imposible firmar), compensado con espaciados internos (cláusula adicional
 > 40→18px, títulos 3→2px) y verificado con el PDF real: sigue en 2 hojas Carta con las
 > firmas completas.
+> 🚀 **Release v1.0.15 publicada (17-08) — SetUp Inicial con País y branding de la
+> empresa en los documentos:** [github.com/aleksei-corom/DynaRent/releases/tag/v1.0.15].
+> Añade el **campo País en el SetUp Inicial** (`/empresa`, migración 0021): la empresa
+> configura su país y los **teléfonos de contacto llevan su código** (+57, +58, +593…,
+> antes +57 fijo) en el contrato y las órdenes; el **Contrato, la Orden de Renta y la
+> Orden de Reserva** muestran los datos de la empresa (nombre, dirección, teléfonos con
+> código y logo) desde el setup; el modal **«Acerca de»** (DynaRent ERP by CORJAR)
+> muestra la versión real en el sidebar/login; el **override de config.ini por env
+> vars** `DYNARENT_*` quedó implementado (en memoria, con tests); y el **barrido final
+> de marca Dinamo** corrigió el seed (`DynaRent SAS`), env vars, rutas de máquina y la
+> BD `dynarent_v3.fdb` en los procedimientos. **12 tests nuevos** (integración del
+> flujo de setup con país, store con prefijo por país y ruta `/empresa`): suite total
+> 254 vitest · 54 cargo lib. Pipeline del release (constancia): workflow **Release**,
+> trigger **push del tag `v1.0.15`**, run
+> [#31988667031](https://github.com/aleksei-corom/DynaRent/actions/runs/31988667031),
+> **success** (02:39:36Z → 02:50:33Z, ~10 min 57 s): paginación → changelog
+> automático (12 commits desde v1.0.14, commit `6473d0d`) → build (NSIS + MSI) →
+> **firma del updater** → release publicada con los **5 assets**
+> (`DynaRent_1.0.15_x64-setup.exe` ~23 MB y `DynaRent_1.0.15_x64_en-US.msi` ~33 MB,
+> `.sig` x2 y `latest.json`; sha256 reales `f32ef004…` / `e8c25a68…`). El `latest.json`
+> del endpoint real ya sirve la v1.0.15 con firma válida: las instalaciones v1.0.3+
+> detectarán la versión nueva al arrancar.
 > 🚀 **Release v1.0.14 publicada (16-08) — primera release pública con auto-update
 > operativo:** [github.com/aleksei-corom/DynaRent/releases/tag/v1.0.14]. El repo quedó
 > **público** con el historial saneado (`git filter-repo`: purgados de todo el historial
@@ -568,10 +590,10 @@ y `IntoParams` para tuplas de **≤15**. Cualquier SELECT largo debe partirse en
       Agente SIMIT** en la app real (ver primera tarea de §3).
 - [x] **Mostrar la versión REAL de la app en la barra de menú lateral.** Resuelto el 16-08: el
       sidebar y el login mostraban **v3.2.0** (versión heredada del proyecto anterior); ahora
-      muestran **v1.0.14** (la versión real), coherente con el modal **Acerca de**
-      (DynaRent ERP by CORJAR) añadido el mismo día. El default `application.version` de
-      `config.rs` y `config.ini.example` también quedó alineado a **1.0.14**. El auto-update
-      quedó verificado E2E contra el endpoint real (release v1.0.14).
+      muestran la versión real (v1.0.15 desde el bump del 17-08), coherente con el modal **Acerca de**
+      (DynaRent ERP by CORJAR) añadido el 16-08. El default `application.version` de
+      `config.rs` y `config.ini.example` quedó alineado a la versión actual (1.0.15 en el
+      bump del 17-08). El auto-update quedó verificado E2E contra el endpoint real (release v1.0.14).
 
 ## 4. Convenciones a respetar
 

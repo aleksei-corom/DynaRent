@@ -1,6 +1,6 @@
 # Resumen Ejecutivo — DynaRent ERP
 
-> **Fecha:** 2026-08-16 · **Estado general:** listo para producción — release v1.0.14 publicada por CI (primera release pública con auto-update operativo), repo público con historial saneado, clave de firma del updater rotada, validada de punta a punta en Windows limpio (Sandbox) y verificada en el equipo de operaciones (contrato en 2 hojas con firmas amplias, campo Gasolina, km sin cola de ceros, errores de BD visibles).
+> **Fecha:** 2026-08-17 · **Estado general:** listo para producción — release v1.0.15 publicada por CI (SetUp Inicial con País y branding de la empresa en los documentos), repo público con historial saneado, clave de firma del updater rotada, auto-update operativo de punta a punta y suite completa en verde (254 tests frontend, 54 cargo lib + integración completa).
 
 ---
 
@@ -9,24 +9,25 @@
 | Área | Estado |
 |---|---|
 | **Aplicación** | Todos los módulos operativos (rentas, comparendos + agente SIMIT, alertas, calendario, informes, reservas, contratos) |
-| **Versión estable** | **v1.0.14** — la única release que se distribuye (con auto-update activo) |
+| **Versión estable** | **v1.0.15** — la única release que se distribuye (con auto-update activo) |
 | **Instalación limpia** | ✅ Validada E2E en Windows Sandbox (equipo sin nada): la app crea su BD, migra y arranca sin colgarse |
-| **CI** | ✅ Verde en el tope de `main` (lint, svelte-check 0/0, 242 tests frontend, cargo 51 lib + integración completa con seed_ci, importador 16 casos) |
+| **CI** | ✅ Verde en el tope de `main` (lint, svelte-check 0/0, 254 tests frontend, cargo 54 lib + integración completa con seed_ci, importador 16 casos) |
 | **Repositorio** | **Público** (`aleksei-corom/DynaRent`) — historial saneado con `git filter-repo`; árbol limpio y sincronizado con `origin/main` |
-| **Auto-actualización** | ✅ Activa desde la **v1.0.3** — la app chequea `latest.json` al arrancar y ofrece instalar (firma minisign verificada) | ✅ Secret `TAURI_SIGNING_PRIVATE_KEY` configurado; v1.0.3–v1.0.14 publicadas y firmadas (clave rotada el 16-08) |
+| **Auto-actualización** | ✅ Activa desde la **v1.0.3** — la app chequea `latest.json` al arrancar y ofrece instalar (firma minisign verificada) | ✅ Secret `TAURI_SIGNING_PRIVATE_KEY` configurado; v1.0.3–v1.0.15 publicadas y firmadas (clave rotada el 16-08) |
 
 ## 2. Releases en GitHub
 
 | Release | Estado | Para quién |
 |---|---|---|
-| **v1.0.14** | ✅ **Latest / estable** — construida íntegramente por CI (GitHub Actions), primera release pública | **Única descarga recomendada** |
-| v1.0.9 | ✅ Estable anterior (sigue funcionando) | Actualizar a v1.0.14 (auto-update) |
-| v1.0.3 | ✅ Estable anterior (sigue funcionando) | Actualizar a v1.0.14 (auto-update) |
+| **v1.0.15** | ✅ **Latest / estable** — construida íntegramente por CI (GitHub Actions) | **Única descarga recomendada** |
+| v1.0.14 | ✅ Estable anterior (sigue funcionando) | Actualizar a v1.0.15 (auto-update) |
+| v1.0.9 | ✅ Estable anterior (sigue funcionando) | Actualizar a v1.0.15 (auto-update) |
+| v1.0.3 | ✅ Estable anterior (sigue funcionando) | Actualizar a v1.0.15 (auto-update) |
 | v1.0.2 | ✅ Estable anterior (sigue funcionando) | Actualizar a v1.0.3+ (transición al auto-update) |
 | v1.0.1 | ✅ Estable anterior (sigue funcionando) | Actualizar a v1.0.3+ |
 | v1.0.0 | ⚠️ **Descontinuada** (prerelease + aviso de deprecación) | Solo referencia — **no instalarla** |
 
-**Assets de la v1.0.14:** [`DynaRent_1.0.14_x64-setup.exe`](https://github.com/aleksei-corom/DynaRent/releases/download/v1.0.14/DynaRent_1.0.14_x64-setup.exe) (NSIS, ~23 MB, recomendado) y [`DynaRent_1.0.14_x64_en-US.msi`](https://github.com/aleksei-corom/DynaRent/releases/download/v1.0.14/DynaRent_1.0.14_x64_en-US.msi) (~33 MB, despliegue GPO; sha256 publicados en la release: `dfa02bc9…` / `89ca531d…`). La release incluye además los `.sig` y el `latest.json` para el auto-update. Enlaces y credenciales iniciales en [`INSTALACION_OPERACIONES.md`](INSTALACION_OPERACIONES.md).
+**Assets de la v1.0.15:** [`DynaRent_1.0.15_x64-setup.exe`](https://github.com/aleksei-corom/DynaRent/releases/download/v1.0.15/DynaRent_1.0.15_x64-setup.exe) (NSIS, ~23 MB, recomendado) y [`DynaRent_1.0.15_x64_en-US.msi`](https://github.com/aleksei-corom/DynaRent/releases/download/v1.0.15/DynaRent_1.0.15_x64_en-US.msi) (~33 MB, despliegue GPO; sha256 reales: `f32ef004…` / `e8c25a68…`). La release incluye además los `.sig` y el `latest.json` para el auto-update. Enlaces y credenciales iniciales en [`INSTALACION_OPERACIONES.md`](INSTALACION_OPERACIONES.md).
 
 **Auto-actualización (activa desde la v1.0.3):** la app chequea al arrancar el
 `latest.json` de GitHub Releases y ofrece instalar la versión nueva (firma minisign
@@ -42,7 +43,7 @@ embebida.
 2. **Las migraciones no viajaban en el instalador** → las migraciones van embebidas en el binario (fallback automático; hoy 20: 0001-0020).
 3. **Crash sin el runtime VC++** (`LoadLibraryExW failed`) → `SetDllDirectoryW(firebird/)` encuentra las DLLs que ya viajan en el instalador; no hace falta instalar redistribuibles.
 
-**Actualizar con datos:** idempotente — cada versión abre la BD existente y solo aplica las migraciones pendientes (no hay que desinstalar ni se pierden datos). Cualquier versión anterior → **v1.0.14** (las v1.0.2 sin updater se instalan a mano una vez; desde la v1.0.3 las siguientes son automáticas).
+**Actualizar con datos:** idempotente — cada versión abre la BD existente y solo aplica las migraciones pendientes (no hay que desinstalar ni se pierden datos). Cualquier versión anterior → **v1.0.15** (las v1.0.2 sin updater se instalan a mano una vez; desde la v1.0.3 las siguientes son automáticas).
 
 **Qué añade la v1.0.2** (13-08):
 
@@ -73,9 +74,17 @@ embebida.
 3. **Rebrand completo a DynaRent** (v1.0.14) — crate `dynarent`, BD `dynarent_v3.fdb` (con migración automática desde `dinamo_rent_v3.fdb`), claves de localStorage `dynarent.*`, instaladores `DynaRent_*`.
 4. **Repo público y auto-update operativo** (v1.0.14) — historial saneado con `git filter-repo`, clave de firma del updater rotada (`~/.tauri/dynarent.key`, pubkey nueva) y pipeline validado E2E contra el endpoint real de GitHub.
 
+**Qué añade la v1.0.15** (17/08, SetUp Inicial con País y branding de la empresa):
+
+1. **País en el SetUp Inicial** — la empresa configura su país en `/empresa` (migración 0021) y los **teléfonos de contacto llevan su código** (+57, +58, +593…) en el contrato y las órdenes, según el país donde se usa la app (antes era +57 fijo).
+2. **Datos de la empresa en los documentos** — el Contrato, la Orden de Renta y la Orden de Reserva muestran nombre, dirección, teléfonos (con código) y logo desde el SetUp Inicial.
+3. **Modal «Acerca de»** — branding DynaRent ERP by CORJAR con la versión real (v1.0.15) en sidebar/login, y `application.version` del backend alineado.
+4. **Override de config.ini por env vars** — `DYNARENT_DB_ENCRYPTION_KEY` / `DYNARENT_FB_USER` / `DYNARENT_FB_PASSWORD` (en memoria, con tests) y barrido final de marca Dinamo en seed/env/scripts.
+5. **12 tests nuevos** — cobertura del flujo de SetUp Inicial (integración backend con país, store con prefijo por país y ruta `/empresa`); suite total: 254 vitest · 54 cargo lib + integración completa.
+
 ## 3. CI (GitHub Actions)
 
-- **`ci.yml`** (cada push/PR a main): eslint · svelte-check (0/0) · **vitest (242 tests)** · vite build · **cargo test --lib (51)** (integración completa con seed_ci) · cargo check (all-targets + bins de mantenimiento) · **test del importador Python (16 casos)**.
+- **`ci.yml`** (cada push/PR a main): eslint · svelte-check (0/0) · **vitest (254 tests)** · vite build · **cargo test --lib (54)** (integración completa con seed_ci) · cargo check (all-targets + bins de mantenimiento) · **test del importador Python (16 casos)**.
 - **`release.yml`** (por tag `v*`): construye y publica el instalador (NSIS + MSI) vía `tauri-action`, con **body de release generado automáticamente** (changelog con los commits entre el tag anterior y el nuevo). **Firma los bundles para el auto-update** (`.sig` + `latest.json`) con el secret `TAURI_SIGNING_PRIVATE_KEY` (configurado — clave rotada el 16-08). Pipeline validado de punta a punta en la v1.0.14 (run [#31973941450](https://github.com/aleksei-corom/DynaRent/actions/runs/31973941450), success, ~10,5 min: paginación → changelog → build → firma → 5 assets publicados).
 - **Nota de operación:** el CI usa `cancel-in-progress` por rama — en pushes consecutivos solo el run del **tope** de main queda completo (los intermedios salen `cancelled`). Para verificar, mirar el run del HEAD.
 
@@ -85,7 +94,7 @@ embebida.
 |---|---|---|
 | **`importar_autos_clientes.py`** | Poblar Autos/Clientes desde dump SQL o Excel (upsert idempotente por placa/no_doc, PII cifrados con la clave del destino, dry-run por defecto, `--commit` transaccional) | `python scripts/importar_autos_clientes.py --sql dump.sql --commit` |
 | **`test_importar_autos_clientes.py`** | Test de regresión del importador (16 casos, sin BD; corre en CI) | `python scripts/test_importar_autos_clientes.py` |
-| **`verificar-despliegue.ps1`** | Post-instalación en el equipo del cliente: exe v1.0.14, arranque vivo 10 s, `config.ini` + BD del primer arranque — veredicto OK/FALLOS | `powershell -File scripts/verificar-despliegue.ps1` |
+| **`verificar-despliegue.ps1`** | Post-instalación en el equipo del cliente: exe v1.0.15, arranque vivo 10 s, `config.ini` + BD del primer arranque — veredicto OK/FALLOS | `powershell -File scripts/verificar-despliegue.ps1` |
 | **`verificar-updater-e2e.sh`** | Verificación E2E del auto-update sin publicar en GitHub: firma un artifact con la clave real, sirve un `latest.json` local y valida detección + firma + bytes (caso negativo incluido) | `bash scripts/verificar-updater-e2e.sh` |
 | **`dinamorent-sandbox.wsb` + `smoke-test-sandbox.ps1`** | Smoke test del instalador en Windows limpio (Sandbox) | abrir el `.wsb`; resultado en `smoke-result.txt` |
 | **`verificar-despliegue-sandbox.ps1` + `dinamorent-sandbox-verificar.wsb`** | Validar el verifier contra una instalación real en Sandbox | abrir el `.wsb` |
@@ -104,4 +113,4 @@ embebida.
 
 ## 6. Veredicto
 
-**El proyecto está listo para producción.** La única release estable es la v1.0.14 (primera release pública, construida por CI, firmada para el auto-update con la clave rotada, validada en Windows limpio vía Sandbox y verificada en el equipo de operaciones), la suite completa está en verde (local y CI), y el kit de operaciones (instalación, verificación, importación de datos, monitoreo SIMIT, verificación E2E del updater) está documentado y validado. La **auto-actualización está operativa de punta a punta**: repo público, secret `TAURI_SIGNING_PRIVATE_KEY` configurado con la clave nueva y E2E verificado contra el endpoint real de GitHub (cualquier instalación con la pubkey nueva detecta y ofrece la v1.0.14). Los pendientes conocidos son de mantenimiento fino, no bloqueos.
+**El proyecto está listo para producción.** La única release estable es la v1.0.15 (construida por CI, firmada para el auto-update con la clave rotada y con el SetUp Inicial con País y el branding de la empresa en los documentos), la suite completa está en verde (local y CI: 254 vitest, 54 cargo lib + integración completa), y el kit de operaciones (instalación, verificación, importación de datos, monitoreo SIMIT, verificación E2E del updater) está documentado y validado. La **auto-actualización está operativa de punta a punta**: repo público, secret `TAURI_SIGNING_PRIVATE_KEY` configurado con la clave nueva y E2E verificado contra el endpoint real de GitHub (cualquier instalación con la pubkey nueva detecta y ofrece la v1.0.15). Los pendientes conocidos son de mantenimiento fino, no bloqueos.
