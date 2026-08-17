@@ -566,15 +566,12 @@ y `IntoParams` para tuplas de **≤15**. Cualquier SELECT largo debe partirse en
       `contrato-real-pag1..4.png`) sin desbordes, texto cortado ni imágenes rotas.
       Quedan pendientes el **modal de inspección** de rentas, el **calendario** y el **panel del
       Agente SIMIT** en la app real (ver primera tarea de §3).
-- [ ] **Mostrar la versión REAL de la app en la barra de menú lateral.** El 14-08 el usuario
-      reportó que el menú lateral muestra **v3.2.0** (versión heredada del proyecto anterior),
-      no la versión real de la app (hoy **v1.0.14**). Pendiente de retomar cuando el usuario
-      vuelva a su PC: localizar dónde se renderiza esa versión en el layout/menú lateral
-      (`src/routes/+layout.svelte` o similar) y reemplazarla por la versión real de la app,
-      obtenida del backend (p. ej. comando de Tauri que lea `tauri.conf.json`/`Cargo.toml`
-      o `app_version`) en vez de un literal hardcodeado. El **auto-update** ya quedó
-      verificado E2E el 16-08 (release v1.0.14 detectada contra el endpoint real); solo
-      falta el arreglo visual de la versión en el menú.
+- [x] **Mostrar la versión REAL de la app en la barra de menú lateral.** Resuelto el 16-08: el
+      sidebar y el login mostraban **v3.2.0** (versión heredada del proyecto anterior); ahora
+      muestran **v1.0.14** (la versión real), coherente con el modal **Acerca de**
+      (DynaRent ERP by CORJAR) añadido el mismo día. El default `application.version` de
+      `config.rs` y `config.ini.example` también quedó alineado a **1.0.14**. El auto-update
+      quedó verificado E2E contra el endpoint real (release v1.0.14).
 
 ## 4. Convenciones a respetar
 
