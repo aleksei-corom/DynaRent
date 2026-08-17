@@ -821,7 +821,10 @@ Harness reutilizable: `scripts/verificar-despliegue-sandbox.ps1` +
 `scripts/dinamorent-sandbox-verificar.wsb`. Ver `DEPLOYMENT_CLIENTES.md` para el plan completo.
 
 También de esta línea: `scripts/dinamorent-sandbox.wsb` + `scripts/smoke-test-sandbox.ps1`
-(smoke test del instalador en Windows limpio, ver nota de portada 12-08).
+(smoke test del instalador en Windows limpio, ver nota de portada 12-08). Los scripts
+apuntan al bundle `nsis/` local — hoy verifican la **v1.0.16**; el smoke test de la
+v1.0.15 salió **VEREDICTO OPERATIVO** en equipo limpio (instalador OK, app viva, BD
+creada) y destapó que el SetUp Inicial no se lanzaba (arreglado en la v1.0.16, §7.6).
 
 ### 6.3 Dejar lista la BD de desarrollo desde cero (2026-08-14)
 
@@ -880,14 +883,22 @@ sin tocar código: **nombre, NIT, dirección, ciudad, teléfono, email, web y lo
   en `EMPRESA_CONFIG` (idempotente, patrón 0015). Antes la ciudad se derivaba
   de la dirección con una heurística frágil (la penúltima parte entre comas);
   ahora es un campo explícito del setup.
+- **Migración 0021** (`0021_empresa_pais.sql`): columna `PAIS VARCHAR(100)` en
+  `EMPRESA_CONFIG` (idempotente). Los **teléfonos de contacto llevan el código
+  del país** configurado (+57 Colombia, +58 Venezuela, +593 Ecuador…) en el
+  contrato y las órdenes, vía el mapa `CODIGOS_PAISES` de
+  `src/lib/utils/geografia.ts` (antes +57 fijo). Detalle en §7.6.
 - **Backend**: `repositories/empresa.rs` + `services/empresa.rs` +
   `commands/empresa.rs`:
   - `empresa_publica` (sin sesión) — nombre + logo para el login y el menú lateral.
   - `obtener_empresa` (sesión activa) — configuración completa (página /empresa
     e impresiones).
   - `guardar_empresa` (roles_con_usuarios, por defecto solo Administrador) —
-    persiste datos + logo (data URL → archivo; PNG/JPG/WebP/SVG, máx 2 MB) y
-    registra auditoría (`CONFIG_EMPRESA`).
+    persiste datos + logo (data URL → archivo; PNG/JPG/WebP/SVG, máx 2 MB),
+    registra auditoría (`CONFIG_EMPRESA`) y **marca el setup inicial como
+    completado** en config.ini (v1.0.16, ver §7.6).
+  - `setup_estado` (v1.0.16, sesión activa) — devuelve si el setup inicial ya
+    se completó (lee el flag persistido de config.ini, no el de memoria).
 - **Ciudad en el contrato**: la cláusula compromisoria del ContratoRenta
   ("cámara de comercio de {ciudad} / domicilio en {ciudad}") usa la ciudad
   configurada; si no hay ninguna, conserva 'Cartagena' (la del contrato
@@ -1065,3 +1076,86 @@ Tests de integración nuevos (BD dev y BD fresca de CI):
 `renta_creada_desde_reserva_completa_la_reserva` (completa + rechaza reuso) y
 `renta_desde_reserva_cancelada_rechazada` (reserva cancelada no genera renta).
 Validación: cargo test --tests ✅, vitest 242/242 ✅, svelte-check 0/0 ✅, lint ✅.
+
+### 7.6 — SetUp Inicial automático, país, versión real y ACL del auto-update (2026-08-17, v1.0.16)
+
+Sesión que cierra el flujo de primer uso y el auto-update. Origen: al verificar
+la instalación de la v1.0.15 en Windows Sandbox (equipo limpio) el smoke test
+salió **VEREDICTO OPERATIVO** (instalador OK, app viva, BD creada) pero el
+**SetUp Inicial no se lanzaba** — y el botón «Buscar actualización» fallaba con
+`Command plugin:updater|check not allowed by ACL`. Dos causas distintas:
+
+#### A) SetUp Inicial automático (el flag existía pero nadie lo usaba)
+
+El flag `setup_completed` estaba en `config.ini` (defaults) desde siempre pero
+**no había ningún código que lo leyera ni lo escribiera** — por eso un equipo
+limpio no ofrecía el formulario de la empresa tras el login.
+
+- **`config.rs`**: campo `setup_completed: bool` en `AppConfig`; método
+  `persist_setup_completado()` (escritura atómica temp+rename, mismo patrón que
+  `persist_db_encryption_key`) y `setup_completado_persistido()` (re-lee el
+  flag de config.ini: refleja el cambio en la misma ejecución, sin reiniciar).
+- **`commands/empresa.rs`**: comando nuevo `setup_estado(session_id)` (requiere
+  sesión, devuelve `setup_completado_persistido()`); `guardar_empresa` persiste
+  el flag tras guardar (best-effort, log si falla). Registrado en `lib.rs`.
+- **Frontend**: `setupApi.estado()` en `api.ts`; el store `empresa.svelte.ts`
+  gana `setupCompletado` (null = sin consultar) + `cargarSetup()` (consulta una
+  sola vez) + `marcarSetupCompletado()`; el **layout** consulta el estado tras
+  validar sesión y un `$effect` redirige al **Administrador** a `/empresa` si
+  está pendiente (solo rol Administrador — un Operador no queda atrapado en un
+  bucle con el guardRole de la página — y excluyendo `/login`,
+  `/cambiar-password` y la propia `/empresa`); la página `/empresa` marca el
+  setup al guardar y, si el usuario llegó por el flujo de setup, continúa al
+  dashboard.
+- **Tests (6 nuevos)**: integración backend (flag `false` inicial → tras
+  `guardar_empresa` `setup_estado` devuelve `true` en la misma ejecución y
+  `setup_completed = true` queda en config.ini; sin sesión → `session_expired`)
+  — el helper `dev_state_copia` ahora copia **también config.ini** a un
+  directorio temporal para que los tests no escriban sobre el config real de
+  dev; store (consulta única, marcar, error conserva null); ruta (guarda con
+  setup pendiente → marca + `goto('/dashboard')`; ya completado → no navega).
+
+#### B) País en el SetUp Inicial (teléfonos con su código)
+
+Campo **País** en `/empresa` (migración 0021, `SelectConNuevo` como en
+clientes): el prefijo telefónico de los contactos sale del país configurado
+(`conPrefijoPais` en el store, mapa `CODIGOS_PAISES` en `geografia.ts` con 29
+países → +57, +1, +58, +593…; sin país configurado el fallback es Colombia
++57; un teléfono que ya lleva `+` no se duplica). Los 3 documentos
+(Contrato, Orden de Renta y Orden de Reserva) muestran los datos de la empresa
+desde el setup — el **pie de contacto** (dirección + teléfonos con código +
+email, omitiendo vacíos) se añadió a las Órdenes en el commit `14cc782`, que
+antes solo mostraban nombre + logo.
+
+#### C) Versión real del binario en la ventana
+
+Sidebar, login y Acerca de mostraban **v1.0.14 hardcodeado** (el sandbox con la
+v1.0.15 instalada seguía diciendo v1.0.14). Nuevo store `src/lib/stores/app.svelte.ts`
+que lee la versión con **`getVersion()`** de `@tauri-apps/api/app` (la versión
+embebida en el binario desde `tauri.conf.json` — permiso `core:app:allow-version`
+ya incluido en `core:default`, sin tocar la ACL) y los 3 puntos la muestran
+dinámicamente. `application.version` de `config.rs`/`config.ini.example`
+mantenido alineado al bump.
+
+#### D) ACL del auto-update (fix)
+
+La capability `src-tauri/capabilities/default.json` solo exponía `core:default`
+y TODO comando de plugin pasa por la ACL en Tauri v2: `check()` del updater
+fallaba con `plugin:updater|check not allowed by ACL` (el chequeo del arranque
+fallaba en silencio; el botón manual lo destapó). Se añadieron
+**`updater:default`** (check/download/install/download-and-install) y
+**`process:default`** (restart — el `relaunch()` tras instalar), sin exponer
+fs/shell/http (postura G-C4 conservada). ⚠️ La ACL va embebida en el binario:
+una versión instalada sin el fix NO puede auto-actualizarse — hay que instalar
+el instalador nuevo una vez a mano para salir del hueco (la v1.0.16 ya lo trae).
+
+#### Verificación
+
+- Local: cargo test --lib 54 ✅ · `empresa_comandos_integration` 3 ✅ (con
+  config.ini aislado) · vitest **260** (30 archivos) ✅ · svelte-check 0/0 ✅.
+- Release **v1.0.16** publicada por CI (run #31993165607, success 8m46s): 5
+  assets, sha256 reales `6d2353d3…` (exe) / `dc72e172…` (msi); `latest.json`
+  sirve la v1.0.16 y la **firma se verificó E2E con la pubkey de producción**
+  (binario `updater_e2e` contra un `latest.json` local que apunta al MSI real:
+  "firma verificada y bytes idénticos al artifact"). CI de main verde tras el
+  push (run #31995861236, 5m27s).
