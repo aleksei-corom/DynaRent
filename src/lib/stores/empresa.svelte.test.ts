@@ -1,7 +1,8 @@
 // src/lib/stores/empresa.svelte.test.ts — Tests del store de la empresa
 // (setup inicial /empresa): el prefijo telefónico de contacto sale del país
 // configurado, no de un hardcode (+57 siempre).
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { tauri } from '../../test/tauri';
 import { empresa, FALLBACK_PAIS } from './empresa.svelte';
 
 /** Resetea el store a "sin configurar" (los $state son públicos). */
@@ -15,6 +16,7 @@ function reset() {
 	empresa.web = null;
 	empresa.ciudad = null;
 	empresa.pais = null;
+	empresa.setupCompletado = null;
 }
 
 beforeEach(() => {
@@ -85,5 +87,35 @@ describe('empresa store — prefijo telefónico según país', () => {
 		});
 		expect(empresa.paisMostrar).toBe('Venezuela');
 		expect(empresa.telefonoMostrar).toBe('+58 414 555 0101');
+	});
+});
+
+describe('empresa store — estado del setup inicial', () => {
+	it('cargarSetup consulta el backend y refleja el setup pendiente', async () => {
+		tauri.register('setup_estado', () => false);
+		await empresa.cargarSetup('tok');
+		expect(empresa.setupCompletado).toBe(false);
+	});
+
+	it('cargarSetup solo consulta una vez (caché en memoria)', async () => {
+		const estado = vi.fn(() => true);
+		tauri.register('setup_estado', estado);
+		await empresa.cargarSetup('tok');
+		await empresa.cargarSetup('tok');
+		expect(estado).toHaveBeenCalledTimes(1);
+	});
+
+	it('marcarSetupCompletado cierra el flujo de setup', () => {
+		empresa.setupCompletado = false;
+		empresa.marcarSetupCompletado();
+		expect(empresa.setupCompletado).toBe(true);
+	});
+
+	it('ante error del backend conserva null (sin redirigir por error)', async () => {
+		tauri.register('setup_estado', () => {
+			throw JSON.stringify({ kind: 'generic', message: 'error de prueba' });
+		});
+		await empresa.cargarSetup('tok');
+		expect(empresa.setupCompletado).toBeNull();
 	});
 });

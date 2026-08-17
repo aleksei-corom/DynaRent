@@ -1078,6 +1078,12 @@ export const empresaApi = {
 		invokeCmd<EmpresaConfig>('guardar_empresa', { sessionId, datos })
 };
 
+/** Estado del setup inicial (si la empresa ya configuró sus datos en /empresa) */
+export const setupApi = {
+	/** ¿El setup inicial ya se completó? (requiere sesión activa) */
+	estado: (sessionId: string) => invokeCmd<boolean>('setup_estado', { sessionId })
+};
+
 // ─── Comandos de Usuarios (solo roles de administración) ────────────────────
 
 /** Usuario (repositories/usuario.rs) — sin contraseña */

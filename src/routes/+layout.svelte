@@ -5,6 +5,7 @@
 	import { goto } from '$app/navigation';
 	import { session } from '$lib/stores/session.svelte';
 	import { empresa } from '$lib/stores/empresa.svelte';
+	import { appInfo } from '$lib/stores/app.svelte';
 	import { authApi } from '$lib/api';
 	import { validarSesion } from '$lib/utils/guards';
 	import Toast from '$lib/components/Toast.svelte';
@@ -56,6 +57,30 @@
 		// Branding de la empresa (nombre + logo) para el menú lateral;
 		// best-effort: ante error se conserva el fallback estático.
 		void empresa.cargarPublica();
+		// Versión real del binario instalado (sidebar / login / Acerca de).
+		void appInfo.cargarVersion();
+		// Estado del setup inicial: si el admin aún no configuró la empresa,
+		// el $effect de abajo lo lleva a /empresa (SetUp Inicial).
+		if (session.isAuthenticated && session.token) {
+			void empresa.cargarSetup(session.token);
+		}
+	});
+
+	// ── Setup inicial ──
+	// Si config.ini aún no marca el setup como completado, el Administrador
+	// es llevado a /empresa para ingresar los datos de la empresa (nombre,
+	// dirección, teléfonos de contacto y logo). Se excluyen /login y
+	// /cambiar-password (flujo forzado del primer acceso) y la propia
+	// /empresa para no crear un bucle de redirección.
+	$effect(() => {
+		const pendiente =
+			empresa.setupCompletado === false &&
+			session.isAuthenticated &&
+			session.user?.rol === 'Administrador';
+		if (!pendiente) return;
+		const p = page.url.pathname;
+		if (p === '/empresa' || p === '/login' || p === '/cambiar-password') return;
+		void goto('/empresa', { replaceState: true });
 	});
 
 	// ── Tema por usuario (persistido en BD, tabla usuarios) ──
@@ -288,7 +313,7 @@ const isFullscreen = $derived(['/login', '/cambiar-password'].includes(page.url.
 				{#if sidebarOpen}
 					<div class="overflow-hidden">
 						<p class="font-bold text-sm leading-tight">{empresa.nombreMostrar}</p>
-						<p class="text-[11px] text-white/60">ERP v1.0.14</p>
+						{#if appInfo.version}<p class="text-[11px] text-white/60">ERP v{appInfo.version}</p>{/if}
 					</div>
 				{/if}
 			</div>

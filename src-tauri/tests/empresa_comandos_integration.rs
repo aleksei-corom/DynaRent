@@ -18,7 +18,9 @@ use serial_test::serial;
 use tauri::Manager;
 use tauri::test::{mock_builder, mock_context, noop_assets};
 
-use dynarent_lib::commands::empresa::{empresa_publica, guardar_empresa, obtener_empresa};
+use dynarent_lib::commands::empresa::{
+    empresa_publica, guardar_empresa, obtener_empresa, setup_estado,
+};
 use dynarent_lib::core::config::AppConfig;
 use dynarent_lib::core::db::create_pool;
 use dynarent_lib::core::migrations::run_migrations;
@@ -40,36 +42,46 @@ impl<F: FnOnce()> Drop for AlSalir<F> {
     }
 }
 
-/// Borra el .fdb temporal al salir del scope (panic-safe).
-struct LimpiarTemporal(PathBuf);
-impl Drop for LimpiarTemporal {
+/// Borra un directorio temporal completo al salir del scope (panic-safe).
+struct LimpiarDir(PathBuf);
+impl Drop for LimpiarDir {
     fn drop(&mut self) {
-        let _ = std::fs::remove_file(&self.0);
+        let _ = std::fs::remove_dir_all(&self.0);
     }
 }
 
 /// Estado de la app sobre una COPIA temporal de la BD dev, con las migraciones
-/// pendientes aplicadas (incluida 0021). Devuelve (AppState, guard de limpieza).
-fn dev_state_copia() -> (AppState, LimpiarTemporal) {
+/// pendientes aplicadas (incluida 0021). La BD y el config.ini se copian a un
+/// directorio temporal: los tests no escriben sobre los archivos reales de
+/// desarrollo (guardar_empresa persiste el flag setup_completed en
+/// config.ini). Devuelve (AppState, guard de limpieza).
+fn dev_state_copia() -> (AppState, LimpiarDir) {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let data_dir = manifest.join("../data");
     let resource_dir = manifest.join("resources");
 
-    // Copia temporal de la BD de desarrollo.
-    let src = data_dir.join("dynarent_v3.fdb");
-    assert!(src.exists(), "BD de desarrollo no encontrada: {src:?}");
-    let tmp = std::env::temp_dir().join(format!(
-        "dynarent_empresa_{}.fdb",
+    // Directorio temporal con copias de la BD y de config.ini de desarrollo.
+    let tmp_dir = std::env::temp_dir().join(format!(
+        "dynarent_empresa_{}",
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_nanos())
             .unwrap_or(0)
     ));
-    std::fs::copy(&src, &tmp).expect("copiar .fdb a temporal");
-    let limpieza = LimpiarTemporal(tmp.clone());
+    std::fs::create_dir_all(&tmp_dir).expect("crear directorio temporal");
+    let limpieza = LimpiarDir(tmp_dir.clone());
 
-    let mut cfg = AppConfig::load(&data_dir, &resource_dir, &manifest);
-    cfg.db_path = tmp;
+    let src = data_dir.join("dynarent_v3.fdb");
+    assert!(src.exists(), "BD de desarrollo no encontrada: {src:?}");
+    let tmp_fdb = tmp_dir.join("dynarent_v3.fdb");
+    std::fs::copy(&src, &tmp_fdb).expect("copiar .fdb a temporal");
+    let cfg_src = data_dir.join("config.ini");
+    if cfg_src.exists() {
+        std::fs::copy(&cfg_src, tmp_dir.join("config.ini")).expect("copiar config.ini");
+    }
+
+    let mut cfg = AppConfig::load(&tmp_dir, &resource_dir, &manifest);
+    cfg.db_path = tmp_fdb;
     let cfg = Arc::new(cfg);
     let pool = create_pool(&cfg).expect("pool embedded");
 
@@ -286,4 +298,79 @@ fn setup_inicial_valida_sesion_y_rol() {
     let ok = obtener_empresa(st.clone(), sid_admin).expect("admin lee");
     // No importa el valor: el punto es que no hay error de sesión ni de rol.
     let _ = ok;
+}
+
+#[test]
+#[serial]
+fn setup_estado_flag_y_persistencia() {
+    let (state, _limpieza) = dev_state_copia();
+    let mut conn = state.pool.get().expect("conn");
+    // Clon antes de mover `state` a app_mock (el config.ini vive en config_dir).
+    let config_dir = state.config.config_dir.clone();
+
+    let suf = uniq();
+    let username = format!("s{}", &suf[..suf.len().min(9)]);
+    let id = UsuarioService::crear(
+        &mut conn,
+        &state.config,
+        "admin",
+        datos_usuario(&username, "Administrador"),
+    )
+    .expect("crear admin")
+    .id;
+    let _limpieza_user = AlSalir(Some(move || {
+        let _ = UsuarioService::eliminar(&mut conn, "admin", id);
+    }));
+    let sid = crear_sesion(&state, id, &username, "Administrador");
+
+    let app = app_mock(state);
+    let st = app.state::<AppState>();
+
+    // ── 1) Equipo nuevo → setup pendiente ──
+    assert_eq!(
+        setup_estado(st.clone(), sid.clone()).expect("estado inicial"),
+        false,
+        "un equipo sin configurar tiene el setup pendiente"
+    );
+
+    // ── 2) Guardar la empresa → el setup queda completado ──
+    guardar_empresa(
+        st.clone(),
+        sid.clone(),
+        EmpresaConfigDatos {
+            nombre: Some("DynaRent Test SAS".into()),
+            nit: None,
+            direccion: Some("Cra 12 # 34-56".into()),
+            telefono: Some("310 123 4567".into()),
+            email: None,
+            web: None,
+            ciudad: None,
+            pais: Some("Colombia".into()),
+            logo: None,
+        },
+    )
+    .expect("guardar empresa");
+
+    // El comando lee el flag PERSISTIDO → ya no está pendiente en la misma
+    // ejecución (sin reiniciar la app).
+    assert_eq!(
+        setup_estado(st.clone(), sid.clone()).expect("estado tras guardar"),
+        true,
+        "tras guardar el setup queda completado"
+    );
+
+    // ── 3) El flag quedó en config.ini (fuente de verdad del próximo arranque) ──
+    let ini = std::fs::read_to_string(config_dir.join("config.ini")).expect("leer config.ini");
+    assert!(
+        ini.contains("setup_completed"),
+        "config.ini debe contener el flag setup_completed:\n{ini}"
+    );
+    assert!(
+        ini.contains("setup_completed = true") || ini.contains("setup_completed=true"),
+        "el flag debe quedar en true:\n{ini}"
+    );
+
+    // ── 4) Sin sesión → session_expired ──
+    let err = setup_estado(st.clone(), "token-inexistente".into()).expect_err("sin sesión");
+    assert_eq!(err.kind, "session_expired");
 }

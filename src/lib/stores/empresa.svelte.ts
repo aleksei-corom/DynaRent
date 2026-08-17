@@ -7,7 +7,7 @@
 // se conserva el branding estático por defecto (fallbacks ajustables por marca:
 // el clon comercial usa DynaRent).
 
-import { empresaApi, type EmpresaConfig } from '$lib/api';
+import { empresaApi, setupApi, type EmpresaConfig } from '$lib/api';
 import { codigoPais } from '$lib/utils/geografia';
 
 /** Branding por defecto cuando la empresa aún no configuró nada. */
@@ -55,6 +55,10 @@ class EmpresaStore {
 	ciudad = $state<string | null>(null);
 	pais = $state<string | null>(null);
 	completaCargada = $state(false);
+
+	// Setup inicial: `null` = aún sin consultar; `false` = pendiente (el
+	// layout redirige al admin a /empresa); `true` = ya configurado.
+	setupCompletado = $state<boolean | null>(null);
 
 	// ── Getters con fallback estático ──
 	get nombreMostrar(): string {
@@ -118,6 +122,21 @@ class EmpresaStore {
 		} finally {
 			this.cargado = true;
 		}
+	}
+
+	/** Carga el estado del setup inicial (requiere sesión). `null` → consulta. */
+	async cargarSetup(sessionId: string): Promise<void> {
+		if (this.setupCompletado !== null) return;
+		try {
+			this.setupCompletado = await setupApi.estado(sessionId);
+		} catch (e) {
+			console.warn('No se pudo leer el estado del setup inicial:', e);
+		}
+	}
+
+	/** Marca el setup como completado tras guardar desde la página /empresa. */
+	marcarSetupCompletado(): void {
+		this.setupCompletado = true;
 	}
 
 	/** Carga la configuración completa (requiere sesión; usada por las impresiones). */

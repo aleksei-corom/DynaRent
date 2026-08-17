@@ -48,7 +48,7 @@ const DEFAULTS: &[(&str, &str, &str)] = &[
     ("logging", "audit_retention_days", "30"),
     // [application]
     ("application", "name", "DynaRent ERP"),
-    ("application", "version", "1.0.15"),
+    ("application", "version", "1.0.16"),
     ("application", "author", "DynaRent"),
     ("application", "language", "es"),
     ("application", "timezone", "America/Bogota"),
@@ -193,6 +193,8 @@ pub struct AppConfig {
     // ── Application ──
     pub app_name: String,
     pub app_version: String,
+    /// ¿El setup inicial ya se completó? (config.ini [application] setup_completed)
+    pub setup_completed: bool,
     // ── UI (para el frontend) ──
     pub ui_color_primario: String,
     pub ui_color_fondo: String,
@@ -306,12 +308,54 @@ impl AppConfig {
                 .parse::<f64>()
                 .unwrap_or(19.0),
             app_name: get_str(&map, "application", "name", "DynaRent ERP"),
-            app_version: get_str(&map, "application", "version", "1.0.15"),
+            app_version: get_str(&map, "application", "version", "1.0.16"),
+            setup_completed: get_bool(&map, "application", "setup_completed", false),
             ui_color_primario: get_str(&map, "ui", "color_primario", "#1e40af"),
             ui_color_fondo: get_str(&map, "ui", "color_fondo", "#f8fafc"),
             config_dir: config_path.parent().unwrap_or(data_dir).to_path_buf(),
             data_dir: data_dir.to_path_buf(),
         }
+    }
+
+    /// Lee el flag `setup_completed` directamente de config.ini.
+    ///
+    /// El campo en memoria se carga al arrancar; este método refleja lo
+    /// persistido, de modo que `setup_estado` devuelva `true` apenas
+    /// `guardar_empresa` marca el setup en esta misma ejecución (sin
+    /// reiniciar la app).
+    pub fn setup_completado_persistido(&self) -> bool {
+        match std::fs::read_to_string(self.config_dir.join("config.ini")) {
+            Ok(content) => get_bool(&parse_ini(&content), "application", "setup_completed", false),
+            Err(_) => self.setup_completed,
+        }
+    }
+
+    /// Persiste el flag `setup_completed` (setup inicial terminado) en la
+    /// sección [application] de config.ini. Mismo patrón de escritura atómica
+    /// que `persist_db_encryption_key` (temp + rename).
+    pub fn persist_setup_completado(&self) -> Result<(), AppError> {
+        let path = self.config_dir.join("config.ini");
+        let mut map = match std::fs::read_to_string(&path) {
+            Ok(content) => parse_ini(&content),
+            Err(e) => {
+                log::warn!("No se pudo leer config.ini para persistir el setup ({e}) — se usan defaults");
+                parse_ini(&build_default_ini_text())
+            }
+        };
+        map.entry("application".into())
+            .or_default()
+            .insert("setup_completed".into(), "true".into());
+        let content = serialize_ini(&map);
+        // Escritura atómica: temp + rename para no dejar el archivo truncado
+        // si la app se cierra a mitad de la escritura.
+        let tmp = path.with_extension("ini.tmp");
+        std::fs::write(&tmp, &content).map_err(|e| {
+            AppError::Generic(format!("No se pudo escribir config.ini: {e}"))
+        })?;
+        std::fs::rename(&tmp, &path).map_err(|e| {
+            let _ = std::fs::remove_file(&tmp);
+            AppError::Generic(format!("No se pudo actualizar config.ini: {e}"))
+        })
     }
 
     /// Persiste `db_encryption_key` en la sección [security] de config.ini

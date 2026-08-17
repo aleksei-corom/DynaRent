@@ -202,6 +202,7 @@ pub fn run() {
             commands::empresa::empresa_publica,
             commands::empresa::obtener_empresa,
             commands::empresa::guardar_empresa,
+            commands::empresa::setup_estado,
             commands::business::get_business_lists,
             commands::comparendo::listar_comparendos,
             commands::comparendo::obtener_comparendo,

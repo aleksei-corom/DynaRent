@@ -4,6 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
 import { tauri } from '../../test/tauri';
+import { goto } from '$app/navigation';
 import { session } from '$lib/stores/session.svelte';
 import { empresa } from '$lib/stores/empresa.svelte';
 import type { EmpresaConfig, EmpresaConfigDatos } from '$lib/api';
@@ -39,6 +40,9 @@ beforeEach(() => {
 	session.clear();
 	setSesion();
 	window.history.replaceState({}, '', '/empresa');
+	// El stub de tests reemplaza a `goto`; el cast evita el tipo real de SvelteKit.
+	(goto as unknown as ReturnType<typeof vi.fn>).mockClear();
+	empresa.setupCompletado = null;
 });
 
 describe('página de SetUp Inicial (/empresa)', () => {
@@ -101,5 +105,42 @@ describe('página de SetUp Inicial (/empresa)', () => {
 		const selectPais = screen.getByRole('combobox') as HTMLSelectElement;
 		expect(selectPais.value).toBe('');
 		expect(screen.getByRole('option', { name: '— Seleccionar país —' })).toBeInTheDocument();
+	});
+
+	it('al guardar con el setup pendiente marca el setup completado y navega al dashboard', async () => {
+		// El layout redirigió al admin a /empresa porque el setup está pendiente.
+		empresa.setupCompletado = false;
+		tauri.register('obtener_empresa', () => config());
+		tauri.register('guardar_empresa', () => config());
+
+		render(EmpresaPage);
+
+		const nombre = (await screen.findByPlaceholderText('Ej: DynaRent S.A.S.')) as HTMLInputElement;
+		await waitFor(() => expect(nombre.value).toBe('DynaRent Test SAS'));
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+
+		// El store marca el setup como completado y se continúa al dashboard.
+		await waitFor(() => expect(empresa.setupCompletado).toBe(true));
+		expect(goto).toHaveBeenCalledWith('/dashboard');
+	});
+
+	it('si el setup ya estaba completado, guardar no navega al dashboard', async () => {
+		// La página se abrió desde el menú (setup ya resuelto en config.ini).
+		empresa.setupCompletado = true;
+		const guardar = vi.fn(() => config());
+		tauri.register('obtener_empresa', () => config());
+		tauri.register('guardar_empresa', guardar);
+
+		render(EmpresaPage);
+
+		const nombre = (await screen.findByPlaceholderText('Ej: DynaRent S.A.S.')) as HTMLInputElement;
+		await waitFor(() => expect(nombre.value).toBe('DynaRent Test SAS'));
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+
+		await waitFor(() => expect(guardar).toHaveBeenCalledTimes(1));
+		expect(empresa.setupCompletado).toBe(true);
+		expect(goto).not.toHaveBeenCalled();
 	});
 });

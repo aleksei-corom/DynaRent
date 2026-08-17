@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { ApiError, empresaApi, type EmpresaConfig } from '$lib/api';
 	import { toast } from '$lib/stores/toast.svelte';
 	import { empresa } from '$lib/stores/empresa.svelte';
@@ -86,6 +87,9 @@
 	async function guardar() {
 		error = '';
 		guardando = true;
+		// ¿Llegó por el flujo de SetUp Inicial? (layout → /empresa). Al guardar
+		// se marca el setup como completado y se continúa al dashboard.
+		const eraSetupPendiente = empresa.setupCompletado === false;
 		try {
 			const cfg = await empresaApi.guardar(sid(), {
 				nombre: form.nombre.trim() || null,
@@ -98,10 +102,15 @@
 				pais: form.pais.trim() || null,
 				logo: logoDataUrl
 			});
-			// Refrescar branding en caliente (login / menú lateral / impresiones).
+			// Refrescar branding en caliente (login / menú lateral / impresiones)
+			// y marcar el setup inicial como completado (config.ini, backend).
 			empresa.actualizar(cfg);
+			empresa.marcarSetupCompletado();
 			logoDataUrl = cfg.logo;
 			toast.success('Configuración de la empresa guardada.');
+			if (eraSetupPendiente) {
+				void goto('/dashboard');
+			}
 		} catch (e) {
 			error = e instanceof ApiError ? e.message : 'No se pudo guardar la configuración.';
 		} finally {
