@@ -8,6 +8,7 @@
 // el clon comercial usa DynaRent).
 
 import { empresaApi, type EmpresaConfig } from '$lib/api';
+import { codigoPais } from '$lib/utils/geografia';
 
 /** Branding por defecto cuando la empresa aún no configuró nada. */
 export const FALLBACK_NOMBRE = 'DynaRent';
@@ -21,23 +22,23 @@ export const FALLBACK_EMAIL = '';
 export const FALLBACK_WEB = '';
 export const FALLBACK_DIRECCION = '';
 
-/** Añade +57 a los celulares colombianos (10 dígitos que empiezan por 3) de un
- *  texto de contacto separado por • | , ; - , sin duplicar si ya tienen prefijo. */
-function conPrefijo57(tel: string): string {
+/** Añade el código telefónico del país configurado en el setup (/empresa) a
+ *  los teléfonos de contacto (separados por • | , ; -), sin duplicar si ya
+ *  llevan prefijo (empiezan por +). Sin país configurado deja el texto tal
+ *  cual (el fallback de marca es Colombia → +57). */
+function conPrefijoPais(tel: string, pais?: string | null): string {
+	const codigo = codigoPais(pais);
+	if (!codigo) return tel;
 	return tel
 		.split(/\s*[•|,;-]\s*/)
 		.map((t) => t.trim())
 		.filter(Boolean)
-		.map((t) => {
-			const digitos = t.replace(/\D/g, '');
-			if (digitos.length === 10 && digitos.startsWith('3') && !t.includes('+57')) {
-				return `+57 ${t}`;
-			}
-			return t;
-		})
+		.map((t) => (t.startsWith('+') ? t : `${codigo} ${t}`))
 		.join(' • ');
 }
 export const FALLBACK_CIUDAD = '';
+/** País por defecto mientras la empresa no configura el suyo (Colombia). */
+export const FALLBACK_PAIS = 'Colombia';
 
 class EmpresaStore {
 	// Vista pública (login / menú lateral)
@@ -52,6 +53,7 @@ class EmpresaStore {
 	email = $state<string | null>(null);
 	web = $state<string | null>(null);
 	ciudad = $state<string | null>(null);
+	pais = $state<string | null>(null);
 	completaCargada = $state(false);
 
 	// ── Getters con fallback estático ──
@@ -68,7 +70,12 @@ class EmpresaStore {
 	}
 
 	get telefonoMostrar(): string {
-		return conPrefijo57(this.telefono?.trim() || FALLBACK_TELEFONO);
+		return conPrefijoPais(this.telefono?.trim() || FALLBACK_TELEFONO, this.paisMostrar);
+	}
+
+	/** País de la empresa: el configurado en el setup (/empresa) o el fallback. */
+	get paisMostrar(): string {
+		return this.pais?.trim() || FALLBACK_PAIS;
 	}
 
 	get emailMostrar(): string {
@@ -140,6 +147,7 @@ class EmpresaStore {
 		this.email = cfg.email;
 		this.web = cfg.web;
 		this.ciudad = cfg.ciudad;
+		this.pais = cfg.pais;
 		this.cargado = true;
 		this.completaCargada = true;
 	}

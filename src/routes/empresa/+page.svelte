@@ -6,6 +6,8 @@
 	import { sid } from '$lib/stores/session.svelte';
 	import { guardRole, guardSesion, haySesion } from '$lib/utils/guards';
 	import FormField from '$lib/components/FormField.svelte';
+	import SelectConNuevo from '$lib/components/SelectConNuevo.svelte';
+	import { geografia } from '$lib/utils/geografia';
 
 	let cargando = $state(true);
 	let guardando = $state(false);
@@ -18,8 +20,12 @@
 		telefono: '',
 		email: '',
 		web: '',
-		ciudad: ''
+		ciudad: '',
+		pais: ''
 	});
+
+	// Opciones de país: catálogo base (Colombia primero) + valores ya usados.
+	const paises = $derived(geografia.paises());
 
 	// Logo: data URL (persistida) mientras no se cambie; null = sin logo.
 	let logoDataUrl = $state<string | null>(null);
@@ -37,6 +43,7 @@
 			form.email = cfg.email ?? '';
 			form.web = cfg.web ?? '';
 			form.ciudad = cfg.ciudad ?? '';
+			form.pais = cfg.pais ?? '';
 			logoDataUrl = cfg.logo;
 		} catch (e) {
 			error = e instanceof ApiError ? e.message : 'No se pudo cargar la configuración de la empresa.';
@@ -88,6 +95,7 @@
 				email: form.email.trim() || null,
 				web: form.web.trim() || null,
 				ciudad: form.ciudad.trim() || null,
+				pais: form.pais.trim() || null,
 				logo: logoDataUrl
 			});
 			// Refrescar branding en caliente (login / menú lateral / impresiones).
@@ -179,6 +187,14 @@
 				<FormField label="Ciudad">
 					<input class="input" placeholder="Ej: Bogotá" bind:value={form.ciudad} maxlength="100" />
 				</FormField>
+				<SelectConNuevo
+					label="País"
+					hint="Los teléfonos de contacto llevarán su código (p. ej. +57 para Colombia)."
+					value={form.pais}
+					opciones={paises}
+					placeholder="— Seleccionar país —"
+					onchange={(v) => (form.pais = v)}
+				/>
 				<FormField label="Email">
 					<input class="input" type="email" placeholder="contacto@empresa.com" bind:value={form.email} maxlength="120" />
 				</FormField>

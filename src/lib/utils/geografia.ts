@@ -38,6 +38,52 @@ export const PAISES_BASE: string[] = [
 	'Israel'
 ];
 
+/** Código telefónico internacional por país (nombre según PAISES_BASE).
+ *  Se usa para que los teléfonos de contacto de la empresa lleven el código
+ *  del país donde se usa la aplicación (setup inicial /empresa). */
+export const CODIGOS_PAISES: Record<string, string> = {
+	'Colombia': '+57',
+	'Estados Unidos': '+1',
+	'Venezuela': '+58',
+	'Ecuador': '+593',
+	'Perú': '+51',
+	'Panamá': '+507',
+	'México': '+52',
+	'Brasil': '+55',
+	'Argentina': '+54',
+	'Chile': '+56',
+	'España': '+34',
+	'Canadá': '+1',
+	'Costa Rica': '+506',
+	'El Salvador': '+503',
+	'Guatemala': '+502',
+	'Honduras': '+504',
+	'Nicaragua': '+505',
+	'Uruguay': '+598',
+	'Paraguay': '+595',
+	'Bolivia': '+591',
+	'República Dominicana': '+1',
+	'Puerto Rico': '+1',
+	'Francia': '+33',
+	'Alemania': '+49',
+	'Italia': '+39',
+	'Reino Unido': '+44',
+	'China': '+86',
+	'Japón': '+81',
+	'Israel': '+972'
+};
+
+/** Código telefónico de un país por nombre (insensible a mayúsculas/acentos
+ *  suaves); undefined si el país no está en el catálogo. */
+export function codigoPais(nombre?: string | null): string | undefined {
+	if (!nombre) return undefined;
+	const normal = nombre.trim().toLowerCase();
+	return (
+		CODIGOS_PAISES[normal] ??
+		Object.entries(CODIGOS_PAISES).find(([p]) => p.toLowerCase() === normal)?.[1]
+	);
+}
+
 /** Los 32 departamentos de Colombia + Bogotá D.C. */
 export const DEPARTAMENTOS_COLOMBIA: string[] = [
 	'Amazonas',

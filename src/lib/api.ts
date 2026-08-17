@@ -1049,6 +1049,8 @@ export interface EmpresaConfig {
 	email: string | null;
 	web: string | null;
 	ciudad: string | null;
+	/** País donde se usa la aplicación (código telefónico de los contactos) */
+	pais: string | null;
 	/** Data URL del logo (data:image/...;base64,...) o null */
 	logo: string | null;
 }
@@ -1062,6 +1064,7 @@ export interface EmpresaConfigDatos {
 	email?: string | null;
 	web?: string | null;
 	ciudad?: string | null;
+	pais?: string | null;
 	logo?: string | null;
 }
 
