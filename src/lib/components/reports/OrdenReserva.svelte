@@ -34,6 +34,18 @@
 	const saldoPendiente = $derived(
 		Math.max(0, (parseFloat(reserva.total) || 0) - (parseFloat(reserva.abono) || 0))
 	);
+
+	// Datos de contacto de la empresa (setup inicial): dirección, teléfonos con
+	// código del país y email; se omiten los vacíos (fallback estático).
+	const pieContacto = $derived(
+		[
+			empresa.direccionMostrar,
+			empresa.telefonoMostrar ? `Tel: ${empresa.telefonoMostrar}` : '',
+			empresa.emailMostrar
+		]
+			.filter(Boolean)
+			.join(' • ')
+	);
 </script>
 
 <div class="print-area bg-white text-slate-900">
@@ -160,7 +172,10 @@
 	</p>
 
 	<!-- Pie -->
-	<p class="border-t border-slate-200 pt-3 text-center text-[10px] text-slate-400 mt-8">
-		{empresa.nombreMostrar} · Reserva No. {String(reserva.id).padStart(4, '0')} · Impresa el {hoy}
-	</p>
+	<div class="border-t border-slate-200 pt-3 text-center text-[10px] text-slate-400 mt-8 space-y-0.5">
+		{#if pieContacto}<p style="margin: 0;">{pieContacto}</p>{/if}
+		<p style="margin: 0;">
+			{empresa.nombreMostrar} · Reserva No. {String(reserva.id).padStart(4, '0')} · Impresa el {hoy}
+		</p>
+	</div>
 </div>

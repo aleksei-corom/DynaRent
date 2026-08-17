@@ -62,6 +62,18 @@
 					: 'estado-otro'
 	);
 
+	// Datos de contacto de la empresa (setup inicial): dirección, teléfonos con
+	// código del país y email; se omiten los vacíos (fallback estático).
+	const pieContacto = $derived(
+		[
+			empresa.direccionMostrar,
+			empresa.telefonoMostrar ? `Tel: ${empresa.telefonoMostrar}` : '',
+			empresa.emailMostrar
+		]
+			.filter(Boolean)
+			.join(' • ')
+	);
+
 	const insSalida = $derived(renta.inspecciones.find((i) => i.tipo === 'Salida'));
 	const insEntrada = $derived(renta.inspecciones.find((i) => i.tipo === 'Entrada'));
 
@@ -596,7 +608,10 @@
 	</p>
 
 	<!-- Pie -->
-	<p class="pie">
-		{empresa.nombreMostrar} · Contrato {formatContrato(renta.anioContrato, renta.noContrato)} · Renta No. {String(renta.id).padStart(4, '0')} · Impresa el {hoy}
-	</p>
+	<div class="pie">
+		{#if pieContacto}<p>{pieContacto}</p>{/if}
+		<p style="margin: 0;">
+			{empresa.nombreMostrar} · Contrato {formatContrato(renta.anioContrato, renta.noContrato)} · Renta No. {String(renta.id).padStart(4, '0')} · Impresa el {hoy}
+		</p>
+	</div>
 </div>
