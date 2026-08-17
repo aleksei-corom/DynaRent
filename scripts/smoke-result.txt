@@ -1,0 +1,14 @@
+﻿=== Smoke test DynaRent 2026-08-16 22:13:07 ===
+[22:13:09] Instalador presente: 22.6 MB
+[22:13:09] Instalando silenciosamente...
+[22:14:47] Instalador termino con codigo: 0
+[22:14:47] Ejecutable instalado: C:\Users\WDAGUtilityAccount\AppData\Local\DynaRent\dynarent.exe
+[22:14:47] Arrancando la app...
+[22:15:00] Proceso vivo tras 12s (PID 560, sin cuelgue aparente)
+[22:15:00] OK: C:\Users\WDAGUtilityAccount\AppData\Roaming\com.dynarent.app creado
+[22:15:00] OK: BD creada (2.9 MB) - el fix de instalacion limpia funciona
+[22:15:00] OK: config.ini generado
+[22:15:01] Cerrando la app (cierre de prueba)...
+[22:15:04] INFO: la app sigue abierta (la cerrara el Sandbox al terminar la sesion)
+[22:15:04] VEREDICTO: OPERATIVO
+[22:15:04] === Fin del smoke test ===
