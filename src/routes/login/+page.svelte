@@ -4,6 +4,7 @@
 	import { authApi, ApiError, type LoginStatus } from '$lib/api';
 	import { session } from '$lib/stores/session.svelte';
 	import { empresa } from '$lib/stores/empresa.svelte';
+	import { appInfo } from '$lib/stores/app.svelte';
 
 	let username = $state('');
 	let password = $state('');
@@ -186,7 +187,7 @@
 			</form>
 
 			<footer class="mt-6 pt-5 border-t border-border text-center">
-				<p class="text-xs text-text-secondary">© {new Date().getFullYear()} {empresa.nombreMostrar} · v1.0.14</p>
+				<p class="text-xs text-text-secondary">© {new Date().getFullYear()} {empresa.nombreMostrar}{appInfo.version ? ` · v${appInfo.version}` : ''}</p>
 			</footer>
 		</div>
 	</div>

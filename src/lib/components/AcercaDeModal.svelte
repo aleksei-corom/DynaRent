@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Modal from './Modal.svelte';
 	import Icon from './Icon.svelte';
+	import { appInfo } from '$lib/stores/app.svelte';
 
 	interface Props {
 		open: boolean;
@@ -26,7 +27,7 @@
 			<p class="text-sm text-text-secondary mt-1">by CORJAR Computers Solutions</p>
 			<div class="mt-4 inline-flex items-center gap-1.5 rounded-full border border-border bg-alt-row/60 px-3 py-1 text-xs text-text-secondary">
 				<Icon name="info" class="w-3.5 h-3.5" />
-				<span>Versión 1.0.14</span>
+				<span>Versión {appInfo.version ?? '—'}</span>
 			</div>
 			<p class="mt-4 pt-3 border-t border-border w-full text-[11px] text-text-secondary">
 				© {new Date().getFullYear()} CORJAR Computers Solutions
