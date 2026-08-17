@@ -230,7 +230,11 @@ impl AppConfig {
             }
         };
 
-        // 2.5) Migración del nombre de la BD legacy (dinamo_rent_v3.fdb →
+        // 2.5) Overrides por variables de entorno (runtime, en memoria — no
+        // se persisten en config.ini). Ver `.env.example` y `SECURITY.md` §1.4.
+        apply_env_overrides(&mut map);
+
+        // 2.6) Migración del nombre de la BD legacy (dinamo_rent_v3.fdb →
         // dynarent_v3.fdb): renombra el archivo si existe y actualiza
         // config.ini. Best-effort — si el rename falla (archivo en uso), se
         // conserva el path legacy y la app sigue usando su BD con datos.
@@ -355,6 +359,34 @@ impl AppConfig {
         let content = serialize_ini(&map);
         if let Err(e) = std::fs::write(self.config_dir.join("config.ini"), content) {
             log::warn!("No se pudo guardar config.ini: {}", e);
+        }
+    }
+}
+
+/// Aplica overrides por variable de entorno sobre el mapa INI (en memoria).
+///
+/// Si la variable está definida y NO está vacía, gana sobre el valor de
+/// config.ini. Mapeo documentado en `.env.example` y `SECURITY.md` §1.4:
+///   DYNARENT_DB_ENCRYPTION_KEY → [security].db_encryption_key
+///   DYNARENT_FB_USER           → [database].user
+///   DYNARENT_FB_PASSWORD       → [database].password
+///
+/// No persiste en config.ini: el override es solo de runtime (útil para
+/// CI/despliegues donde no se quiere escribir la clave en disco).
+fn apply_env_overrides(map: &mut IniMap) {
+    const OVERRIDES: &[(&str, &str, &str)] = &[
+        ("DYNARENT_DB_ENCRYPTION_KEY", "security", "db_encryption_key"),
+        ("DYNARENT_FB_USER", "database", "user"),
+        ("DYNARENT_FB_PASSWORD", "database", "password"),
+    ];
+    for (env_var, section, key) in OVERRIDES {
+        if let Ok(value) = std::env::var(env_var) {
+            let value = value.trim().to_string();
+            if !value.is_empty() {
+                map.entry((*section).to_string())
+                    .or_default()
+                    .insert((*key).to_string(), value);
+            }
         }
     }
 }
@@ -642,6 +674,84 @@ mod tests {
         assert_eq!(cfg.db_path, dir.path().join("dynarent_v3.fdb"));
         let ini = std::fs::read_to_string(dir.path().join("config.ini")).unwrap();
         assert!(ini.contains("path = dynarent_v3.fdb"));
+    }
+
+    use std::sync::Mutex;
+
+    /// Serializa los tests que tocan variables de entorno (son globales y los
+    /// tests corren en paralelo).
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    fn limpiar_env() {
+        std::env::remove_var("DYNARENT_DB_ENCRYPTION_KEY");
+        std::env::remove_var("DYNARENT_FB_USER");
+        std::env::remove_var("DYNARENT_FB_PASSWORD");
+    }
+
+    #[test]
+    fn env_override_de_clave_y_credenciales() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        limpiar_env();
+        std::env::set_var("DYNARENT_DB_ENCRYPTION_KEY", "clave-desde-env");
+        std::env::set_var("DYNARENT_FB_USER", "usuario-env");
+        std::env::set_var("DYNARENT_FB_PASSWORD", "password-env");
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("config.ini"),
+            "[database]\nuser = sysdba\npassword = masterkey\npath = dynarent_v3.fdb\n\n[security]\ndb_encryption_key = clave-del-ini\n",
+        )
+        .expect("escribir ini");
+
+        let cfg = AppConfig::load(dir.path(), dir.path(), dir.path());
+        assert_eq!(cfg.db_user, "usuario-env", "la env var gana sobre config.ini");
+        assert_eq!(cfg.db_password, "password-env");
+        assert_eq!(cfg.db_encryption_key, "clave-desde-env");
+
+        // El override es en memoria: config.ini no debe contener la clave de env
+        let ini = std::fs::read_to_string(dir.path().join("config.ini")).unwrap();
+        assert!(
+            !ini.contains("clave-desde-env"),
+            "la clave de env no debe persistirse: {ini}"
+        );
+        assert!(ini.contains("clave-del-ini"));
+    }
+
+    #[test]
+    fn env_vacia_no_hace_override() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        limpiar_env();
+        std::env::set_var("DYNARENT_FB_USER", "   ");
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("config.ini"),
+            "[database]\nuser = sysdba\npassword = masterkey\npath = dynarent_v3.fdb\n",
+        )
+        .expect("escribir ini");
+
+        let cfg = AppConfig::load(dir.path(), dir.path(), dir.path());
+        assert_eq!(
+            cfg.db_user, "sysdba",
+            "env var vacía (solo espacios) no debe pisar config.ini"
+        );
+    }
+
+    #[test]
+    fn sin_env_se_usa_el_ini() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        limpiar_env();
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("config.ini"),
+            "[database]\nuser = otro-user\npassword = otro-pass\npath = dynarent_v3.fdb\n",
+        )
+        .expect("escribir ini");
+
+        let cfg = AppConfig::load(dir.path(), dir.path(), dir.path());
+        assert_eq!(cfg.db_user, "otro-user");
+        assert_eq!(cfg.db_password, "otro-pass");
     }
 
     #[test]
