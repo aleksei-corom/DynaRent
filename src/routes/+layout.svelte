@@ -10,6 +10,7 @@
 	import Toast from '$lib/components/Toast.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import AtajosModal, { esAtajoAyuda } from '$lib/components/AtajosModal.svelte';
+	import AcercaDeModal from '$lib/components/AcercaDeModal.svelte';
 	import PaletaComandos, { esAtajoPaleta } from '$lib/components/PaletaComandos.svelte';
 	import ConfirmarCierre from '$lib/components/ConfirmarCierre.svelte';
 	import UpdateDisponible from '$lib/components/UpdateDisponible.svelte';
@@ -24,6 +25,7 @@
 	let sidebarOpen = $state(true);
 	let ayudaOpen = $state(false);
 	let paletaOpen = $state(false);
+	let acercaOpen = $state(false);
 	// Funcion «Buscar actualización» entregada por el componente de
 	// actualizaciones (via prop onReady) para el boton de la barra superior.
 	let updateRef: (() => Promise<void>) | null = null;
@@ -286,7 +288,7 @@ const isFullscreen = $derived(['/login', '/cambiar-password'].includes(page.url.
 				{#if sidebarOpen}
 					<div class="overflow-hidden">
 						<p class="font-bold text-sm leading-tight">{empresa.nombreMostrar}</p>
-						<p class="text-[11px] text-white/60">ERP v3.2.0</p>
+						<p class="text-[11px] text-white/60">ERP v1.0.14</p>
 					</div>
 				{/if}
 			</div>
@@ -318,7 +320,15 @@ const isFullscreen = $derived(['/login', '/cambiar-password'].includes(page.url.
 
 			<!-- Footer usuario -->
 			<div class="border-t border-white/10 p-3">
-				<div class="flex items-center gap-3" class:justify-center={!sidebarOpen}>
+			<div class="flex items-center gap-3" class:justify-center={!sidebarOpen}>
+					<button
+						onclick={() => (acercaOpen = true)}
+						class="p-2 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+						title="Acerca de"
+						aria-label="Acerca de"
+					>
+						<Icon name="info" class="w-5 h-5" />
+					</button>
 					<button
 						onclick={cambiarTema}
 						class="p-2 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors shrink-0 inline-flex items-center gap-1.5"
@@ -416,6 +426,9 @@ const isFullscreen = $derived(['/login', '/cambiar-password'].includes(page.url.
 
 	<!-- Ayuda de atajos de teclado (F1 / Ctrl+/) -->
 	<AtajosModal open={ayudaOpen} onClose={() => (ayudaOpen = false)} />
+
+	<!-- Acerca de la aplicación -->
+	<AcercaDeModal open={acercaOpen} onClose={() => (acercaOpen = false)} />
 
 	<!-- Paleta de comandos (Ctrl+K) -->
 	<PaletaComandos
