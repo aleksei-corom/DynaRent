@@ -17,7 +17,7 @@
 
 $ErrorActionPreference = 'Continue'
 $log = 'C:\shared\out\smoke-result.txt'   # carpeta compartida con el host (scripts/)
-$installer = 'C:\shared\bundle\nsis\DynaRent_1.0.14_x64-setup.exe'
+$installer = 'C:\shared\bundle\nsis\DynaRent_1.0.15_x64-setup.exe'
 
 function Write-Log([string]$msg) {
     $line = "[{0}] {1}" -f (Get-Date -Format 'HH:mm:ss'), $msg

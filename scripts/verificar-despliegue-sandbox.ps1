@@ -1,4 +1,4 @@
-# verificar-despliegue-sandbox.ps1 - Instala la v1.0.14 dentro de Windows
+# verificar-despliegue-sandbox.ps1 - Instala la v1.0.15 dentro de Windows
 # Sandbox y ejecuta scripts\verificar-despliegue.ps1 de punta a punta para
 # validar el script de verificacion contra una instalacion real y limpia.
 #
@@ -19,15 +19,15 @@ function Write-Log([string]$msg) {
     Add-Content -Path $log -Value $line -Encoding UTF8
 }
 
-$installer = 'C:\shared\bundle\nsis\DynaRent_1.0.14_x64-setup.exe'
+$installer = 'C:\shared\bundle\nsis\DynaRent_1.0.15_x64-setup.exe'
 if (-not (Test-Path $installer)) {
     Write-Log "FALLO: no se encontro el instalador en $installer"
     exit 1
 }
 Write-Log "Instalador presente: $([math]::Round((Get-Item $installer).Length / 1MB, 1)) MB"
 
-# 1) Instalacion silenciosa de la v1.0.1
-Write-Log "Instalando la v1.0.14 (NSIS /S)..."
+# 1) Instalacion silenciosa de la v1.0.15
+Write-Log "Instalando la v1.0.15 (NSIS /S)..."
 $proc = Start-Process -FilePath $installer -ArgumentList '/S' -PassThru -Wait
 Write-Log "Instalador termino con codigo: $($proc.ExitCode)"
 
