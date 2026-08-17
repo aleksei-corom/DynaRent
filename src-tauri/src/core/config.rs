@@ -48,7 +48,7 @@ const DEFAULTS: &[(&str, &str, &str)] = &[
     ("logging", "audit_retention_days", "30"),
     // [application]
     ("application", "name", "DynaRent ERP"),
-    ("application", "version", "1.0.14"),
+    ("application", "version", "1.0.15"),
     ("application", "author", "DynaRent"),
     ("application", "language", "es"),
     ("application", "timezone", "America/Bogota"),
@@ -306,7 +306,7 @@ impl AppConfig {
                 .parse::<f64>()
                 .unwrap_or(19.0),
             app_name: get_str(&map, "application", "name", "DynaRent ERP"),
-            app_version: get_str(&map, "application", "version", "1.0.14"),
+            app_version: get_str(&map, "application", "version", "1.0.15"),
             ui_color_primario: get_str(&map, "ui", "color_primario", "#1e40af"),
             ui_color_fondo: get_str(&map, "ui", "color_fondo", "#f8fafc"),
             config_dir: config_path.parent().unwrap_or(data_dir).to_path_buf(),
