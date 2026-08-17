@@ -1,6 +1,6 @@
 # Handsoff — DynaRent ERP (Tauri + SvelteKit + Firebird)
 
-> Última actualización: **2026-08-17** · Estado: **todos los módulos operativos, validación verde · instalación limpia validada E2E en sandbox · release v1.0.15 publicada y firmada — SetUp Inicial con País (teléfonos de contacto con el código del país), pie de contacto (dirección + teléfonos) en Órdenes de Renta y Reserva, modal «Acerca de» con la versión real, override de config.ini por env vars `DYNARENT_*` y barrido final de marca Dinamo · auto-update operativo (repo público, historial saneado, clave de firma rotada; secret `TAURI_SIGNING_PRIVATE_KEY` configurado) · suite completa en verde: 254 vitest · 54 cargo lib + integración completa**
+> Última actualización: **2026-08-17** · Estado: **todos los módulos operativos, validación verde · instalación limpia validada E2E en sandbox · release v1.0.16 publicada y firmada — SetUp Inicial automático (se lanza en el primer ingreso para configurar la empresa), auto-update corregido (permisos ACL del updater: check/download/install y restart) y versión real del binario en la ventana (sidebar, login y Acerca de vía getVersion()) · auto-update operativo (repo público, historial saneado, clave de firma rotada; secret `TAURI_SIGNING_PRIVATE_KEY` configurado) · suite completa en verde: 260 vitest · 54 cargo lib + integración completa**
 
 > **Instalación limpia validada de punta a punta (11-08, noche):** se cerró el hueco del
 > release v1.0.0 en equipos nuevos (la app se colgaba esperando una BD inexistente).
@@ -101,6 +101,28 @@
 > 10px — imposible firmar), compensado con espaciados internos (cláusula adicional
 > 40→18px, títulos 3→2px) y verificado con el PDF real: sigue en 2 hojas Carta con las
 > firmas completas.
+> 🚀 **Release v1.0.16 publicada (17-08) — SetUp Inicial automático y auto-update corregido:**
+> [github.com/aleksei-corom/DynaRent/releases/tag/v1.0.16].
+> Añade el **SetUp Inicial automático**: el flag `setup_completed` de config.ini (que existía
+> pero nadie lo leía ni lo escribía) ahora se consulta con el comando `setup_estado` (lee el
+> flag persistido), `guardar_empresa` lo marca en config.ini al guardar, y el layout lleva al
+> **Administrador a `/empresa` en el primer ingreso** para configurar la empresa (nombre,
+> dirección, teléfonos de contacto con el código del país y logo), sin bucles ni pisar
+> cambiar-password, con 6 tests nuevos; corrige el **auto-update** (la capability solo
+> exponía `core:default` y el chequeo fallaba con `Command plugin:updater|check not allowed
+> by ACL` — se añadieron `updater:default` + `process:default`); y muestra la **versión real
+> del binario** en la ventana (nuevo store `app.svelte.ts` con `getVersion()` — sidebar,
+> login y modal Acerca de; se eliminó el `v1.0.14` hardcodeado). Suite total **260 vitest ·
+> 54 cargo lib**. Pipeline del release (constancia): workflow **Release**, trigger **push del
+> tag `v1.0.16`**, run
+> [#31993165607](https://github.com/aleksei-corom/DynaRent/actions/runs/31993165607),
+> **success** (04:03:56Z → 04:12:03Z, ~8 min 46 s): paginación → changelog automático
+> (5 commits desde v1.0.15, commit `069ee40`) → build (NSIS + MSI) → **firma del updater** →
+> release publicada con los **5 assets** (`DynaRent_1.0.16_x64-setup.exe` ~23 MB y
+> `DynaRent_1.0.16_x64_en-US.msi` ~33 MB, `.sig` x2 y `latest.json`; sha256 reales
+> `6d2353d3…` / `dc72e172…`). El `latest.json` del endpoint real ya sirve la v1.0.16 con
+> firma válida (verificada E2E con la pubkey de producción): las instalaciones v1.0.3+
+> detectarán la versión nueva al arrancar.
 > 🚀 **Release v1.0.15 publicada (17-08) — SetUp Inicial con País y branding de la
 > empresa en los documentos:** [github.com/aleksei-corom/DynaRent/releases/tag/v1.0.15].
 > Añade el **campo País en el SetUp Inicial** (`/empresa`, migración 0021): la empresa
@@ -588,12 +610,15 @@ y `IntoParams` para tuplas de **≤15**. Cualquier SELECT largo debe partirse en
       `contrato-real-pag1..4.png`) sin desbordes, texto cortado ni imágenes rotas.
       Quedan pendientes el **modal de inspección** de rentas, el **calendario** y el **panel del
       Agente SIMIT** en la app real (ver primera tarea de §3).
-- [x] **Mostrar la versión REAL de la app en la barra de menú lateral.** Resuelto el 16-08: el
-      sidebar y el login mostraban **v3.2.0** (versión heredada del proyecto anterior); ahora
-      muestran la versión real (v1.0.15 desde el bump del 17-08), coherente con el modal **Acerca de**
-      (DynaRent ERP by CORJAR) añadido el 16-08. El default `application.version` de
-      `config.rs` y `config.ini.example` quedó alineado a la versión actual (1.0.15 en el
-      bump del 17-08). El auto-update quedó verificado E2E contra el endpoint real (release v1.0.14).
+- [x] **Mostrar la versión REAL de la app en la barra de menú lateral.** Resuelto el 17-08 con
+      la v1.0.16: el sidebar y el login mostraban **v1.0.14 hardcodeado** (quedaba desfasado
+      al instalar otra versión — el sandbox con la v1.0.15 instalada seguía diciendo v1.0.14).
+      Ahora la versión se lee **del binario instalado** con `getVersion()` (nuevo store
+      `app.svelte.ts`, permiso `core:app:allow-version` ya incluido en `core:default`) y se
+      muestra dinámicamente en sidebar, login y modal **Acerca de** — siempre coincide con la
+      versión instalada, sin hardcodear nada. El default `application.version` de
+      `config.rs` y `config.ini.example` se mantiene alineado (1.0.16 en el bump del 17-08).
+      El auto-update quedó verificado E2E contra el endpoint real (release v1.0.16).
 
 ## 4. Convenciones a respetar
 

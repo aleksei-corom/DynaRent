@@ -6,9 +6,10 @@
 > `INSTALACION_OPERACIONES.md` (instalación), `DEPLOYMENT_CLIENTES.md`
 > (despliegue a clientes) y `ANUNCIO_RELEASE_TEMPLATE.md` (mensajes de anuncio).
 >
-> **📋 Última release publicada: v1.0.14 (16-08)** — primera release pública con
-> auto-update operativo (repo público, historial saneado, clave de firma rotada,
-> pipeline validado E2E contra el endpoint real). Este es el procedimiento estándar
+> **📋 Última release publicada: v1.0.16 (17-08)** — SetUp Inicial automático,
+> auto-update corregido (permisos ACL del updater) y versión real del binario en la
+> ventana; construida y firmada por CI, verificada de punta a punta contra el endpoint
+> real (run #31993165607, ~8 min 46 s). Este es el procedimiento estándar
 > para las siguientes versiones: bump → tag → CI (`release.yml`: paginación +
 > changelog + build + firma) → verificación de assets → anuncio.
 
@@ -20,7 +21,7 @@
 ya estén bumpeados.** El CI (`release.yml`) compila el código del commit del tag
 y los instaladores se nombran con la versión de `src-tauri/tauri.conf.json`,
 NO con el nombre del tag. Un tag sobre un commit sin bumpear publicaría una
-release `v1.0.14` con instaladores `DynaRent_1.0.13_*` (si el bump quedara a medias).
+release `v1.0.16` con instaladores `DynaRent_1.0.15_*` (si el bump quedara a medias).
 
 ---
 
@@ -44,9 +45,9 @@ Editar la versión en los **tres** archivos (deben coincidir):
 
 | Archivo | Campo |
 |---|---|
-| `package.json` | `"version": "1.0.14"` |
-| `src-tauri/Cargo.toml` | `version = "1.0.14"` (crate `dynarent`) |
-| `src-tauri/tauri.conf.json` | `"version": "1.0.14"` |
+| `package.json` | `"version": "1.0.16"` |
+| `src-tauri/Cargo.toml` | `version = "1.0.16"` (crate `dynarent`) |
+| `src-tauri/tauri.conf.json` | `"version": "1.0.16"` |
 
 Verificar la consistencia:
 
@@ -75,23 +76,23 @@ cd src-tauri && cargo test --lib
 Mensaje con el estilo del repo (español, prefijo `chore:`):
 
 ```text
-chore: versión 1.0.14 — primera release pública con auto-update operativo
+chore: versión 1.0.16 — SetUp Inicial automático y auto-update corregido
 ```
 
 ## 5. Publicar: push + tag
 
 ```bash
 git push origin main
-git tag v1.0.14
-git push origin v1.0.14
+git tag v1.0.16
+git push origin v1.0.16
 ```
 
 El push del tag dispara `release.yml` (GitHub Actions, `windows-latest`):
 `checkout` (fetch-depth 0) → **test de paginación** (orden 1 página Carta,
 contrato 3-4 páginas con pie, informe A4 — bloquea la release si falla) →
 changelog automático → `tauri build` (NSIS + MSI) → crea la release
-**publicada** (no draft) y sube los assets. ~10 minutos (referencia v1.0.14:
-10,5 min, run #31973941450).
+**publicada** (no draft) y sube los assets. ~9-10 minutos (referencia v1.0.16:
+8 min 46 s, run #31993165607).
 
 > El body de la release se genera solo: lista los commits entre el tag anterior
 > y el nuevo, con hash corto y mensaje. Si quieres verlo antes de publicar,
@@ -104,9 +105,9 @@ changelog automático → `tauri build` (NSIS + MSI) → crea la release
 
 ## 6. Verificar la release (no confiar a ciegas en el CI)
 
-- [ ] Release `v1.0.14` existe en <https://github.com/aleksei-corom/DynaRent/releases/tag/v1.0.14>
-      con **5 assets**: los 2 instaladores (`DynaRent_1.0.14_x64-setup.exe` NSIS ~23 MB y
-      `DynaRent_1.0.14_x64_en-US.msi` ~33 MB), sus firmas del updater (`*.exe.sig` / `*.msi.sig`)
+- [ ] Release `v1.0.16` existe en <https://github.com/aleksei-corom/DynaRent/releases/tag/v1.0.16>
+      con **5 assets**: los 2 instaladores (`DynaRent_1.0.16_x64-setup.exe` NSIS ~23 MB y
+      `DynaRent_1.0.16_x64_en-US.msi` ~33 MB), sus firmas del updater (`*.exe.sig` / `*.msi.sig`)
       y `latest.json`. Los `.sig` son de **minisign** (verificación del updater), NO firma de
       código Authenticode.
 - [ ] `latest.json` existe y `platforms.windows-x86_64.url` apunta al instalador de esta
@@ -120,7 +121,7 @@ changelog automático → `tauri build` (NSIS + MSI) → crea la release
 
 ```powershell
 # En el PC objetivo
-Get-FileHash .\DynaRent_1.0.14_x64-setup.exe -Algorithm SHA256
+Get-FileHash .\DynaRent_1.0.16_x64-setup.exe -Algorithm SHA256
 # comparar contra el sha256 publicado por GitHub en la página de la release
 ```
 
@@ -130,7 +131,7 @@ Get-FileHash .\DynaRent_1.0.14_x64-setup.exe -Algorithm SHA256
 
 Si el bump cambió algo de operación (p. ej. el check de versión del exe):
 
-- [ ] `scripts/verificar-despliegue.ps1` — `Check "Version 1.0.14" ($ver -like '1.0.14*')`.
+- [ ] `scripts/verificar-despliegue.ps1` — `Check "Version 1.0.16" ($ver -like '1.0.16*')`.
 - [ ] `DEPLOYMENT_CLIENTES.md` — versión esperada e instaladores en la tabla de verificación.
 - [ ] `RESUMEN_EJECUTIVO.md` — versión estable, assets, conteos.
 - [ ] `Handsoff.md` — cabecera y nota de portada de la release nueva.
@@ -148,10 +149,10 @@ Si el bump cambió algo de operación (p. ej. el check de versión del exe):
 
 ```
 [ ] CI verde en main
-[ ] Bump en package.json + Cargo.toml + tauri.conf.json (idénticos, 1.0.14)
+[ ] Bump en package.json + Cargo.toml + tauri.conf.json (idénticos, 1.0.16)
 [ ] Docs de descarga actualizadas (INSTALACION_OPERACIONES.md, README.md, ANUNCIO)
-[ ] commit chore: versión 1.0.14
-[ ] git push origin main && git push origin v1.0.14
+[ ] commit chore: versión 1.0.16
+[ ] git push origin main && git push origin v1.0.16
 [ ] Release publicada por CI con changelog y 5 assets (NSIS + MSI + .sig x2 + latest.json)
 [ ] sha256 verificado contra el publicado
 [ ] verificar-despliegue.ps1 → OK (equipo de prueba)
