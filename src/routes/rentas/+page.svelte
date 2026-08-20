@@ -790,7 +790,7 @@
 </script>
 
 <svelte:head>
-	<title>Rentas — Dinamo Rent ERP</title>
+	<title>Rentas — DynaRent ERP</title>
 </svelte:head>
 
 <div class="space-y-5">

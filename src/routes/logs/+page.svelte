@@ -90,7 +90,7 @@
 </script>
 
 <svelte:head>
-	<title>Logs — Dinamo Rent ERP</title>
+	<title>Logs — DynaRent ERP</title>
 </svelte:head>
 
 {#if esAdmin}

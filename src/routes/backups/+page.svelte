@@ -93,7 +93,7 @@
 </script>
 
 <svelte:head>
-	<title>Backups — Dinamo Rent ERP</title>
+	<title>Backups — DynaRent ERP</title>
 </svelte:head>
 
 <div class="space-y-4">

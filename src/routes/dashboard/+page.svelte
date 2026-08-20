@@ -102,7 +102,7 @@
 </script>
 
 <svelte:head>
-	<title>Dashboard — Dinamo Rent ERP</title>
+	<title>Dashboard — DynaRent ERP</title>
 </svelte:head>
 
 <div class="space-y-6">

@@ -61,7 +61,7 @@
 </script>
 
 <svelte:head>
-	<title>Historial {placa} — Dinamo Rent ERP</title>
+	<title>Historial {placa} — DynaRent ERP</title>
 </svelte:head>
 
 <div class="space-y-5">

@@ -472,7 +472,7 @@
 </script>
 
 <svelte:head>
-	<title>Comparendos — Dinamo Rent ERP</title>
+	<title>Comparendos — DynaRent ERP</title>
 </svelte:head>
 
 <div class="space-y-5">

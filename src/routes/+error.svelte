@@ -19,7 +19,7 @@
 </script>
 
 <svelte:head>
-	<title>Error {page.status} — Dinamo Rent ERP</title>
+	<title>Error {page.status} — DynaRent ERP</title>
 </svelte:head>
 
 <div class="min-h-screen flex items-center justify-center bg-fondo p-6">

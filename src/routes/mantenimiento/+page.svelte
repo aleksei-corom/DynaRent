@@ -255,7 +255,7 @@
 </script>
 
 <svelte:head>
-	<title>Mantenimiento — Dinamo Rent ERP</title>
+	<title>Mantenimiento — DynaRent ERP</title>
 </svelte:head>
 
 <div class="space-y-5">

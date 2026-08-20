@@ -131,7 +131,7 @@
 </script>
 
 <svelte:head>
-	<title>Auditoría — Dinamo Rent ERP</title>
+	<title>Auditoría — DynaRent ERP</title>
 </svelte:head>
 
 <div class="space-y-5">

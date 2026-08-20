@@ -11,7 +11,7 @@ function montar(html: string): void {
 
 describe('imprimirDocumento', () => {
 	beforeEach(() => {
-		document.title = 'Rentas — Dinamo Rent ERP';
+		document.title = 'Rentas — DynaRent ERP';
 		vi.useFakeTimers();
 		// jsdom no implementa window.print; lo reemplazamos por un stub
 		Object.defineProperty(window, 'print', { value: vi.fn(), configurable: true, writable: true });
@@ -34,7 +34,7 @@ describe('imprimirDocumento', () => {
 
 		// La limpieza ocurre vía setTimeout(1000) (fallback de afterprint)
 		await vi.advanceTimersByTimeAsync(1200);
-		expect(document.title).toBe('Rentas — Dinamo Rent ERP');
+		expect(document.title).toBe('Rentas — DynaRent ERP');
 		expect(document.querySelector('#print-clone')).toBeNull();
 		expect(document.body.classList.contains('printing')).toBe(false);
 	});
@@ -49,7 +49,7 @@ describe('imprimirDocumento', () => {
 		expect(document.title).toBe('Orden de renta');
 
 		await vi.advanceTimersByTimeAsync(1200);
-		expect(document.title).toBe('Rentas — Dinamo Rent ERP');
+		expect(document.title).toBe('Rentas — DynaRent ERP');
 	});
 
 	it('no cambia el título para documentos sin marcador conocido', async () => {
@@ -59,9 +59,9 @@ describe('imprimirDocumento', () => {
 
 		await Promise.resolve();
 		await Promise.resolve();
-		expect(document.title).toBe('Rentas — Dinamo Rent ERP');
+		expect(document.title).toBe('Rentas — DynaRent ERP');
 
 		await vi.advanceTimersByTimeAsync(1200);
-		expect(document.title).toBe('Rentas — Dinamo Rent ERP');
+		expect(document.title).toBe('Rentas — DynaRent ERP');
 	});
 });

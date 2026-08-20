@@ -258,7 +258,7 @@
 </script>
 
 <svelte:head>
-	<title>Usuarios — Dinamo Rent ERP</title>
+	<title>Usuarios — DynaRent ERP</title>
 </svelte:head>
 
 <div class="space-y-5">
