@@ -6,6 +6,7 @@
 	import { formatCOP, formatDate } from '$lib/utils/format';
 	import { guardRole, guardSesion, haySesion, tieneRol } from '$lib/utils/guards';
 	import { construirLibroInforme } from '$lib/utils/informeExcel';
+	import { empresa } from '$lib/stores/empresa.svelte';
 	import { imprimirDocumento } from '$lib/utils/imprimir';
 
 	const sid = () => session.token ?? '';
@@ -75,7 +76,7 @@
 	async function exportarExcel() {
 		if (!informe) return;
 		try {
-			const wb = construirLibroInforme(informe, rangoTexto);
+			const wb = construirLibroInforme(informe, rangoTexto, empresa.nombreMostrar);
 			const buffer = await wb.xlsx.writeBuffer();
 			const blob = new Blob([buffer], {
 				type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'

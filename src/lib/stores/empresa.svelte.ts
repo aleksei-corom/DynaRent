@@ -11,8 +11,8 @@ import { empresaApi, setupApi, type EmpresaConfig } from '$lib/api';
 import { codigoPais } from '$lib/utils/geografia';
 
 /** Branding por defecto cuando la empresa aún no configuró nada. */
-export const FALLBACK_NOMBRE = 'DINAMO RENT A CAR';
-export const FALLBACK_LOGO = '/LogoDinamo.png';
+export const FALLBACK_NOMBRE = 'DynaRent';
+export const FALLBACK_LOGO = '/dynarent.png';
 // Datos de la empresa VACÍOS por defecto: cada empresa compradora configura los
 // suyos en el setup inicial (/empresa); el contrato y las impresiones omiten
 // los campos vacíos (renderizado condicional del ContratoRenta).
