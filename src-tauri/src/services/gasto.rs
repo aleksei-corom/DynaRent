@@ -12,7 +12,7 @@ use serde::Serialize;
 
 use crate::core::config::AppConfig;
 use crate::core::error::AppError;
-use crate::core::validators::validate_no_xss;
+use crate::core::validators::{validate_no_xss, mayusculas};
 use crate::core::PooledConnection;
 use crate::repositories::gasto::{Gasto, GastoDatos, GastoRepository};
 
@@ -142,20 +142,20 @@ impl GastoService {
     }
 }
 
-/// Normaliza campos (trim, defaults)
+/// Normaliza campos (trim → mayúsculas, defaults)
 fn normalizar(d: &mut GastoDatos) {
     d.placa = d
         .placa
         .as_ref()
-        .map(|s| s.trim().to_uppercase())
+        .map(|s| mayusculas(s))
         .filter(|s| !s.is_empty());
-    d.categoria = d.categoria.trim().to_string();
-    d.descripcion = d.descripcion.trim().to_string();
+    d.categoria = mayusculas(&d.categoria);
+    d.descripcion = mayusculas(&d.descripcion);
     d.monto = d.monto.trim().replace(',', ".");
     d.comprobante = d
         .comprobante
         .as_ref()
-        .map(|s| s.trim().to_string())
+        .map(|s| mayusculas(s))
         .filter(|s| !s.is_empty());
 }
 
@@ -175,7 +175,9 @@ fn validar(d: &GastoDatos, cfg: &Arc<AppConfig>) -> Result<(), AppError> {
     if d.categoria.is_empty() {
         return Err(AppError::Validation("La categoría es obligatoria.".into()));
     }
-    if !categorias.contains(&d.categoria.as_str()) {
+    let cat_upper = d.categoria.trim().to_uppercase();
+    let cats_upper: Vec<String> = categorias.iter().map(|c| c.to_uppercase()).collect();
+    if !cats_upper.contains(&cat_upper) {
         return Err(AppError::Validation(format!(
             "Categoría inválida '{}'. Permitidas: {}",
             d.categoria,

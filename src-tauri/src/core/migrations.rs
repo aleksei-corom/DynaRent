@@ -103,7 +103,11 @@ pub const MIGRACIONES_EMBEDIDAS: &[(&str, &str)] = &[
     ("0018_empresa_ciudad.sql", include_str!("../../migrations/0018_empresa_ciudad.sql")),
     ("0019_renta_cobra_iva.sql", include_str!("../../migrations/0019_renta_cobra_iva.sql")),
     ("0020_renta_valor_gasolina.sql", include_str!("../../migrations/0020_renta_valor_gasolina.sql")),
-    ("0021_empresa_pais.sql", include_str!("../../migrations/0021_empresa_pais.sql")),
+    ("0021_comparendo_origen_simit.sql", include_str!("../../migrations/0021_comparendo_origen_simit.sql")),
+    ("0022_agente_simit_ultimo_resultado.sql", include_str!("../../migrations/0022_agente_simit_ultimo_resultado.sql")),
+    ("0023_renta_comision.sql", include_str!("../../migrations/0023_renta_comision.sql")),
+    ("0024_extensiones_renta.sql", include_str!("../../migrations/0024_extensiones_renta.sql")),
+    ("0025_audit_inmutable.sql", include_str!("../../migrations/0025_audit_inmutable.sql")),
 ];
 
 /// Aplica las migraciones pendientes. `migrations_dir` = src-tauri/migrations
@@ -221,7 +225,7 @@ pub fn run_migrations(pool: &Pool, migrations_dir: &Path) -> Result<(), AppError
 
 /// Verifica si la BD tiene el esquema inicial COMPLETO de 0001.
 ///
-/// Exige las 4 tablas núcleo (confirman que es una BD DynaRent, no una
+/// Exige las 4 tablas núcleo (confirman que es una BD Dinamo Rent, no una
 /// extranjera) MÁS `pagos`, la última tabla que crea 0001: eso garantiza que
 /// 0001 terminó. Si solo se exigieran las núcleo, un crash de instalación
 /// nueva tras `rentas` (sentencia ~20 de 38) dejaría 0001 registrada como

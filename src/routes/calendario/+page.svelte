@@ -187,7 +187,7 @@
 </script>
 
 <svelte:head>
-	<title>Calendario — DynaRent ERP</title>
+	<title>Calendario — Dinamo Rent ERP</title>
 </svelte:head>
 
 <div class="space-y-5">

@@ -25,7 +25,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DATA_DIR="$SCRIPT_DIR/data"
 
 # La producción guarda config/BD en %APPDATA%/<identifier> (tauri.conf.json)
-TAURI_IDENTIFIER="com.dynarent.app"
+TAURI_IDENTIFIER="com.corjar.dinamorent"
 
 DEV_ONLY=0
 PROD_ONLY=0
@@ -70,16 +70,16 @@ fi
 # ── Guarda: la copia de una BD abierta puede quedar inconsistente ────────────
 app_running() {
   if command -v tasklist >/dev/null 2>&1; then
-    tasklist 2>/dev/null | grep -qi 'dynarent' && return 0
+    tasklist 2>/dev/null | grep -qi 'dinamo-rent' && return 0
   fi
   if command -v pgrep >/dev/null 2>&1; then
-    pgrep -f 'dynarent' >/dev/null 2>&1 && return 0
+    pgrep -f 'dinamo-rent' >/dev/null 2>&1 && return 0
   fi
   return 1
 }
 
 if app_running && [[ "$FORCE" -ne 1 ]]; then
-  die "La app (dynarent.exe) está corriendo. Ciérrala y reintenta, o usa --force si sabes lo que haces."
+  die "La app (dinamo-rent.exe) está corriendo. Ciérrala y reintenta, o usa --force si sabes lo que haces."
 fi
 
 # ── Ruta de la BD desde config.ini (database.path; relativa al data_dir) ─────
@@ -94,7 +94,7 @@ resolve_db() {
         sed 's/[[:space:]]*$//' || true
     )"
   fi
-  [[ -z "$path" ]] && path="dynarent_v3.fdb"
+  [[ -z "$path" ]] && path="dinamo_rent_v3.fdb"
   case "$path" in
     /* | [A-Za-z]:/* | [A-Za-z]:\\*) printf '%s' "$path" ;;
     *) printf '%s/%s' "$ini_dir" "$path" ;;

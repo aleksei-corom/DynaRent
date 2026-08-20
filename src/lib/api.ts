@@ -56,14 +56,15 @@ export async function invokeCmd<T>(command: string, args?: Record<string, unknow
 }
 
 // ─── Comandos de aplicación (ventana / cierre) ───────────────────────────────
-
 export const appApi = {
 	/**
 	 * Avisa al backend que el frontend ya escucha el evento de cierre
 	 * (app-close-requested), para que la X de la ventana muestre el diálogo
 	 * de confirmación en lugar de cerrar directamente.
 	 */
-	frontendLista: () => invokeCmd<void>('app_frontend_lista')
+	frontendLista: () => invokeCmd<void>('app_frontend_lista'),
+	/** Versión real de la app (backend: package_info → Cargo.toml / tauri.conf.json). */
+	version: () => invokeCmd<string>('app_version')
 };
 
 // ─── Comandos de autenticación ───────────────────────────────────────────────
@@ -688,6 +689,12 @@ export interface Renta {
 	subtotal: string;
 	impuestos: string;
 	cobraIva: boolean;
+	/** ¿Tiene comisión esta renta? (checkbox del formulario; false = sin comisión) */
+	tieneComision: boolean;
+	/** Valor de la comisión (se resta del total → valor neto) */
+	comision: string;
+	/** Valor neto = total − comisión (información financiera) */
+	valorNeto: string;
 	total: string;
 	abono: string;
 	saldoPendiente: string;
@@ -739,6 +746,12 @@ export interface RentaDatos {
 	subtotal?: string;
 	impuestos?: string;
 	cobraIva: boolean;
+	/** ¿Tiene comisión? (checkbox del formulario) */
+	tieneComision: boolean;
+	/** Valor de la comisión a restar del total */
+	comision: string;
+	/** Valor neto (calculado por el backend: total − comisión) */
+	valorNeto?: string;
 	total?: string;
 	abono: string;
 	saldoPendiente?: string;
@@ -760,6 +773,41 @@ export interface RentaCierreDatos {
 	valorHoraExtra?: string;
 	descuento?: string;
 	observaciones?: string;
+}
+
+/** Datos para editar una renta cerrada (corrección de errores de digitación) */
+export interface RentaCierreEditDatos {
+	valorDia?: string;
+	valorHoraExtra?: string;
+	diasCalculados?: number | null;
+	horasExtras?: number | null;
+	descuento?: string;
+	observaciones?: string;
+}
+
+/** Datos para extender una renta activa */
+export interface ExtensionDatos {
+	/** Tipo de extensión: "horas" o "dias" */
+	tipo: string;
+	/** Cantidad de horas o días a agregar */
+	cantidad: number;
+	/** Valor unitario (hora o día extra) */
+	valor: string;
+	/** Observaciones sobre la extensión */
+	observaciones?: string;
+}
+
+/** Extensión de una renta (historial) */
+export interface ExtensionRenta {
+	id: number;
+	idRenta: number;
+	tipo: string;
+	cantidad: number;
+	valorUnitario: string;
+	valorTotal: string;
+	observaciones: string | null;
+	usuario: string | null;
+	createdAt: string | null;
 }
 
 /** Resultado de la cancelación de una renta */
@@ -787,6 +835,12 @@ export const rentaApi = {
 		invokeCmd<Renta>('cambiar_auto_renta', { sessionId, id, placa }),
 	cancelar: (sessionId: string, id: number) =>
 		invokeCmd<RentaCancelada>('cancelar_renta', { sessionId, id }),
+	editarCerrada: (sessionId: string, id: number, datos: RentaCierreEditDatos) =>
+		invokeCmd<Renta>('editar_renta_cerrada', { sessionId, id, datos }),
+	extender: (sessionId: string, id: number, datos: ExtensionDatos) =>
+		invokeCmd<Renta>('extender_renta', { sessionId, id, datos }),
+	listarExtensiones: (sessionId: string, idRenta: number) =>
+		invokeCmd<ExtensionRenta[]>('listar_extensiones', { sessionId, idRenta }),
 	eliminar: (sessionId: string, id: number) =>
 		invokeCmd<void>('eliminar_renta', { sessionId, id }),
 	registrarPago: (sessionId: string, idRenta: number, datos: PagoDatos) =>
@@ -824,6 +878,10 @@ export interface Comparendo {
 	observaciones: string | null;
 	createdAt: string | null;
 	updatedAt: string | null;
+	/** Procedencia: 'SIMIT' (Agente automático) o 'Manual' */
+	origen: string;
+	/** Última vez que el Agente SIMIT confirmó que existe en el portal */
+	ultimoVistoSimit: string | null;
 	responsable: ResponsableComparendo | null;
 }
 
@@ -855,12 +913,13 @@ export interface TotalesComparendos {
 }
 
 export const comparendoApi = {
-	listar: (sessionId: string, busqueda?: string, placa?: string, estado?: string) =>
+	listar: (sessionId: string, busqueda?: string, placa?: string, estado?: string, noConfirmados?: boolean) =>
 		invokeCmd<Comparendo[]>('listar_comparendos', {
 			sessionId,
 			busqueda: busqueda || null,
 			placa: placa || null,
-			estado: estado || null
+			estado: estado || null,
+			noConfirmados: noConfirmados || null
 		}),
 	obtener: (sessionId: string, id: number) =>
 		invokeCmd<Comparendo>('obtener_comparendo', { sessionId, id }),
@@ -892,6 +951,8 @@ export interface RegistroSimit {
 	esComparendo: boolean;
 	/** true = se insertó en esta sincronización; false = ya estaba en la BD */
 	nuevo: boolean;
+	/** id en la tabla comparendos (para marcar en la lista cuál es nuevo) */
+	id: number | null;
 }
 
 /** Error de una placa durante la sincronización */
@@ -995,6 +1056,48 @@ export const simitApi = {
 		invokeCmd<ResultadoSincronizacion>('simit_sync_now', { sessionId })
 };
 
+// ─── Comandos de Backups ─────────────────────────────────────────────────────
+
+/** Una copia de seguridad en disco (services/backup.rs) */
+export interface InfoCopiaBackup {
+	nombre: string;
+	tamanoBytes: number;
+	/** Última modificación (RFC3339 local) */
+	modificado: string;
+	/** true si empieza por el magic DRENC-01 (backup cifrado) */
+	cifrado: boolean;
+}
+
+/** Estado en memoria de los backups (config + última corrida + copias) */
+export interface InfoBackup {
+	directorio: string;
+	maxCopies: number;
+	horarios: string[];
+	cifrado: boolean;
+	ejecutando: boolean;
+	ultimoBackup: string | null;
+	ultimoResultado: string | null;
+	ultimoError: string | null;
+	/** Próxima corrida programada (RFC3339 local) calculada por el backend */
+	proximaCorrida: string | null;
+	/** Copias existentes, de la más reciente a la más vieja */
+	copias: InfoCopiaBackup[];
+	/** Última restauración exitosa (nombre del backup, si hubo) */
+	ultimaRestauracion: string | null;
+	/** Error de la última restauración (si falló) */
+	ultimaRestauracionError: string | null;
+}
+
+export const backupApi = {
+	/** Estado actual (se consulta al abrir la página de Backups) */
+	estado: (sessionId: string) => invokeCmd<InfoBackup>('backup_estado', { sessionId }),
+	/** Crea un backup manual ahora (solo admin); devuelve el estado refrescado */
+	ahora: (sessionId: string) => invokeCmd<InfoBackup>('backup_ahora', { sessionId }),
+	/** Restaura la BD desde un backup; la app se relanza con el flag de restauración */
+	restaurar: (sessionId: string, archivo: string, password: string | null) =>
+		invokeCmd<InfoBackup>('backup_restaurar', { sessionId, archivo, password })
+};
+
 // ─── Comandos de Informes ───────────────────────────────────────────────────
 
 /** Detalle de una renta del mes (services/informe.rs) */
@@ -1003,6 +1106,10 @@ export interface RentaInforme {
 	placa: string;
 	nombreCliente: string;
 	total: string;
+	/** Comisión de la renta (neto = total − comisión) */
+	comision: string;
+	/** Valor neto = total − comisión */
+	valorNeto: string;
 	estado: string;
 	fechaRecogida: string;
 }
@@ -1028,6 +1135,12 @@ export interface InformeMensual {
 	egresosComparendos: string;
 	totalEgresos: string;
 	balance: string;
+	/** Comisiones de las rentas del rango (costo de intermediarios) */
+	totalComisiones: string;
+	/** Ingresos netos = totalIngresos − totalComisiones */
+	ingresosNetos: string;
+	/** Balance neto = balance − totalComisiones */
+	balanceNeto: string;
 	gastosPorCategoria: [string, string][];
 	rentas: RentaInforme[];
 	utilidadPorVehiculo: UtilidadVehiculo[];
@@ -1049,10 +1162,10 @@ export interface EmpresaConfig {
 	email: string | null;
 	web: string | null;
 	ciudad: string | null;
-	/** País donde se usa la aplicación (código telefónico de los contactos) */
-	pais: string | null;
 	/** Data URL del logo (data:image/...;base64,...) o null */
 	logo: string | null;
+	/** País donde se usa la aplicación (código telefónico de los contactos) */
+	pais: string | null;
 }
 
 /** Datos para guardar la configuración (logo como data URL o null para quitar) */
@@ -1064,8 +1177,8 @@ export interface EmpresaConfigDatos {
 	email?: string | null;
 	web?: string | null;
 	ciudad?: string | null;
-	pais?: string | null;
 	logo?: string | null;
+	pais?: string | null;
 }
 
 export const empresaApi = {
@@ -1138,4 +1251,32 @@ export const usuarioApi = {
 		invokeCmd<UsuarioConCambio>('forzar_cambio_password_usuario', { sessionId, id, nuevaPassword }),
 	desbloquear: (sessionId: string, username: string) =>
 		invokeCmd<boolean>('desbloquear_usuario', { sessionId, username })
+};
+
+export const logApi = {
+	/** Lee las últimas N líneas del log principal (admin only) */
+	leer: (sessionId: string, lineas?: number) =>
+		invokeCmd<string>('leer_logs', { sessionId, lineas: lineas ?? 500 }),
+	/** Lee los errores del frontend (admin only) */
+	erroresFrontend: (sessionId: string, lineas?: number) =>
+		invokeCmd<string>('leer_errores_frontend', { sessionId, lineas: lineas ?? 200 }),
+	/** Registra un error del frontend */
+	registrarError: (
+		sessionId: string,
+		mensaje: string,
+		stack?: string,
+		url?: string,
+		linea?: number,
+		columna?: number
+	) =>
+		invokeCmd<void>('registrar_error_frontend', {
+			sessionId, mensaje, stack: stack || null,
+			url: url || null, linea: linea ?? null, columna: columna ?? null
+		}),
+	/** Exporta todos los logs como texto */
+	exportar: (sessionId: string) =>
+		invokeCmd<string>('exportar_logs', { sessionId }),
+	/** Trunca los archivos de log (admin only) */
+	limpiar: (sessionId: string) =>
+		invokeCmd<number>('limpiar_logs', { sessionId }),
 };

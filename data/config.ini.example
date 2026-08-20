@@ -1,13 +1,13 @@
 # COPIA este archivo a config.ini y rellena con tus valores reales. NUNCA commitees config.ini.
 
 [application]
-author = DynaRent
+author = Dinamo Rent a Car
 language = es
-name = DynaRent ERP
+name = Dinamo Rent ERP
 production_mode = false
 setup_completed = false
 timezone = America/Bogota
-version = 1.0.16
+version = 3.2.0
 
 [backup]
 check_interval_ms = 60000
@@ -27,7 +27,7 @@ estados_reserva = Pendiente, Confirmada, Cancelada, Completada
 impuesto_porcentaje = 19
 km_alert_aceite = 500
 nivel_tanque = Lleno, 3/4, 1/2, 1/4, Reserva
-roles_con_informes = Administrador, Supervisor
+roles_con_informes = Administrador
 roles_con_usuarios = Administrador
 roles_usuarios = Administrador, Supervisor, Operador
 tipos_adquisicion = Propio, Leasing, Subarrendado
@@ -38,11 +38,11 @@ tipos_mantenimiento = Cambio Aceite, Frenos, Llantas, Batería, Tecno-Mecánica,
 tipos_transmision = Automática, Mecánica
 
 [database]
-database = dynarent
+database = dinamo_rent
 engine = firebird
 host = localhost
 password = CAMBIAR_PASSWORD_SYSDBA
-path = dynarent_v3.fdb
+path = dinamo_rent_v3.fdb
 pool_max_overflow = 20
 pool_size = 10
 port = 3050

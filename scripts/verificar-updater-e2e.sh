@@ -3,7 +3,7 @@
 # auto-actualización (tauri-plugin-updater) SIN publicar nada en GitHub:
 #
 #   1. Genera un artifact de prueba (instalador falso) y lo FIRMA con la clave
-#      real (~/.tauri/dynarent.key).
+#      real (~/.tauri/dinamorent.key).
 #   2. Arma un latest.json (siguiente patch > versión del repo) y lo sirve desde
 #      127.0.0.1.
 #   3. Ejecuta updater_e2e: check() debe detectar la versión nueva y download()
@@ -12,7 +12,7 @@
 #   4. Caso negativo: latest.json con la versión del repo → sin actualización.
 #
 # Requiere: toolchain Rust, bun (con @tauri-apps/cli) y la clave privada de
-# firma en ~/.tauri/dynarent.key (la genera `bunx tauri signer generate`;
+# firma en ~/.tauri/dinamorent.key (la genera `bunx tauri signer generate`;
 # NUNCA se commitea ni se sube al repo).
 #
 #   bash scripts/verificar-updater-e2e.sh
@@ -31,8 +31,8 @@ NPM_GLOBAL="$(cygpath -u "${APPDATA:-}" 2>/dev/null)/npm"
 [ -d "$NPM_GLOBAL" ] || NPM_GLOBAL="${APPDATA//\\\\//}/npm"
 export PATH="/c/Program Files/nodejs:$HOME/.cargo/bin:$NPM_GLOBAL:$PATH"
 
-KEY="$HOME/.tauri/dynarent.key"
-PUBKEY_FILE="$HOME/.tauri/dynarent.key.pub"
+KEY="$HOME/.tauri/dinamorent.key"
+PUBKEY_FILE="$HOME/.tauri/dinamorent.key.pub"
 # Versión actual = la del repo (tauri.conf.json); la "nueva" = siguiente patch.
 # Así el E2E nunca queda fijo a una versión (tras el bump, la versión del repo
 # ya no es "más nueva" que la app compilada).
@@ -47,7 +47,7 @@ if [ -z "${VERSION_ACTUAL:-}" ] || [ -z "${VERSION_NUEVA:-}" ]; then
   echo "❌ No se pudo leer la versión de src-tauri/tauri.conf.json (cwd del repo)."
   exit 1
 fi
-NOMBRE_ARTIFACT="DynaRent_${VERSION_NUEVA}_x64-setup.exe"
+NOMBRE_ARTIFACT="DinamoRent_${VERSION_NUEVA}_x64-setup.exe"
 
 echo "== Verificación del entorno =="
 
@@ -168,7 +168,7 @@ fi
 echo
 echo "== Resultado: E2E del updater en verde =="
 echo "  Artifact de prueba : $NOMBRE_ARTIFACT (sha256 $SHA256_ARTIFACT)"
-echo "  Firma              : minisign (clave real de ~/.tauri/dynarent.key)"
+echo "  Firma              : minisign (clave real de ~/.tauri/dinamorent.key)"
 echo "  Detección v$VERSION_NUEVA : OK (check() + version_comparator)"
 echo "  Verificación firma : OK (download() contra la pubkey de tauri.conf.json)"
 echo "  Bytes descargados  : idénticos al artifact servido"

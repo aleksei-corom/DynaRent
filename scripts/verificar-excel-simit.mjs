@@ -36,7 +36,7 @@ const wb = new ExcelJS.Workbook();
 const ws = wb.addWorksheet('Comparendos SIMIT');
 ws.columns = Array.from({ length: 10 }, () => ({ width: 16 }));
 ws.mergeCells(1, 1, 1, 10);
-ws.getCell('A1').value = 'DYNARENT — REPORTE SIMIT';
+ws.getCell('A1').value = 'DINAMO RENT — REPORTE SIMIT';
 ws.getCell('A1').font = { bold: true, size: 14 };
 ws.mergeCells(2, 1, 2, 10);
 ws.getCell('A2').value = `Sincronización: ${new Date(resultado.sincronizadoEn).toLocaleString('es-CO')}`;
@@ -81,10 +81,10 @@ if (!ws2) {
 } else {
 	// Título
 	const a1 = ws2.getCell('A1').value;
-	if (String(a1) !== 'DYNARENT — REPORTE SIMIT') {
+	if (String(a1) !== 'DINAMO RENT — REPORTE SIMIT') {
 		falla(`A1 no es el título esperado: "${a1}"`);
 	} else {
-		ok('A1 título: DYNARENT — REPORTE SIMIT');
+		ok('A1 título: DINAMO RENT — REPORTE SIMIT');
 	}
 
 	// Encabezados (fila 4)

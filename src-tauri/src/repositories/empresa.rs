@@ -23,8 +23,6 @@ pub struct EmpresaConfig {
     pub email: Option<String>,
     pub web: Option<String>,
     pub ciudad: Option<String>,
-    /// País donde se usa la aplicación (para el código telefónico de contacto).
-    pub pais: Option<String>,
     pub logo: Option<String>,
 }
 
@@ -39,7 +37,6 @@ pub struct EmpresaConfigDatos {
     pub email: Option<String>,
     pub web: Option<String>,
     pub ciudad: Option<String>,
-    pub pais: Option<String>,
     /// Data URL del logo (`data:<mime>;base64,<b64>`) o null = sin logo.
     pub logo: Option<String>,
 }
@@ -67,11 +64,10 @@ pub fn logo_mime(ext: &str) -> Option<&'static str> {
 }
 
 /// Orden de columnas del SELECT (alineado con `EmpresaRow`)
-pub const SELECT_COLS: &str = "NOMBRE, NIT, DIRECCION, TELEFONO, EMAIL, WEB, CIUDAD, PAIS, LOGO";
+pub const SELECT_COLS: &str = "NOMBRE, NIT, DIRECCION, TELEFONO, EMAIL, WEB, CIUDAD, LOGO";
 
 #[allow(clippy::type_complexity)]
 pub type EmpresaRow = (
-    Option<String>,
     Option<String>,
     Option<String>,
     Option<String>,
@@ -101,8 +97,8 @@ impl EmpresaRepository {
         logo_archivo: Option<&str>,
     ) -> Result<(), AppError> {
         let sql = "UPDATE OR INSERT INTO EMPRESA_CONFIG \
-                   (ID, NOMBRE, NIT, DIRECCION, TELEFONO, EMAIL, WEB, CIUDAD, PAIS, LOGO, UPDATED_AT) \
-                   VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP) \
+                   (ID, NOMBRE, NIT, DIRECCION, TELEFONO, EMAIL, WEB, CIUDAD, LOGO, UPDATED_AT) \
+                   VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP) \
                    MATCHING (ID)";
         conn.execute(
             sql,
@@ -114,7 +110,6 @@ impl EmpresaRepository {
                 cfg.email.clone(),
                 cfg.web.clone(),
                 cfg.ciudad.clone(),
-                cfg.pais.clone(),
                 logo_archivo.map(|s| s.to_string()),
             ),
         )?;

@@ -66,9 +66,10 @@
 	let eliminando = $state(false);
 
 	const tiposMantenimiento = $derived(
-		lists?.tiposMantenimiento?.length
+		(lists?.tiposMantenimiento?.length
 			? lists.tiposMantenimiento
-			: ['Cambio Aceite', 'Frenos', 'Llantas', 'Batería', 'Tecno-Mecánica', 'Lavado General', 'Reparación Mecánica', 'Otro']
+			: ['Cambio Aceite', 'Frenos', 'Llantas', 'Batería', 'Tecno-Mecánica', 'Lavado General', 'Reparación Mecánica', 'Otro'])
+			.map(t => t.toUpperCase())
 	);
 
 	function defaultForm(): MantenimientoDatos {
@@ -226,7 +227,6 @@
 			await cargarTodo();
 		} catch (e) {
 			toast.error(e instanceof ApiError ? e.message : 'No se pudo eliminar el mantenimiento.');
-			eliminarId = null;
 		} finally {
 			eliminando = false;
 		}
@@ -255,7 +255,7 @@
 </script>
 
 <svelte:head>
-	<title>Mantenimiento — DynaRent ERP</title>
+	<title>Mantenimiento — Dinamo Rent ERP</title>
 </svelte:head>
 
 <div class="space-y-5">

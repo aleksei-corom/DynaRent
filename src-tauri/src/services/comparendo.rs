@@ -5,20 +5,25 @@
 
 use std::sync::Arc;
 
-use chrono::NaiveDate;
+use chrono::{Local, NaiveDate};
 use rust_decimal::Decimal;
 use rust_decimal::prelude::FromStr as _;
 use serde::Serialize;
 
 use crate::core::config::AppConfig;
 use crate::core::error::AppError;
-use crate::core::validators::validate_no_xss;
+use crate::core::validators::{validate_no_xss, mayusculas};
 use crate::core::PooledConnection;
 use crate::repositories::comparendo::{Comparendo, ComparendoDatos, ComparendoRepository};
 use crate::repositories::auto::AutoRepository;
 
 /// Estados válidos de un comparendo
 pub const ESTADOS_COMPARENDO: [&str; 2] = ["Pendiente", "Pagado"];
+
+/// Días sin que el SIMIT confirme un comparendo para considerarlo «no
+/// confirmado» (posible pagado/eliminado en el portal sin avisar a la BD).
+/// El Agente corre cada 2 h, así que 3 días ≈ 36 corridas sin verlo.
+pub const DIAS_SIN_CONFIRMAR_SIMIT: i64 = 3;
 
 /// Total por placa o estado (para el frontend)
 #[derive(Debug, Clone, Serialize)]
@@ -43,13 +48,23 @@ pub struct TotalesComparendos {
 pub struct ComparendoService;
 
 impl ComparendoService {
-    /// Lista comparendos con filtros opcionales (búsqueda libre, placa o estado)
+    /// Lista comparendos con filtros opcionales (búsqueda libre, placa o
+    /// estado). Si `no_confirmados` es true devuelve solo los de origen SIMIT
+    /// que el SIMIT dejó de confirmar (ultimo_visto_simit anterior a
+    /// `DIAS_SIN_CONFIRMAR_SIMIT` o nunca confirmado).
     pub fn listar(
         conn: &mut PooledConnection,
         busqueda: Option<&str>,
         placa: Option<&str>,
         estado: Option<&str>,
+        no_confirmados: bool,
     ) -> Result<Vec<Comparendo>, AppError> {
+        if no_confirmados {
+            let corte = (Local::now().date_naive() - chrono::Duration::days(DIAS_SIN_CONFIRMAR_SIMIT))
+                .format("%Y-%m-%d")
+                .to_string();
+            return ComparendoRepository::obtener_no_confirmados_simit(conn, &corte);
+        }
         let term = busqueda.unwrap_or("").trim();
         let placa = placa.unwrap_or("").trim();
         let estado = estado.unwrap_or("").trim();
@@ -145,17 +160,17 @@ impl ComparendoService {
     }
 }
 
-/// Normaliza campos (trim, placa a mayúsculas, monto con coma → punto)
+/// Normaliza campos (trim → mayúsculas, monto con coma → punto)
 fn normalizar(d: &mut ComparendoDatos) {
-    d.placa = d.placa.trim().to_uppercase();
-    d.fecha_infraccion = d.fecha_infraccion.trim().to_string();
-    d.hora_infraccion = d.hora_infraccion.trim().to_string();
+    d.placa = mayusculas(&d.placa);
+    d.fecha_infraccion = d.fecha_infraccion.trim().to_string(); // fecha formato
+    d.hora_infraccion = d.hora_infraccion.trim().to_string(); // hora formato
     d.monto = d.monto.trim().replace(',', ".");
-    d.estado = d.estado.trim().to_string();
+    d.estado = d.estado.trim().to_string(); // estado con capitalización
     d.observaciones = d
         .observaciones
         .as_ref()
-        .map(|s| s.trim().to_string())
+        .map(|s| mayusculas(s))
         .filter(|s| !s.is_empty());
 }
 

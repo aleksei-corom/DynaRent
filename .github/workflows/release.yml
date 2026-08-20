@@ -17,13 +17,13 @@ jobs:
       # Historial completo (fetch-depth: 0): el changelog necesita los commits
       # y tags anteriores para calcular el rango entre releases.
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       # jsdom 30 requiere Node >= 22.4; usamos Node 24 (LTS activo).
       - name: Setup Node 24
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '24'
 
@@ -71,7 +71,7 @@ jobs:
             ORIGEN="todo el historial"
           fi
           [ -n "$LOG" ] || LOG="- (sin commits nuevos)"
-          BODY="# DynaRent ERP ${REF}
+          BODY="# Dinamo Rent ERP ${REF}
           
           > Publicada automáticamente por GitHub Actions. Cambios ${ORIGEN} (commit ${GITHUB_SHA:0:7}).
           
@@ -82,7 +82,7 @@ jobs:
           ## Instalación
           
           - **Windows**: descarga el instalador NSIS \`*-setup.exe\` o el MSI \`*.msi\` de los assets de este release.
-          - La app crea su \`config.ini\` en \`%APPDATA%\\com.dynarent.app\\\` en el primer arranque.
+          - La app crea su \`config.ini\` en \`%APPDATA%\\com.corjar.dinamorent\\\` en el primer arranque.
           - Requiere WebView2 Runtime (se instala automáticamente si no está presente).
           
           Ver \`SECURITY.md\` para la política de manejo de secretos y respaldo de la clave PII."
@@ -105,7 +105,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: 'DynaRent ERP ${{ github.ref_name }}'
+          releaseName: 'Dinamo Rent ERP ${{ github.ref_name }}'
           releaseBody: ${{ steps.changelog.outputs.changelog }}
           releaseDraft: false
           prerelease: false

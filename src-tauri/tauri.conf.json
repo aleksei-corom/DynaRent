@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "DynaRent",
-  "version": "1.0.16",
-  "identifier": "com.dynarent.app",
+  "productName": "DinamoRent",
+  "version": "1.0.21",
+  "identifier": "com.corjar.dinamorent",
   "build": {
     "frontendDist": "../build",
     "devUrl": "http://localhost:5173",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "DynaRent ERP",
+        "title": "Dinamo Rent ERP",
         "width": 1366,
         "height": 768,
         "minWidth": 1024,
@@ -43,9 +43,9 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDczRjk2RUY3RjVFNjlGQ0UKUldUT24rYjE5Mjc1YzQ1aEZUZjRVakJsTTR6Y3hOUm9udFhnVm0xTjk2WENoYTlZSlBlZ1dSdjcK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDRCQjk2OUJDN0IwRUQ1MkYKUldRdjFRNTd2R201UzlISy9QNzFHaXdqMVJ4ZTVHV0ZqSURONk9LeFBiWUluSmRoU2dUb3dLcm8K",
       "endpoints": [
-        "https://github.com/aleksei-corom/DynaRent/releases/latest/download/latest.json"
+        "https://github.com/CORJAR-Computers/dinamo_rent_tr/releases/latest/download/latest.json"
       ]
     }
   }

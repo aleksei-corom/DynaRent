@@ -14,7 +14,7 @@ use serde::Serialize;
 
 use crate::core::config::AppConfig;
 use crate::core::error::AppError;
-use crate::core::validators::validate_no_xss;
+use crate::core::validators::{validate_no_xss, mayusculas};
 use crate::core::PooledConnection;
 use crate::repositories::auto::AutoRepository;
 use crate::repositories::mantenimiento::{Mantenimiento, MantenimientoDatos, MantenimientoRepository};
@@ -142,9 +142,9 @@ impl MantenimientoService {
     /// recálculo o la auditoría fallan, el soft-delete se revierte y el
     /// historial queda intacto. (Grupo D: adaptado a soft-delete — el DELETE
     /// original de Grupo B se reemplazó por UPDATE ... SET deleted_at.)
-    pub fn eliminar(conn: &mut PooledConnection, id: i64) -> Result<(), AppError> {
+    pub fn eliminar(conn: &mut PooledConnection, id: i64, usuario: &str) -> Result<(), AppError> {
         let actual = Self::obtener(conn, id)?;
-        let es_cambio_aceite = actual.tipo == TIPO_CAMBIO_ACEITE;
+        let es_cambio_aceite = actual.tipo.trim().to_uppercase() == TIPO_CAMBIO_ACEITE.to_uppercase();
         let placa = actual.placa.clone();
         let tipo = actual.tipo.clone();
 
@@ -164,7 +164,7 @@ impl MantenimientoService {
                      WHERE placa = ? AND pieza_varias_tipo = ? AND km_proximo_cambio_aceite > 0 \
                        AND deleted_at IS NULL \
                      ORDER BY pieza_varias_fecha DESC, id DESC",
-                    (placa.clone(), TIPO_CAMBIO_ACEITE.to_string()),
+                    (placa.clone(), TIPO_CAMBIO_ACEITE.to_uppercase()),
                 )?;
                 let nuevo_km = km.and_then(|(k,)| k);
                 tx.execute(
@@ -178,7 +178,7 @@ impl MantenimientoService {
                 "INSERT INTO auditoria (usuario, accion, mensaje, ip, fecha) \
                  VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)",
                 (
-                    "sistema".to_string(),
+                    usuario.to_string(),
                     "ELIMINAR MANTENIMIENTO".to_string(),
                     format!("mant={id}, placa={placa}, tipo={tipo}"),
                     "local".to_string(),
@@ -251,13 +251,13 @@ impl MantenimientoService {
     }
 }
 
-/// Normaliza campos (trim, mayúsculas en placa, defaults)
+/// Normaliza campos (trim → mayúsculas, defaults)
 fn normalizar(d: &mut MantenimientoDatos) {
-    d.placa = d.placa.trim().to_uppercase();
-    d.tipo = d.tipo.trim().to_string();
-    d.fecha = d.fecha.trim().to_string();
-    d.descripcion = d.descripcion.as_ref().map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
-    d.observaciones = d.observaciones.as_ref().map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
+    d.placa = mayusculas(&d.placa);
+    d.tipo = mayusculas(&d.tipo);
+    d.fecha = d.fecha.trim().to_string(); // fecha se mantiene con formato
+    d.descripcion = d.descripcion.as_ref().map(|s| mayusculas(s)).filter(|s| !s.is_empty());
+    d.observaciones = d.observaciones.as_ref().map(|s| mayusculas(s)).filter(|s| !s.is_empty());
     d.costo = d.costo.trim().replace(',', ".");
 }
 
@@ -284,7 +284,9 @@ fn validar(conn: &mut PooledConnection, d: &MantenimientoDatos, cfg: &Arc<AppCon
     if d.tipo.is_empty() {
         return Err(AppError::Validation("El tipo de mantenimiento es obligatorio.".into()));
     }
-    if !tipos.contains(&d.tipo.as_str()) {
+    let tipo_upper = d.tipo.trim().to_uppercase();
+    let tipos_upper: Vec<String> = tipos.iter().map(|t| t.to_uppercase()).collect();
+    if !tipos_upper.contains(&tipo_upper) {
         return Err(AppError::Validation(format!(
             "Tipo inválido '{}'. Permitidos: {}",
             d.tipo,
@@ -340,7 +342,7 @@ fn validar(conn: &mut PooledConnection, d: &MantenimientoDatos, cfg: &Arc<AppCon
 /// con el km programado (o lo limpia si el registro ya no lo indica) para que las
 /// alertas del dashboard se disparen o se apaguen correctamente.
 fn sincronizar_proximo_aceite(conn: &mut PooledConnection, d: &MantenimientoDatos) -> Result<(), AppError> {
-    if d.tipo == TIPO_CAMBIO_ACEITE {
+    if d.tipo.trim().to_uppercase() == TIPO_CAMBIO_ACEITE.to_uppercase() {
         let km = d.km_proximo_cambio_aceite.filter(|&k| k > 0);
         AutoRepository::actualizar_proximo_aceite(conn, &d.placa, km)?;
     }

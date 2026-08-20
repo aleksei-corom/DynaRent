@@ -1,14 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
 	import { ApiError, empresaApi, type EmpresaConfig } from '$lib/api';
 	import { toast } from '$lib/stores/toast.svelte';
 	import { empresa } from '$lib/stores/empresa.svelte';
 	import { sid } from '$lib/stores/session.svelte';
 	import { guardRole, guardSesion, haySesion } from '$lib/utils/guards';
 	import FormField from '$lib/components/FormField.svelte';
-	import SelectConNuevo from '$lib/components/SelectConNuevo.svelte';
-	import { geografia } from '$lib/utils/geografia';
 
 	let cargando = $state(true);
 	let guardando = $state(false);
@@ -21,12 +18,8 @@
 		telefono: '',
 		email: '',
 		web: '',
-		ciudad: '',
-		pais: ''
+		ciudad: ''
 	});
-
-	// Opciones de país: catálogo base (Colombia primero) + valores ya usados.
-	const paises = $derived(geografia.paises());
 
 	// Logo: data URL (persistida) mientras no se cambie; null = sin logo.
 	let logoDataUrl = $state<string | null>(null);
@@ -44,7 +37,6 @@
 			form.email = cfg.email ?? '';
 			form.web = cfg.web ?? '';
 			form.ciudad = cfg.ciudad ?? '';
-			form.pais = cfg.pais ?? '';
 			logoDataUrl = cfg.logo;
 		} catch (e) {
 			error = e instanceof ApiError ? e.message : 'No se pudo cargar la configuración de la empresa.';
@@ -87,9 +79,6 @@
 	async function guardar() {
 		error = '';
 		guardando = true;
-		// ¿Llegó por el flujo de SetUp Inicial? (layout → /empresa). Al guardar
-		// se marca el setup como completado y se continúa al dashboard.
-		const eraSetupPendiente = empresa.setupCompletado === false;
 		try {
 			const cfg = await empresaApi.guardar(sid(), {
 				nombre: form.nombre.trim() || null,
@@ -99,18 +88,12 @@
 				email: form.email.trim() || null,
 				web: form.web.trim() || null,
 				ciudad: form.ciudad.trim() || null,
-				pais: form.pais.trim() || null,
 				logo: logoDataUrl
 			});
-			// Refrescar branding en caliente (login / menú lateral / impresiones)
-			// y marcar el setup inicial como completado (config.ini, backend).
+			// Refrescar branding en caliente (login / menú lateral / impresiones).
 			empresa.actualizar(cfg);
-			empresa.marcarSetupCompletado();
 			logoDataUrl = cfg.logo;
 			toast.success('Configuración de la empresa guardada.');
-			if (eraSetupPendiente) {
-				void goto('/dashboard');
-			}
 		} catch (e) {
 			error = e instanceof ApiError ? e.message : 'No se pudo guardar la configuración.';
 		} finally {
@@ -120,7 +103,7 @@
 </script>
 
 <svelte:head>
-	<title>Empresa — DynaRent ERP</title>
+	<title>Empresa — Dinamo Rent ERP</title>
 </svelte:head>
 
 <div class="space-y-5 max-w-3xl">
@@ -196,14 +179,6 @@
 				<FormField label="Ciudad">
 					<input class="input" placeholder="Ej: Bogotá" bind:value={form.ciudad} maxlength="100" />
 				</FormField>
-				<SelectConNuevo
-					label="País"
-					hint="Los teléfonos de contacto llevarán su código (p. ej. +57 para Colombia)."
-					value={form.pais}
-					opciones={paises}
-					placeholder="— Seleccionar país —"
-					onchange={(v) => (form.pais = v)}
-				/>
 				<FormField label="Email">
 					<input class="input" type="email" placeholder="contacto@empresa.com" bind:value={form.email} maxlength="120" />
 				</FormField>

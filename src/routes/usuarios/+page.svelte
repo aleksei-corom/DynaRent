@@ -204,7 +204,6 @@
 			await cargar();
 		} catch (e) {
 			toast.error(e instanceof ApiError ? e.message : 'No se pudo eliminar el usuario.');
-			eliminarId = null;
 		} finally {
 			eliminando = false;
 		}
@@ -259,7 +258,7 @@
 </script>
 
 <svelte:head>
-	<title>Usuarios — DynaRent ERP</title>
+	<title>Usuarios — Dinamo Rent ERP</title>
 </svelte:head>
 
 <div class="space-y-5">

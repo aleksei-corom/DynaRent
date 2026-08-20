@@ -4,17 +4,31 @@
 //! - DECIMAL → CAST a VARCHAR (parseo exacto en el servicio/frontend)
 //! - DATE/TIME/TIMESTAMP → CAST a VARCHAR
 
-use chrono::{NaiveDate, NaiveTime};
 use rsfbclient::{Execute, IntoParam, ParamsType, Queryable};
 
 use crate::core::error::AppError;
 use crate::core::PooledConnection;
+// Helpers centralizados (Bloque 4 / TAREA 4.2): antes estaban duplicados
+// localmente en este archivo. La migración los importa de `core::repository`
+// para DRY. Se conserva un wrapper `map_fb_error` (1 línea) que delega en
+// `map_fb_error_fk` con el mensaje FK específico de rentas (preserva UX).
+use crate::core::repository::{opt_str, params, parse_fecha, parse_fecha_opt, parse_hora_opt};
 
 use serde::Serialize;
+// ts-rs (Bloque 4 / TAREA 4.3): genera tipos TypeScript en
+// `src/lib/types/generated/` cuando se ejecuta `cargo test`. El frontend
+// puede importarlos en lugar de mantenerlos a mano en `src/lib/api.ts`.
+// El atributo `#[ts(export, export_to = "...")]` controla la generación.
+use ts_rs::TS;
 
 /// Pago registrado contra una renta
-#[derive(Debug, Clone, Serialize)]
+///
+/// Contrato TypeScript generado por ts-rs en `src/lib/types/generated/Pago.ts`
+/// (Bloque 4 / TAREA 4.3). El frontend puede importarlo con:
+///   `import type { Pago } from '$lib/types/generated/Pago';`
+#[derive(Debug, Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../src/lib/types/generated/")]
 pub struct Pago {
     pub id: i64,
     pub id_renta: i64,
@@ -27,8 +41,14 @@ pub struct Pago {
 }
 
 /// Inspección de salida/entrada de una renta
-#[derive(Debug, Clone, Serialize)]
+///
+/// Contrato TypeScript generado por ts-rs en `src/lib/types/generated/Inspeccion.ts`
+/// (Bloque 4 / TAREA 4.3). Necesario derivar `TS` aquí porque `Renta` la
+/// referencia como `Vec<Inspeccion>` (ts-rs requiere que todo tipo anidado
+/// tambien implemente `TS`).
+#[derive(Debug, Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../src/lib/types/generated/")]
 pub struct Inspeccion {
     pub id: i64,
     pub id_renta: i64,
@@ -46,8 +66,14 @@ pub struct Inspeccion {
 }
 
 /// Renta completa (serializable al frontend, camelCase)
-#[derive(Debug, Clone, Serialize)]
+///
+/// Contrato TypeScript generado por ts-rs en `src/lib/types/generated/Renta.ts`
+/// (Bloque 4 / TAREA 4.3). Es el contrato FE<->BE mas importante: cualquier
+/// cambio en los campos de `Renta` se refleja automaticamente en el `.ts`
+/// generado al correr `cargo test`, evitando drift entre Rust y Svelte.
+#[derive(Debug, Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../src/lib/types/generated/")]
 pub struct Renta {
     pub id: i64,
     /// Número de contrato: secuencia DENTRO del año (2026-001, 2026-002, ...)
@@ -83,6 +109,12 @@ pub struct Renta {
     pub impuestos: String,
     /// ¿Cobra IVA esta renta? (checkbox del formulario; false = sin IVA)
     pub cobra_iva: bool,
+    /// ¿Tiene comisión esta renta? (checkbox del formulario; false = sin comisión)
+    pub tiene_comision: bool,
+    /// Valor de la comisión a descontar (información financiera: neto = total − comisión)
+    pub comision: String,
+    /// Valor neto = total − comisión (persistido para reportes financieros)
+    pub valor_neto: String,
     pub total: String,
     pub abono: String,
     pub saldo_pendiente: String,
@@ -105,8 +137,13 @@ pub struct Renta {
 }
 
 /// Datos de entrada para crear/actualizar (validados por el servicio)
-#[derive(Debug, Clone, Default, serde::Deserialize)]
+///
+/// Contrato TypeScript generado por ts-rs en `src/lib/types/generated/RentaDatos.ts`
+/// (Bloque 4 / TAREA 4.3). El frontend usa este tipo para construir el body
+/// del command `crear_renta` / `actualizar_renta` (ver `src/lib/api.ts`).
+#[derive(Debug, Clone, Default, serde::Deserialize, TS)]
 #[serde(default, rename_all = "camelCase")]
+#[ts(export, export_to = "../src/lib/types/generated/")]
 pub struct RentaDatos {
     pub placa: Option<String>,
     pub id_cliente: Option<i64>,
@@ -138,6 +175,12 @@ pub struct RentaDatos {
     pub impuestos: String,
     /// ¿Cobra IVA? (checkbox del formulario; el servicio lo aplica al calcular)
     pub cobra_iva: bool,
+    /// ¿Tiene comisión? (checkbox del formulario; false = sin comisión)
+    pub tiene_comision: bool,
+    /// Valor de la comisión a restar del total (neto = total − comisión)
+    pub comision: String,
+    /// Valor neto (calculado por el servicio: total − comisión)
+    pub valor_neto: String,
     pub total: String,
     pub abono: String,
     pub saldo_pendiente: String,
@@ -161,6 +204,40 @@ pub struct RentaCierreDatos {
     pub valor_dia: Option<String>,
     pub valor_hora_extra: Option<String>,
     pub descuento: Option<String>,
+    pub observaciones: Option<String>,
+}
+
+/// Datos para editar una renta cerrada (corrección de errores de digitación)
+/// Solo permite campos financieros que afectan los totales. Los campos de
+/// identificación (placa, cliente) y abono no son editables.
+#[derive(Debug, Clone, Default, serde::Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct RentaCierreEditDatos {
+    /// Valor diario de la renta (corrección de digitación)
+    pub valor_dia: Option<String>,
+    /// Valor hora extra (corrección de digitación)
+    pub valor_hora_extra: Option<String>,
+    /// Días calculados (corrección de digitación)
+    pub dias_calculados: Option<i64>,
+    /// Horas extras (corrección de digitación)
+    pub horas_extras: Option<i64>,
+    /// Descuento aplicado (corrección de digitación)
+    pub descuento: Option<String>,
+    /// Observaciones sobre la corrección (obligatorio para auditoría)
+    pub observaciones: Option<String>,
+}
+
+/// Datos para extender una renta activa (agregar horas o días extras)
+#[derive(Debug, Clone, Default, serde::Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct ExtensionDatos {
+    /// Tipo de extensión: "horas" o "dias"
+    pub tipo: String,
+    /// Cantidad de horas o días a agregar
+    pub cantidad: i64,
+    /// Valor unitario (hora o día extra)
+    pub valor: String,
+    /// Observaciones sobre la extensión
     pub observaciones: Option<String>,
 }
 
@@ -190,14 +267,6 @@ pub struct InspeccionDatos {
     pub observaciones: Option<String>,
 }
 
-/// Construye parámetros posicionales de cualquier longitud (tuplas `IntoParams`
-/// limitadas a 15 elementos en rsfbclient).
-macro_rules! params {
-    ($($e:expr),+ $(,)?) => {
-        ParamsType::Positional(vec![$($e.into_param()),+])
-    };
-}
-
 /// rsfbclient solo implementa FromRow para tuplas de hasta 26 elementos,
 /// así que el SELECT se divide en dos consultas unidas por id:
 /// - SELECT_COLS_A: primeros 26 campos (datos generales y de tarifas)
@@ -224,7 +293,8 @@ pub const SELECT_COLS_B: &str = "\
     COALESCE(a.marca || ' ' || a.modelo, ''), \
     r.no_contrato, r.anio_contrato, \
     r.cobra_iva = 1, \
-    CAST(r.valor_gasolina AS VARCHAR(12))";
+    CAST(r.valor_gasolina AS VARCHAR(12)), \
+    r.tiene_comision = 1, CAST(r.comision AS VARCHAR(12)), CAST(r.valor_neto AS VARCHAR(12))";
 
 /// Fila A (26 columnas) — mantener alineada con `SELECT_COLS_A`
 #[allow(clippy::type_complexity)]
@@ -257,7 +327,7 @@ pub type RentaRowA = (
     String,
 );
 
-/// Fila B (17 columnas) — mantener alineada con `SELECT_COLS_B`
+/// Fila B (22 columnas) — mantener alineada con `SELECT_COLS_B`
 #[allow(clippy::type_complexity)]
 pub type RentaRowB = (
     i64,
@@ -278,6 +348,9 @@ pub type RentaRowB = (
     i64,
     i64,
     bool,
+    String,
+    bool,
+    String,
     String,
 );
 
@@ -311,6 +384,9 @@ fn from_rows(a: RentaRowA, b: RentaRowB) -> Renta {
         subtotal: a.24,
         impuestos: a.25,
         cobra_iva: b.17,
+        tiene_comision: b.19,
+        comision: b.20,
+        valor_neto: b.21,
         no_contrato: b.15,
         anio_contrato: b.16,
         valor_gasolina: b.18,
@@ -333,21 +409,16 @@ fn from_rows(a: RentaRowA, b: RentaRowB) -> Renta {
     }
 }
 
-/// Mapea errores de Firebird a AppError (FKs de placa/cliente/reserva)
+/// Mapea errores de Firebird a AppError (FKs de placa/cliente/reserva).
+///
+/// Wrapper que delega en `crate::core::repository::map_fb_error_fk` con el
+/// mensaje de negocio específico de rentas. Antes esto estaba duplicado en
+/// 5+ repositorios (Bloque 4 / TAREA 4.2).
 fn map_fb_error(e: rsfbclient::FbError) -> AppError {
-    let msg = e.to_string();
-    let lower = msg.to_lowercase();
-    if lower.contains("foreign key")
-        || lower.contains("not a valid reference")
-        || lower.contains("referential")
-    {
-        AppError::Business(
-            "El cliente, el vehículo o la reserva seleccionada no existe (o está referenciado por otros registros)."
-                .into(),
-        )
-    } else {
-        AppError::Database(msg)
-    }
+    crate::core::repository::map_fb_error_fk(
+        e,
+        "El cliente, el vehículo o la reserva seleccionada no existe (o está referenciado por otros registros).",
+    )
 }
 
 pub struct RentaRepository;
@@ -519,7 +590,7 @@ impl RentaRepository {
                     costo_lavado, costo_silla, costo_retorno, costo_domicilio, costo_cables, costo_inversor, \
                     valor_gasolina, \
                     descuento, subtotal, impuestos, total, abono, saldo_pendiente, \
-                    cobra_iva, estado, observaciones, km_salida, tanque_salida, id_reserva, no_contrato, anio_contrato \
+                    cobra_iva, tiene_comision, comision, valor_neto, estado, observaciones, km_salida, tanque_salida, id_reserva, no_contrato, anio_contrato \
                  ) VALUES (\
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, \
                     ?, ?, \
@@ -529,7 +600,7 @@ impl RentaRepository {
                     CAST(? AS DECIMAL(12,2)), CAST(? AS DECIMAL(12,2)), CAST(? AS DECIMAL(12,2)), \
                     CAST(? AS DECIMAL(12,2)), CAST(? AS DECIMAL(12,2)), CAST(? AS DECIMAL(12,2)), \
                     CAST(? AS DECIMAL(12,2)), \
-                    ?, 'Activo', ?, CAST(? AS DOUBLE PRECISION), ?, ?, \
+                    ?, ?, CAST(? AS DECIMAL(12,2)), CAST(? AS DECIMAL(12,2)), 'Activo', ?, CAST(? AS DOUBLE PRECISION), ?, ?, \
                     (SELECT COALESCE(MAX(no_contrato), 0) + 1 FROM rentas WHERE anio_contrato = EXTRACT(YEAR FROM CURRENT_TIMESTAMP)), \
                     EXTRACT(YEAR FROM CURRENT_TIMESTAMP) \
                  ) RETURNING id",
@@ -540,10 +611,10 @@ impl RentaRepository {
                     opt_str(&d.no_licencia),
                     opt_str(&d.nacionalidad),
                     parse_fecha(&d.fecha_recogida)?,
-                    parse_hora(&d.hora_recogida)?,
+                    parse_hora_opt(&d.hora_recogida)?,
                     opt_str(&d.ubicacion_recogida),
                     parse_fecha(&d.fecha_retorno)?,
-                    parse_hora(&d.hora_retorno)?,
+                    parse_hora_opt(&d.hora_retorno)?,
                     opt_str(&d.ubicacion_retorno),
                     d.dias_calculados,
                     d.horas_extras,
@@ -564,6 +635,9 @@ impl RentaRepository {
                     d.abono.to_string(),
                     d.saldo_pendiente.to_string(),
                     bool_to_i(d.cobra_iva),
+                    bool_to_i(d.tiene_comision),
+                    d.comision.to_string(),
+                    d.valor_neto.to_string(),
                     opt_str(&d.observaciones),
                     d.km_salida.parse::<f64>().unwrap_or(0.0),
                     opt_str(&d.tanque_salida),
@@ -591,7 +665,8 @@ impl RentaRepository {
                 descuento = CAST(? AS DECIMAL(12,2)), \
                 subtotal = CAST(? AS DECIMAL(12,2)), impuestos = CAST(? AS DECIMAL(12,2)), \
                 total = CAST(? AS DECIMAL(12,2)), saldo_pendiente = CAST(? AS DECIMAL(12,2)), \
-                cobra_iva = ?, observaciones = ?, km_salida = CAST(? AS DOUBLE PRECISION), tanque_salida = ?, \
+                cobra_iva = ?, tiene_comision = ?, comision = CAST(? AS DECIMAL(12,2)), valor_neto = CAST(? AS DECIMAL(12,2)), \
+                observaciones = ?, km_salida = CAST(? AS DOUBLE PRECISION), tanque_salida = ?, \
                 id_reserva = ? \
              WHERE id = ?",
             params![
@@ -601,10 +676,10 @@ impl RentaRepository {
                 opt_str(&d.no_licencia),
                 opt_str(&d.nacionalidad),
                 parse_fecha(&d.fecha_recogida)?,
-                parse_hora(&d.hora_recogida)?,
+                parse_hora_opt(&d.hora_recogida)?,
                 opt_str(&d.ubicacion_recogida),
                 parse_fecha(&d.fecha_retorno)?,
-                parse_hora(&d.hora_retorno)?,
+                parse_hora_opt(&d.hora_retorno)?,
                 opt_str(&d.ubicacion_retorno),
                 d.dias_calculados,
                 d.horas_extras,
@@ -624,6 +699,9 @@ impl RentaRepository {
                 d.total.to_string(),
                 d.saldo_pendiente.to_string(),
                 bool_to_i(d.cobra_iva),
+                bool_to_i(d.tiene_comision),
+                d.comision.to_string(),
+                d.valor_neto.to_string(),
                 opt_str(&d.observaciones),
                 d.km_salida.parse::<f64>().unwrap_or(0.0),
                 opt_str(&d.tanque_salida),
@@ -660,7 +738,7 @@ impl RentaRepository {
              WHERE id = ?",
             params![
                 parse_fecha_opt(&d.fecha_devolucion_real)?,
-                parse_hora(&d.hora_devolucion_real)?,
+                parse_hora_opt(&d.hora_devolucion_real)?,
                 opt_str(&d.km_final),
                 opt_str(&d.tanque_final),
                 d.dias_calculados,
@@ -767,6 +845,51 @@ impl RentaRepository {
         Ok(id)
     }
 
+    /// Edita campos financieros de una renta CERRADA (corrección de errores de digitación).
+    /// Recalcula subtotal/impuestos/total/saldo_pendiente/valor_neto con los nuevos valores.
+    /// NO toca abono (se gestiona por pagos) ni estado (permanece 'Cerrada').
+    pub fn editar_cerrada(
+        conn: &mut PooledConnection,
+        id: i64,
+        d: &RentaCierreEditDatos,
+        subtotal: &str,
+        impuestos: &str,
+        total: &str,
+        saldo: &str,
+        valor_neto: &str,
+    ) -> Result<(), AppError> {
+        conn.execute(
+            "UPDATE rentas SET \
+                valor_dia = CAST(COALESCE(?, valor_dia) AS DECIMAL(12,2)), \
+                valor_hora_extra = CAST(COALESCE(?, valor_hora_extra) AS DECIMAL(12,2)), \
+                dias_calculados = COALESCE(?, dias_calculados), \
+                horas_extras = COALESCE(?, horas_extras), \
+                descuento = CAST(COALESCE(?, descuento) AS DECIMAL(12,2)), \
+                subtotal = CAST(? AS DECIMAL(12,2)), \
+                impuestos = CAST(? AS DECIMAL(12,2)), \
+                total = CAST(? AS DECIMAL(12,2)), \
+                saldo_pendiente = CAST(? AS DECIMAL(12,2)), \
+                valor_neto = CAST(? AS DECIMAL(12,2)), \
+                observaciones = COALESCE(?, observaciones) \
+             WHERE id = ?",
+            params![
+                d.valor_dia.as_deref().map(|s| s.trim().replace(',', ".")),
+                d.valor_hora_extra.as_deref().map(|s| s.trim().replace(',', ".")),
+                d.dias_calculados,
+                d.horas_extras,
+                d.descuento.as_deref().map(|s| s.trim().replace(',', ".")),
+                subtotal,
+                impuestos,
+                total,
+                saldo,
+                valor_neto,
+                d.observaciones.as_deref().map(|s| s.trim().to_string()),
+                id,
+            ],
+        )?;
+        Ok(())
+    }
+
     /// Rentas activas (para el calendario y el dashboard)
     pub fn activas(conn: &mut PooledConnection) -> Result<Vec<Renta>, AppError> {
         let empty = ParamsType::Positional(vec![]);
@@ -794,25 +917,8 @@ impl RentaRepository {
     }
 }
 
-fn opt_str(v: &Option<String>) -> Option<String> {
-    v.as_ref().map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
-}
-
 fn bool_to_i(b: bool) -> i64 {
     if b { 1 } else { 0 }
-}
-
-/// Parsea fecha 'AAAA-MM-DD' a NaiveDate (el servicio ya la validó)
-fn parse_fecha(v: &str) -> Result<NaiveDate, AppError> {
-    NaiveDate::parse_from_str(v.trim(), "%Y-%m-%d")
-        .map_err(|_| AppError::Validation("Fecha inválida (formato AAAA-MM-DD).".into()))
-}
-
-fn parse_fecha_opt(v: &Option<String>) -> Result<Option<NaiveDate>, AppError> {
-    match opt_str(v) {
-        None => Ok(None),
-        Some(s) => parse_fecha(&s).map(Some),
-    }
 }
 
 /// Recorta 'HH:MM:SS.0000' (Firebird) a 'HH:MM' para la UI
@@ -829,15 +935,4 @@ fn km_limpio(v: &str) -> String {
         .unwrap_or_else(|_| v.trim().to_string())
 }
 
-/// Parsea hora 'HH:MM[:SS]' a NaiveTime (el servicio ya la validó)
-fn parse_hora(v: &Option<String>) -> Result<Option<NaiveTime>, AppError> {
-    match opt_str(v) {
-        None => Ok(None),
-        Some(h) => {
-            let h = if h.len() == 5 { format!("{h}:00") } else { h };
-            NaiveTime::parse_from_str(&h, "%H:%M:%S")
-                .map(Some)
-                .map_err(|_| AppError::Validation("Hora inválida (formato HH:MM).".into()))
-        }
-    }
-}
+

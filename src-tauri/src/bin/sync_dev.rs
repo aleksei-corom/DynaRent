@@ -1,7 +1,7 @@
 //! sync_dev — Herramienta de DESARROLLO
 //!
 //! Ejecuta la sincronización SIMIT de punta a punta contra la BD de desarrollo
-//! (data/dynarent_v3.fdb) SIN Tauri: config → pool → migraciones → run_sync
+//! (data/dinamo_rent_v3.fdb) SIN Tauri: config → pool → migraciones → run_sync
 //! (el mismo camino que «Sincronizar ahora» en la UI, con app=None).
 //!
 //! Uso: `cargo run --features dev --bin sync_dev`
@@ -18,10 +18,10 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use dynarent_lib::core::config::AppConfig;
-use dynarent_lib::core::db::{create_pool, PooledConnection};
-use dynarent_lib::repositories::auto::AutoRepository;
-use dynarent_lib::services::simit::{run_sync, EstadoAgenteSimit};
+use dinamo_rent_lib::core::config::AppConfig;
+use dinamo_rent_lib::core::db::{create_pool, PooledConnection};
+use dinamo_rent_lib::repositories::auto::AutoRepository;
+use dinamo_rent_lib::services::simit::{run_sync, EstadoAgenteSimit};
 use rsfbclient::Queryable;
 use tauri::AppHandle;
 
@@ -90,7 +90,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let pool = create_pool(&cfg)?;
     // Migraciones idempotentes (mismo arranque que lib.rs)
-    dynarent_lib::core::migrations::run_migrations(&pool, &manifest.join("migrations"))?;
+    dinamo_rent_lib::core::migrations::run_migrations(&pool, &manifest.join("migrations"))?;
 
     let mut conn = pool.get()?;
 

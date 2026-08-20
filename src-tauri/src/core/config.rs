@@ -6,6 +6,7 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
+use chrono::{NaiveTime, Timelike};
 use serde::Serialize;
 
 use super::error::AppError;
@@ -18,8 +19,8 @@ const DEFAULTS: &[(&str, &str, &str)] = &[
     ("database", "port", "3050"),
     ("database", "user", "sysdba"),
     ("database", "password", "masterkey"),
-    ("database", "database", "dynarent"),
-    ("database", "path", "dynarent_v3.fdb"),
+    ("database", "database", "dinamo_rent"),
+    ("database", "path", "dinamo_rent_v3.fdb"),
     ("database", "timeout", "10"),
     ("database", "pool_size", "10"),
     ("database", "pool_max_overflow", "20"),
@@ -47,9 +48,9 @@ const DEFAULTS: &[(&str, &str, &str)] = &[
     ("logging", "audit_enabled", "true"),
     ("logging", "audit_retention_days", "30"),
     // [application]
-    ("application", "name", "DynaRent ERP"),
-    ("application", "version", "1.0.16"),
-    ("application", "author", "DynaRent"),
+    ("application", "name", "Dinamo Rent ERP"),
+    ("application", "version", "3.2.0"),
+    ("application", "author", "Dinamo Rent a Car"),
     ("application", "language", "es"),
     ("application", "timezone", "America/Bogota"),
     ("application", "production_mode", "false"),
@@ -76,7 +77,7 @@ const DEFAULTS: &[(&str, &str, &str)] = &[
     ("business", "alert_extintor_days", "15"),
     ("business", "km_alert_aceite", "500"),
     ("business", "impuesto_porcentaje", "19"),
-    ("business", "roles_con_informes", "Administrador, Supervisor"),
+    ("business", "roles_con_informes", "Administrador"),
     ("business", "roles_con_usuarios", "Administrador"),
     ("business", "roles_con_eliminar", "Administrador, Supervisor"),
     ("business", "roles_usuarios", "Administrador, Supervisor, Operador"),
@@ -193,14 +194,27 @@ pub struct AppConfig {
     // ── Application ──
     pub app_name: String,
     pub app_version: String,
-    /// ¿El setup inicial ya se completó? (config.ini [application] setup_completed)
-    pub setup_completed: bool,
     // ── UI (para el frontend) ──
     pub ui_color_primario: String,
     pub ui_color_fondo: String,
+    // ── Backup (sección [backup]) ──
+    /// Directorio de backups (relativo a data_dir o absoluto)
+    pub backup_directory: PathBuf,
+    /// Copias a conservar en la rotación (0 = conservar todas)
+    pub backup_max_copies: usize,
+    /// Horarios "HH:MM" tal cual config.ini (para mostrar/editar)
+    pub backup_schedule_times: Vec<String>,
+    /// Horarios parseados a minutos del día (0-1439) para el scheduler
+    pub backup_schedule_minutes: Vec<u32>,
+    /// Cadencia del scheduler (ms), default 60000
+    pub backup_check_interval_ms: u64,
+    pub backup_encryption_enabled: bool,
+    pub backup_encryption_password: String,
     // ── Rutas de runtime ──
     pub config_dir: PathBuf,
     pub data_dir: PathBuf,
+    /// Directorio de recursos (firebird/, gbak.exe) — producción: bundle; dev: resources
+    pub resource_dir: PathBuf,
 }
 
 impl AppConfig {
@@ -220,7 +234,7 @@ impl AppConfig {
         }
 
         // 2) Leer config.ini (o defaults si falla la lectura)
-        let mut map = match std::fs::read_to_string(&config_path) {
+        let map = match std::fs::read_to_string(&config_path) {
             Ok(content) => parse_ini(&content),
             Err(e) => {
                 log::warn!(
@@ -232,21 +246,11 @@ impl AppConfig {
             }
         };
 
-        // 2.5) Overrides por variables de entorno (runtime, en memoria — no
-        // se persisten en config.ini). Ver `.env.example` y `SECURITY.md` §1.4.
-        apply_env_overrides(&mut map);
-
-        // 2.6) Migración del nombre de la BD legacy (dinamo_rent_v3.fdb →
-        // dynarent_v3.fdb): renombra el archivo si existe y actualiza
-        // config.ini. Best-effort — si el rename falla (archivo en uso), se
-        // conserva el path legacy y la app sigue usando su BD con datos.
-        migrate_legacy_db_path(&mut map, data_dir, &config_path);
-
         // 3) Resolver fbclient.dll
         let fbclient_path = find_fbclient(resource_dir, manifest_dir);
 
         // 4) Resolver ruta del .fdb (relativa al data_dir)
-        let db_name = get_str(&map, "database", "path", "dynarent_v3.fdb");
+        let db_name = get_str(&map, "database", "path", "dinamo_rent_v3.fdb");
         let db_path = if Path::new(&db_name).is_absolute() {
             PathBuf::from(&db_name)
         } else {
@@ -307,55 +311,21 @@ impl AppConfig {
             impuesto_porcentaje: get_str(&map, "business", "impuesto_porcentaje", "19")
                 .parse::<f64>()
                 .unwrap_or(19.0),
-            app_name: get_str(&map, "application", "name", "DynaRent ERP"),
-            app_version: get_str(&map, "application", "version", "1.0.16"),
-            setup_completed: get_bool(&map, "application", "setup_completed", false),
+            app_name: get_str(&map, "application", "name", "Dinamo Rent ERP"),
+            app_version: get_str(&map, "application", "version", "3.2.0"),
             ui_color_primario: get_str(&map, "ui", "color_primario", "#1e40af"),
             ui_color_fondo: get_str(&map, "ui", "color_fondo", "#f8fafc"),
+            backup_directory: PathBuf::from(get_str(&map, "backup", "directory", "Backups")),
+            backup_max_copies: get_usize(&map, "backup", "max_copies", 10),
+            backup_schedule_times: get_list(&map, "backup", "schedule_times"),
+            backup_schedule_minutes: get_backup_minutes(&map),
+            backup_check_interval_ms: get_u64(&map, "backup", "check_interval_ms", 60000),
+            backup_encryption_enabled: get_bool(&map, "backup", "encryption_enabled", false),
+            backup_encryption_password: get_str(&map, "backup", "encryption_password", ""),
             config_dir: config_path.parent().unwrap_or(data_dir).to_path_buf(),
             data_dir: data_dir.to_path_buf(),
+            resource_dir: resource_dir.to_path_buf(),
         }
-    }
-
-    /// Lee el flag `setup_completed` directamente de config.ini.
-    ///
-    /// El campo en memoria se carga al arrancar; este método refleja lo
-    /// persistido, de modo que `setup_estado` devuelva `true` apenas
-    /// `guardar_empresa` marca el setup en esta misma ejecución (sin
-    /// reiniciar la app).
-    pub fn setup_completado_persistido(&self) -> bool {
-        match std::fs::read_to_string(self.config_dir.join("config.ini")) {
-            Ok(content) => get_bool(&parse_ini(&content), "application", "setup_completed", false),
-            Err(_) => self.setup_completed,
-        }
-    }
-
-    /// Persiste el flag `setup_completed` (setup inicial terminado) en la
-    /// sección [application] de config.ini. Mismo patrón de escritura atómica
-    /// que `persist_db_encryption_key` (temp + rename).
-    pub fn persist_setup_completado(&self) -> Result<(), AppError> {
-        let path = self.config_dir.join("config.ini");
-        let mut map = match std::fs::read_to_string(&path) {
-            Ok(content) => parse_ini(&content),
-            Err(e) => {
-                log::warn!("No se pudo leer config.ini para persistir el setup ({e}) — se usan defaults");
-                parse_ini(&build_default_ini_text())
-            }
-        };
-        map.entry("application".into())
-            .or_default()
-            .insert("setup_completed".into(), "true".into());
-        let content = serialize_ini(&map);
-        // Escritura atómica: temp + rename para no dejar el archivo truncado
-        // si la app se cierra a mitad de la escritura.
-        let tmp = path.with_extension("ini.tmp");
-        std::fs::write(&tmp, &content).map_err(|e| {
-            AppError::Generic(format!("No se pudo escribir config.ini: {e}"))
-        })?;
-        std::fs::rename(&tmp, &path).map_err(|e| {
-            let _ = std::fs::remove_file(&tmp);
-            AppError::Generic(format!("No se pudo actualizar config.ini: {e}"))
-        })
     }
 
     /// Persiste `db_encryption_key` en la sección [security] de config.ini
@@ -407,34 +377,6 @@ impl AppConfig {
     }
 }
 
-/// Aplica overrides por variable de entorno sobre el mapa INI (en memoria).
-///
-/// Si la variable está definida y NO está vacía, gana sobre el valor de
-/// config.ini. Mapeo documentado en `.env.example` y `SECURITY.md` §1.4:
-///   DYNARENT_DB_ENCRYPTION_KEY → [security].db_encryption_key
-///   DYNARENT_FB_USER           → [database].user
-///   DYNARENT_FB_PASSWORD       → [database].password
-///
-/// No persiste en config.ini: el override es solo de runtime (útil para
-/// CI/despliegues donde no se quiere escribir la clave en disco).
-fn apply_env_overrides(map: &mut IniMap) {
-    const OVERRIDES: &[(&str, &str, &str)] = &[
-        ("DYNARENT_DB_ENCRYPTION_KEY", "security", "db_encryption_key"),
-        ("DYNARENT_FB_USER", "database", "user"),
-        ("DYNARENT_FB_PASSWORD", "database", "password"),
-    ];
-    for (env_var, section, key) in OVERRIDES {
-        if let Ok(value) = std::env::var(env_var) {
-            let value = value.trim().to_string();
-            if !value.is_empty() {
-                map.entry((*section).to_string())
-                    .or_default()
-                    .insert((*key).to_string(), value);
-            }
-        }
-    }
-}
-
 /// Busca fbclient.dll: primero en resource_dir/firebird, luego en manifest_dir/resources/firebird
 fn find_fbclient(resource_dir: &Path, manifest_dir: &Path) -> PathBuf {
     for candidate in [
@@ -449,72 +391,6 @@ fn find_fbclient(resource_dir: &Path, manifest_dir: &Path) -> PathBuf {
     log::warn!("No se encontró fbclient.dll (se probaron: resources/firebird y manifest resources)");
     // Fallback: devuelve la ruta más probable para dar un error claro al conectar
     manifest_dir.join("resources").join("firebird").join("fbclient.dll")
-}
-
-/// Migra instalaciones legacy cuyo path de BD es `dinamo_rent_v3.fdb` al nuevo
-/// nombre `dynarent_v3.fdb`: renombra el archivo si existe (sin tocar el resto
-/// del directorio) y persiste el path nuevo en config.ini.
-///
-/// Best-effort: si el rename falla (p. ej. archivo en uso por otro proceso), se
-/// conserva el path legacy para no perder datos y se reintenta en el próximo
-/// arranque. Si el archivo legacy no existe (ini viejo en instalación nueva o
-/// migración previa sin persistir), se apunta al nombre nuevo y `create_pool`
-/// creará el archivo si hace falta.
-fn migrate_legacy_db_path(map: &mut IniMap, data_dir: &Path, config_path: &Path) {
-    const LEGACY_DB: &str = "dinamo_rent_v3.fdb";
-    const NUEVO_DB: &str = "dynarent_v3.fdb";
-
-    let cfg_path = get_str(map, "database", "path", NUEVO_DB);
-    if Path::new(&cfg_path).file_name().and_then(|n| n.to_str()) != Some(LEGACY_DB) {
-        return; // ya usa el nombre nuevo (o uno personalizado): nada que migrar
-    }
-
-    let resolved = if Path::new(&cfg_path).is_absolute() {
-        PathBuf::from(&cfg_path)
-    } else {
-        data_dir.join(&cfg_path)
-    };
-    let nuevo = resolved.with_file_name(NUEVO_DB);
-
-    // ¿Apuntamos al nombre nuevo? Solo si el rename funcionó o no hay archivo
-    // legacy que preservar. Si el rename falla, seguimos con el archivo legacy.
-    let usar_nuevo = if resolved.exists() {
-        match std::fs::rename(&resolved, &nuevo) {
-            Ok(_) => {
-                log::info!(
-                    "BD migrada de nombre: {} → {}",
-                    resolved.display(),
-                    nuevo.display()
-                );
-                true
-            }
-            Err(e) => {
-                log::warn!(
-                    "No se pudo renombrar la BD legacy {:?}: {e} — se sigue usando el archivo legacy",
-                    resolved
-                );
-                false
-            }
-        }
-    } else {
-        // No existe el legacy: ya migrada antes (ini sin actualizar) o instalación
-        // nueva con ini viejo → apuntar al nombre nuevo (create_pool lo creará).
-        true
-    };
-
-    if usar_nuevo {
-        let valor = if Path::new(&cfg_path).is_absolute() {
-            nuevo.to_string_lossy().to_string()
-        } else {
-            NUEVO_DB.to_string()
-        };
-        map.entry("database".into())
-            .or_default()
-            .insert("path".into(), valor);
-        if let Err(e) = std::fs::write(config_path, serialize_ini(map)) {
-            log::warn!("No se pudo persistir el path nuevo de BD en config.ini: {e}");
-        }
-    }
 }
 
 /// Texto INI con todos los defaults (espejo de `_DEFAULTS`)
@@ -632,6 +508,28 @@ fn get_set(map: &IniMap, section: &str, key: &str) -> HashSet<String> {
         .unwrap_or_default()
 }
 
+/// Parseo de `backup.schedule_times` ("09:00, 13:00, …") a minutos del día.
+/// Los horarios inválidos se ignoran (con warn) y los duplicados se eliminan:
+/// un horario mal escrito no debe tumbar el scheduler ni la app.
+fn get_backup_minutes(map: &IniMap) -> Vec<u32> {
+    let raw = get_str(map, "backup", "schedule_times", "09:00, 13:00, 19:00, 23:00");
+    let mut minutos: Vec<u32> = raw
+        .split(',')
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .filter_map(|parte| match NaiveTime::parse_from_str(parte, "%H:%M") {
+            Ok(t) => Some(t.hour() * 60 + t.minute()),
+            Err(_) => {
+                log::warn!("Backup: horario inválido ignorado en config.ini: {parte:?}");
+                None
+            }
+        })
+        .collect();
+    minutos.sort_unstable();
+    minutos.dedup();
+    minutos
+}
+
 /// Listas de negocio (tipos de auto, estados, etc.) para exponer al frontend
 pub fn get_list(map: &IniMap, section: &str, key: &str) -> Vec<String> {
     map.get(section)
@@ -668,7 +566,7 @@ mod tests {
     fn defaults_roundtrip() {
         let text = build_default_ini_text();
         let ini = parse_ini(&text);
-        assert_eq!(get_str(&ini, "business", "roles_con_informes", ""), "Administrador, Supervisor");
+        assert_eq!(get_str(&ini, "business", "roles_con_informes", ""), "Administrador");
         assert_eq!(get_str(&ini, "business", "roles_con_eliminar", ""), "Administrador, Supervisor");
         assert_eq!(get_u64(&ini, "security", "session_timeout", 0), 3600);
         // Retraso inicial del Agente SIMIT (10 min): no debe competir con el arranque
@@ -676,142 +574,25 @@ mod tests {
     }
 
     #[test]
-    fn migra_ini_legacy_al_nuevo_nombre_de_bd() {
-        let dir = tempfile::tempdir().expect("tempdir");
-        let legacy = dir.path().join("dinamo_rent_v3.fdb");
-        std::fs::write(&legacy, b"datos-fake").expect("escribir BD legacy");
-        std::fs::write(
-            dir.path().join("config.ini"),
-            "[database]\nengine = firebird\npath = dinamo_rent_v3.fdb\n",
-        )
-        .expect("escribir ini legacy");
-
-        let cfg = AppConfig::load(dir.path(), dir.path(), dir.path());
-
+    fn backup_config_defaults() {
+        let text = build_default_ini_text();
+        let ini = parse_ini(&text);
+        // Sección [backup]: 4 horarios y rotación a 10 copias (Fase 8 del plan)
+        assert_eq!(get_str(&ini, "backup", "max_copies", ""), "10");
         assert_eq!(
-            cfg.db_path,
-            dir.path().join("dynarent_v3.fdb"),
-            "db_path debe apuntar al nombre nuevo"
+            get_str(&ini, "backup", "schedule_times", ""),
+            "09:00, 13:00, 19:00, 23:00"
         );
-        assert!(!legacy.exists(), "el archivo legacy debe haberse renombrado");
-        assert!(
-            dir.path().join("dynarent_v3.fdb").exists(),
-            "el archivo nuevo debe existir"
-        );
-        let ini = std::fs::read_to_string(dir.path().join("config.ini")).expect("leer ini");
-        assert!(
-            ini.contains("path = dynarent_v3.fdb"),
-            "config.ini debe apuntar al nombre nuevo: {ini}"
-        );
+        assert_eq!(get_u64(&ini, "backup", "check_interval_ms", 0), 60000);
     }
 
     #[test]
-    fn ini_legacy_sin_archivo_apunta_al_nombre_nuevo() {
-        let dir = tempfile::tempdir().expect("tempdir");
-        std::fs::write(
-            dir.path().join("config.ini"),
-            "[database]\npath = dinamo_rent_v3.fdb\n",
-        )
-        .expect("escribir ini legacy");
-
-        let cfg = AppConfig::load(dir.path(), dir.path(), dir.path());
-        assert_eq!(cfg.db_path, dir.path().join("dynarent_v3.fdb"));
-        let ini = std::fs::read_to_string(dir.path().join("config.ini")).unwrap();
-        assert!(ini.contains("path = dynarent_v3.fdb"));
-    }
-
-    use std::sync::Mutex;
-
-    /// Serializa los tests que tocan variables de entorno (son globales y los
-    /// tests corren en paralelo).
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
-
-    fn limpiar_env() {
-        std::env::remove_var("DYNARENT_DB_ENCRYPTION_KEY");
-        std::env::remove_var("DYNARENT_FB_USER");
-        std::env::remove_var("DYNARENT_FB_PASSWORD");
-    }
-
-    #[test]
-    fn env_override_de_clave_y_credenciales() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
-        limpiar_env();
-        std::env::set_var("DYNARENT_DB_ENCRYPTION_KEY", "clave-desde-env");
-        std::env::set_var("DYNARENT_FB_USER", "usuario-env");
-        std::env::set_var("DYNARENT_FB_PASSWORD", "password-env");
-
-        let dir = tempfile::tempdir().expect("tempdir");
-        std::fs::write(
-            dir.path().join("config.ini"),
-            "[database]\nuser = sysdba\npassword = masterkey\npath = dynarent_v3.fdb\n\n[security]\ndb_encryption_key = clave-del-ini\n",
-        )
-        .expect("escribir ini");
-
-        let cfg = AppConfig::load(dir.path(), dir.path(), dir.path());
-        assert_eq!(cfg.db_user, "usuario-env", "la env var gana sobre config.ini");
-        assert_eq!(cfg.db_password, "password-env");
-        assert_eq!(cfg.db_encryption_key, "clave-desde-env");
-
-        // El override es en memoria: config.ini no debe contener la clave de env
-        let ini = std::fs::read_to_string(dir.path().join("config.ini")).unwrap();
-        assert!(
-            !ini.contains("clave-desde-env"),
-            "la clave de env no debe persistirse: {ini}"
-        );
-        assert!(ini.contains("clave-del-ini"));
-    }
-
-    #[test]
-    fn env_vacia_no_hace_override() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
-        limpiar_env();
-        std::env::set_var("DYNARENT_FB_USER", "   ");
-
-        let dir = tempfile::tempdir().expect("tempdir");
-        std::fs::write(
-            dir.path().join("config.ini"),
-            "[database]\nuser = sysdba\npassword = masterkey\npath = dynarent_v3.fdb\n",
-        )
-        .expect("escribir ini");
-
-        let cfg = AppConfig::load(dir.path(), dir.path(), dir.path());
-        assert_eq!(
-            cfg.db_user, "sysdba",
-            "env var vacía (solo espacios) no debe pisar config.ini"
-        );
-    }
-
-    #[test]
-    fn sin_env_se_usa_el_ini() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
-        limpiar_env();
-
-        let dir = tempfile::tempdir().expect("tempdir");
-        std::fs::write(
-            dir.path().join("config.ini"),
-            "[database]\nuser = otro-user\npassword = otro-pass\npath = dynarent_v3.fdb\n",
-        )
-        .expect("escribir ini");
-
-        let cfg = AppConfig::load(dir.path(), dir.path(), dir.path());
-        assert_eq!(cfg.db_user, "otro-user");
-        assert_eq!(cfg.db_password, "otro-pass");
-    }
-
-    #[test]
-    fn no_toca_ini_con_nombre_nuevo() {
-        let dir = tempfile::tempdir().expect("tempdir");
-        let nueva = dir.path().join("dynarent_v3.fdb");
-        std::fs::write(&nueva, b"datos").expect("escribir BD nueva");
-        std::fs::write(
-            dir.path().join("config.ini"),
-            "[database]\npath = dynarent_v3.fdb\n",
-        )
-        .expect("escribir ini");
-
-        let cfg = AppConfig::load(dir.path(), dir.path(), dir.path());
-        assert_eq!(cfg.db_path, nueva);
-        assert!(nueva.exists());
-        assert!(!dir.path().join("dinamo_rent_v3.fdb").exists());
+    fn backup_minutes_ignora_horarios_invalidos() {
+        let ini = parse_ini("[backup]\nschedule_times = 09:00, 25:00, abc, 13:00, 09:00\n");
+        // 25:00 y abc se descartan; duplicados se eliminan
+        assert_eq!(get_backup_minutes(&ini), vec![540, 780]);
+        // Sección ausente → defaults
+        let vacio = parse_ini("");
+        assert_eq!(get_backup_minutes(&vacio), vec![540, 780, 1140, 1380]);
     }
 }

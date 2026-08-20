@@ -28,6 +28,7 @@
 
 	const diasVencimiento = $derived.by(() => {
 		const hoy = new Date();
+		hoy.setHours(0, 0, 0, 0);
 		return (fecha: string | null): number | null => {
 			if (!fecha) return null;
 			const d = new Date(fecha + 'T00:00:00');
@@ -117,7 +118,7 @@
 </script>
 
 <svelte:head>
-	<title>Alertas — DynaRent ERP</title>
+	<title>Alertas — Dinamo Rent ERP</title>
 </svelte:head>
 
 <div class="space-y-5">

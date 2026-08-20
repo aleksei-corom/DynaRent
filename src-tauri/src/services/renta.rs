@@ -15,11 +15,11 @@ use serde::Serialize;
 
 use crate::core::config::AppConfig;
 use crate::core::error::AppError;
-use crate::core::validators::validate_no_xss;
+use crate::core::validators::{validate_no_xss, mayusculas};
 use crate::core::PooledConnection;
 use crate::repositories::cliente::ClienteRepository;
 use crate::repositories::renta::{
-    Inspeccion, InspeccionDatos, Pago, PagoDatos, Renta, RentaCierreDatos, RentaDatos, RentaRepository,
+    ExtensionDatos, Inspeccion, InspeccionDatos, Pago, PagoDatos, Renta, RentaCierreDatos, RentaCierreEditDatos, RentaDatos, RentaRepository,
 };
 use crate::repositories::reserva::ReservaRepository;
 
@@ -240,13 +240,24 @@ impl RentaService {
         conn: &mut PooledConnection,
         cfg: &Arc<AppConfig>,
         id: i64,
+        usuario: &str,
         mut datos: RentaCierreDatos,
     ) -> Result<Renta, AppError> {
+        // ── Span de tracing (Bloque 4 / TAREA 4.1) ──
+        // Atributos del span: id de la renta, usuario que ejecuta el cierre y
+        // estado previo. Cualquier `tracing::info!`/`error!` dentro de la fn
+        // queda etiquetado con estos campos (útil para filtrar en Jaeger o en
+        // `grep "renta_id=42"` sobre el log).
+        let span = tracing::info_span!("cerrar_renta", renta_id = id, %usuario);
+        let _enter = span.enter();
+
         let actual = Self::obtener(conn, id)?;
         if actual.estado == "Cerrada" {
+            tracing::warn!(estado = %actual.estado, "Intento de cierre de renta ya cerrada");
             return Err(AppError::Business("La renta ya está cerrada.".into()));
         }
         if actual.estado == "Cancelada" {
+            tracing::warn!(estado = %actual.estado, "Intento de cierre de renta cancelada");
             return Err(AppError::Business(
                 "No se puede cerrar una renta cancelada.".into(),
             ));
@@ -286,6 +297,9 @@ impl RentaService {
         let imp = if actual.cobra_iva { impuesto(cfg) } else { Decimal::ZERO };
         let impuestos = (subtotal * imp).round_dp(2);
         let total = subtotal + impuestos;
+        // Valor neto = total − comisión persistida (información financiera)
+        let comision = if actual.tiene_comision { dec_str(&actual.comision) } else { Decimal::ZERO };
+        let valor_neto = (total - comision).max(Decimal::ZERO);
         let abono = dec_str(&actual.abono);
         let saldo = (total - abono).max(Decimal::ZERO);
 
@@ -302,9 +316,14 @@ impl RentaService {
         let subtotal_s = subtotal.round_dp(2).to_string();
         let impuestos_s = impuestos.to_string();
         let total_s = total.round_dp(2).to_string();
+        let valor_neto_s = valor_neto.round_dp(2).to_string();
         let saldo_s = saldo.round_dp(2).to_string();
         let placa_auto = actual.placa.clone();
-        let usuario_audit = "sistema".to_string();
+        let usuario_audit = usuario.to_string();
+        // Clones para tracing post-transacción (los originales se mueven al closure)
+        let placa_log = placa_auto.clone();
+        let total_log = total_s.clone();
+        let saldo_log = saldo_s.clone();
 
         // TRANSACCIÓN: UPDATE rentas (estado Cerrada + devolución) + UPDATE autos
         // (liberar vehículo) + INSERT auditoría. Atómico: si cualquiera falla,
@@ -321,6 +340,7 @@ impl RentaService {
                     descuento = CAST(COALESCE(?, descuento) AS DECIMAL(12,2)), \
                     subtotal = CAST(? AS DECIMAL(12,2)), impuestos = CAST(? AS DECIMAL(12,2)), \
                     total = CAST(? AS DECIMAL(12,2)), saldo_pendiente = CAST(? AS DECIMAL(12,2)), \
+                    valor_neto = CAST(? AS DECIMAL(12,2)), \
                     observaciones = COALESCE(?, observaciones) \
                  WHERE id = ?",
                 params![
@@ -337,6 +357,7 @@ impl RentaService {
                     impuestos_s,
                     total_s,
                     saldo_s,
+                    valor_neto_s,
                     observaciones,
                     id,
                 ],
@@ -362,12 +383,21 @@ impl RentaService {
             )?;
             Ok(())
         })
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .map_err(|e| {
+            tracing::error!(error = %e, "Transacción de cierre de renta falló");
+            AppError::Database(e.to_string())
+        })?;
+        tracing::info!(
+            placa = %placa_log.as_deref().unwrap_or("-"),
+            total = %total_log,
+            saldo = %saldo_log,
+            "Renta cerrada y vehículo liberado"
+        );
         Self::obtener(conn, id)
     }
 
     /// Cancela una renta activa (no las cerradas)
-    pub fn cancelar(conn: &mut PooledConnection, id: i64) -> Result<RentaCancelada, AppError> {
+    pub fn cancelar(conn: &mut PooledConnection, id: i64, usuario: &str) -> Result<RentaCancelada, AppError> {
         let actual = Self::obtener(conn, id)?;
         if actual.estado == "Cancelada" {
             return Ok(RentaCancelada { renta: actual, cancelada: false });
@@ -378,16 +408,330 @@ impl RentaService {
             ));
         }
         RentaRepository::cancelar(conn, id)?;
+        // Auditoría: registra quién canceló la renta (no-repudio)
+        crate::core::audit::log_audit(
+            conn,
+            usuario,
+            "CANCELAR RENTA",
+            &format!("renta={}, placa={}", id, actual.placa.as_deref().unwrap_or("-")),
+            "local",
+        )?;
         let renta = Self::obtener(conn, id)?;
         Ok(RentaCancelada { renta, cancelada: true })
+    }
+
+    /// Extiende una renta ACTIVA agregando horas o días extras.
+    /// Actualiza fecha_retorno/hora_retorno y acumula horas_extras o dias_calculados.
+    /// El valor de la extensión se registra en valor_dia_extra.
+    pub fn extender(
+        conn: &mut PooledConnection,
+        cfg: &Arc<AppConfig>,
+        id: i64,
+        usuario: &str,
+        datos: ExtensionDatos,
+    ) -> Result<Renta, AppError> {
+        let actual = Self::obtener(conn, id)?;
+        if actual.estado != "Activa" && actual.estado != "Activo" {
+            return Err(AppError::Business(
+                "Solo se pueden extender rentas activas.".into(),
+            ));
+        }
+        // Validar tipo
+        if datos.tipo != "horas" && datos.tipo != "dias" {
+            return Err(AppError::Validation(
+                "El tipo de extensión debe ser 'horas' o 'dias'.".into(),
+            ));
+        }
+        if datos.cantidad <= 0 {
+            return Err(AppError::Validation(
+                "La cantidad debe ser mayor a cero.".into(),
+            ));
+        }
+        let valor = Decimal::from_str(&datos.valor).map_err(|_| {
+            AppError::Validation("El valor de la extensión no es un número válido.".into())
+        })?;
+        if valor <= Decimal::ZERO {
+            return Err(AppError::Validation(
+                "El valor de la extensión debe ser mayor a cero.".into(),
+            ));
+        }
+        // Calcular nuevo retorno
+        let fecha_retorno_actual = actual.fecha_retorno.clone();
+        let hora_retorno_actual = actual.hora_retorno.clone().unwrap_or_else(|| "10:00".to_string());
+        let _recogida = NaiveDate::parse_from_str(&actual.fecha_recogida, "%Y-%m-%d")
+            .map_err(|_| AppError::Validation("Fecha de recogida inválida".into()))?;
+        let retorno = NaiveDate::parse_from_str(&fecha_retorno_actual, "%Y-%m-%d")
+            .map_err(|_| AppError::Validation("Fecha de retorno inválida".into()))?;
+        let hora_ret = if hora_retorno_actual.len() == 5 {
+            format!("{}:00", hora_retorno_actual)
+        } else {
+            hora_retorno_actual.clone()
+        };
+        let retorno_dt = retorno.and_time(
+            NaiveTime::parse_from_str(&hora_ret, "%H:%M:%S")
+                .map_err(|_| AppError::Validation("Hora de retorno inválida".into()))?
+        );
+        let nuevo_retorno_dt = if datos.tipo == "horas" {
+            retorno_dt + chrono::Duration::hours(datos.cantidad)
+        } else {
+            retorno_dt + chrono::Duration::days(datos.cantidad)
+        };
+        let nuevo_fecha = nuevo_retorno_dt.format("%Y-%m-%d").to_string();
+        let nueva_hora = nuevo_retorno_dt.format("%H:%M").to_string();
+        // Calcular nuevos totales
+        let nuevo_dias = if datos.tipo == "dias" {
+            actual.dias_calculados + datos.cantidad
+        } else {
+            actual.dias_calculados
+        };
+        let nuevas_horas = if datos.tipo == "horas" {
+            actual.horas_extras + datos.cantidad
+        } else {
+            actual.horas_extras
+        };
+        // Recalcular total
+        let vdia = dec_str(&actual.valor_dia);
+        let vhe = dec_str(&actual.valor_hora_extra);
+        let vde = dec_str(&actual.valor_dia_extra);
+        // Valor total de la extensión = cantidad × valor unitario
+        let total_extension = (valor * Decimal::from(datos.cantidad)).round_dp(2);
+        let nuevo_vde = (vde + total_extension).round_dp(2);
+        // Extras incluye el nuevo valor_dia_extra con la extensión
+        let extras = sum_dec(&[
+            &nuevo_vde.to_string(),
+            &actual.costo_lavado,
+            &actual.costo_silla,
+            &actual.costo_retorno,
+            &actual.costo_domicilio,
+            &actual.costo_cables,
+            &actual.costo_inversor,
+            &actual.valor_gasolina,
+        ]);
+        let desc = dec_str(&actual.descuento);
+        let subtotal = (vdia * Decimal::from(nuevo_dias) + vhe * Decimal::from(nuevas_horas) + extras - desc).max(Decimal::ZERO);
+        let imp = if actual.cobra_iva { impuesto(cfg) } else { Decimal::ZERO };
+        let impuestos = (subtotal * imp).round_dp(2);
+        let total = subtotal + impuestos;
+        let comision = if actual.tiene_comision { dec_str(&actual.comision) } else { Decimal::ZERO };
+        let valor_neto = (total - comision).max(Decimal::ZERO);
+        let abono = dec_str(&actual.abono);
+        let saldo = (total - abono).max(Decimal::ZERO).round_dp(2);
+        // Auditoría
+        let audit_msg = format!(
+            "renta={id}, placa={}, EXTENSION: tipo={}, cantidad={}, valor={}, nuevo_retorno={} {}, nuevo_total={}",
+            actual.placa.as_deref().unwrap_or("-"),
+            datos.tipo, datos.cantidad, valor,
+            nuevo_fecha, nueva_hora, total,
+        );
+        // Transacción: UPDATE rentas + INSERT extensión + INSERT auditoría
+        conn.with_transaction(|tx| -> Result<(), rsfbclient::FbError> {
+            // 1. Actualizar renta
+            tx.execute(
+                "UPDATE rentas SET \
+                    fecha_retorno = ?, \
+                    hora_retorno = ?, \
+                    dias_calculados = ?, \
+                    horas_extras = ?, \
+                    valor_dia_extra = CAST(? AS DECIMAL(12,2)), \
+                    subtotal = CAST(? AS DECIMAL(12,2)), \
+                    impuestos = CAST(? AS DECIMAL(12,2)), \
+                    total = CAST(? AS DECIMAL(12,2)), \
+                    saldo_pendiente = CAST(? AS DECIMAL(12,2)), \
+                    valor_neto = CAST(? AS DECIMAL(12,2)) \
+                 WHERE id = ?",
+                params![
+                    nuevo_fecha,
+                    nueva_hora,
+                    nuevo_dias,
+                    nuevas_horas,
+                    nuevo_vde.to_string(),
+                    subtotal.round_dp(2).to_string(),
+                    impuestos.to_string(),
+                    total.round_dp(2).to_string(),
+                    saldo.to_string(),
+                    valor_neto.round_dp(2).to_string(),
+                    id,
+                ],
+            )?;
+            // 2. Insertar en historial de extensiones
+            tx.execute(
+                "INSERT INTO extensiones_renta (id_renta, tipo, cantidad, valor_unitario, valor_total, observaciones, usuario) \
+                 VALUES (?, ?, ?, CAST(? AS DECIMAL(12,2)), CAST(? AS DECIMAL(12,2)), ?, ?)",
+                params![
+                    id,
+                    datos.tipo,
+                    datos.cantidad,
+                    valor.to_string(),
+                    total_extension.to_string(),
+                    datos.observaciones.as_deref().unwrap_or(""),
+                    usuario,
+                ],
+            )?;
+            // 3. Insertar auditoría
+            tx.execute(
+                "INSERT INTO auditoria (usuario, accion, mensaje, ip, fecha) \
+                 VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)",
+                (
+                    usuario.to_string(),
+                    "EXTENSION RENTA".to_string(),
+                    audit_msg,
+                    "local".to_string(),
+                ),
+            )?;
+            Ok(())
+        })
+        .map_err(|e| AppError::Database(e.to_string()))?;
+        Self::obtener(conn, id)
+    }
+
+    /// Edita campos financieros de una renta CERRADA (corrección de errores de digitación).
+    /// Solo permite campos que afectan los totales: valor_dia, valor_hora_extra,
+    /// dias_calculados, horas_extras, descuento y observaciones.
+    /// Los campos de identificación (placa, cliente) y abono NO son editables.
+    /// Recalcula subtotal/impuestos/total/saldo_pendiente/valor_neto.
+    /// Requiere usuario Administrador (caller debe verificar antes).
+    pub fn editar_cerrada(
+        conn: &mut PooledConnection,
+        cfg: &Arc<AppConfig>,
+        id: i64,
+        usuario: &str,
+        datos: RentaCierreEditDatos,
+    ) -> Result<Renta, AppError> {
+        let actual = Self::obtener(conn, id)?;
+        if actual.estado != "Cerrada" {
+            return Err(AppError::Business(
+                "Solo se pueden editar rentas cerradas.".into(),
+            ));
+        }
+        // Reconstruir RentaDatos con los campos originales + los editados
+        let mut d = RentaDatos {
+            placa: actual.placa.clone(),
+            id_cliente: actual.id_cliente,
+            nombre_cliente: actual.nombre_cliente.clone(),
+            no_licencia: actual.no_licencia.clone(),
+            nacionalidad: actual.nacionalidad.clone(),
+            fecha_recogida: actual.fecha_recogida.clone(),
+            hora_recogida: actual.hora_recogida.clone(),
+            ubicacion_recogida: actual.ubicacion_recogida.clone(),
+            fecha_retorno: actual.fecha_retorno.clone(),
+            hora_retorno: actual.hora_retorno.clone(),
+            ubicacion_retorno: actual.ubicacion_retorno.clone(),
+            // Campos editables: usar nuevos valores si se proporcionaron, si no los originales
+            dias_calculados: datos.dias_calculados.unwrap_or(actual.dias_calculados),
+            horas_extras: datos.horas_extras.unwrap_or(actual.horas_extras),
+            valor_dia: datos.valor_dia.clone().unwrap_or_else(|| actual.valor_dia.clone()),
+            valor_hora_extra: datos.valor_hora_extra.clone().unwrap_or_else(|| actual.valor_hora_extra.clone()),
+            valor_dia_extra: actual.valor_dia_extra.clone(),
+            costo_lavado: actual.costo_lavado.clone(),
+            costo_silla: actual.costo_silla.clone(),
+            costo_retorno: actual.costo_retorno.clone(),
+            costo_domicilio: actual.costo_domicilio.clone(),
+            costo_cables: actual.costo_cables.clone(),
+            costo_inversor: actual.costo_inversor.clone(),
+            valor_gasolina: actual.valor_gasolina.clone(),
+            // Descuento: usar nuevo valor si se proporcionó
+            descuento: datos.descuento.clone().unwrap_or_else(|| actual.descuento.clone()),
+            subtotal: actual.subtotal.clone(),
+            impuestos: actual.impuestos.clone(),
+            cobra_iva: actual.cobra_iva,
+            tiene_comision: actual.tiene_comision,
+            comision: actual.comision.clone(),
+            valor_neto: actual.valor_neto.clone(),
+            total: actual.total.clone(),
+            abono: actual.abono.clone(),
+            saldo_pendiente: actual.saldo_pendiente.clone(),
+            observaciones: datos.observaciones.clone().or_else(|| actual.observaciones.clone()),
+            km_salida: actual.km_salida.clone(),
+            tanque_salida: actual.tanque_salida.clone(),
+            id_reserva: actual.id_reserva,
+        };
+        // Recalcular totales con los valores (posiblemente editados)
+        calcular_totales(&mut d, cfg);
+        // Restaurar abono y saldo = total - abono (el abono NO se modifica)
+        let abono = dec_str(&actual.abono);
+        let total = dec(&d.total, "0.00");
+        d.saldo_pendiente = (total - abono).max(Decimal::ZERO).round_dp(2).to_string();
+        // Preparar datos para el repository (solo campos editables)
+        let edit = RentaCierreEditDatos {
+            valor_dia: Some(d.valor_dia.clone()),
+            valor_hora_extra: Some(d.valor_hora_extra.clone()),
+            dias_calculados: Some(d.dias_calculados),
+            horas_extras: Some(d.horas_extras),
+            descuento: Some(d.descuento.clone()),
+            observaciones: d.observaciones.clone(),
+        };
+        // Registrar valores anteriores para auditoría
+        let audit_msg = format!(
+            "renta={id}, placa={}, ANTES: vdia={}, vhe={}, dias={}, hext={}, desc={}, total={} | DESPUES: vdia={}, vhe={}, dias={}, hext={}, desc={}, total={}, motivo={}",
+            actual.placa.as_deref().unwrap_or("-"),
+            actual.valor_dia, actual.valor_hora_extra, actual.dias_calculados, actual.horas_extras,
+            actual.descuento, actual.total,
+            d.valor_dia, d.valor_hora_extra, d.dias_calculados, d.horas_extras,
+            d.descuento, d.total,
+            datos.observaciones.as_deref().unwrap_or("(sin motivo)")
+        );
+        // Transacción: UPDATE rentas + INSERT auditoría
+        conn.with_transaction(|tx| -> Result<(), rsfbclient::FbError> {
+            tx.execute(
+                "UPDATE rentas SET \
+                    valor_dia = CAST(COALESCE(?, valor_dia) AS DECIMAL(12,2)), \
+                    valor_hora_extra = CAST(COALESCE(?, valor_hora_extra) AS DECIMAL(12,2)), \
+                    dias_calculados = COALESCE(?, dias_calculados), \
+                    horas_extras = COALESCE(?, horas_extras), \
+                    descuento = CAST(COALESCE(?, descuento) AS DECIMAL(12,2)), \
+                    subtotal = CAST(? AS DECIMAL(12,2)), \
+                    impuestos = CAST(? AS DECIMAL(12,2)), \
+                    total = CAST(? AS DECIMAL(12,2)), \
+                    saldo_pendiente = CAST(? AS DECIMAL(12,2)), \
+                    valor_neto = CAST(? AS DECIMAL(12,2)), \
+                    observaciones = COALESCE(?, observaciones) \
+                 WHERE id = ?",
+                params![
+                    edit.valor_dia.as_deref().map(|s| s.trim().replace(',', ".")),
+                    edit.valor_hora_extra.as_deref().map(|s| s.trim().replace(',', ".")),
+                    edit.dias_calculados,
+                    edit.horas_extras,
+                    edit.descuento.as_deref().map(|s| s.trim().replace(',', ".")),
+                    d.subtotal,
+                    d.impuestos,
+                    d.total,
+                    d.saldo_pendiente,
+                    d.valor_neto,
+                    edit.observaciones.as_deref().map(|s| s.trim().to_string()),
+                    id,
+                ],
+            )?;
+            tx.execute(
+                "INSERT INTO auditoria (usuario, accion, mensaje, ip, fecha) \
+                 VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)",
+                (
+                    usuario.to_string(),
+                    "EDICION RENTA CERRADA".to_string(),
+                    audit_msg,
+                    "local".to_string(),
+                ),
+            )?;
+            Ok(())
+        })
+        .map_err(|e| AppError::Database(e.to_string()))?;
+        Self::obtener(conn, id)
     }
 
     /// Elimina una renta (soft-delete: marca deleted_at en rentas y pagos).
     /// Las inspecciones no tienen deleted_at; dejan de ser accesibles porque la
     /// renta no aparece en los SELECTs. Ver RentaRepository::eliminar.
-    pub fn eliminar(conn: &mut PooledConnection, id: i64) -> Result<(), AppError> {
-        Self::obtener(conn, id)?;
-        RentaRepository::eliminar(conn, id)
+    pub fn eliminar(conn: &mut PooledConnection, id: i64, usuario: &str) -> Result<(), AppError> {
+        let renta = Self::obtener(conn, id)?;
+        RentaRepository::eliminar(conn, id)?;
+        // Auditoría: registra quién eliminó (soft-delete) la renta (no-repudio)
+        crate::core::audit::log_audit(
+            conn,
+            usuario,
+            "ELIMINAR RENTA",
+            &format!("renta={}, placa={}", renta.id, renta.placa.as_deref().unwrap_or("-")),
+            "local",
+        )?;
+        Ok(())
     }
 
     /// Registra un pago contra una renta activa y actualiza abono/saldo
@@ -397,8 +741,16 @@ impl RentaService {
         usuario: &str,
         mut pago: PagoDatos,
     ) -> Result<Pago, AppError> {
+        // ── Span de tracing (Bloque 4 / TAREA 4.1) ──
+        // El pago es el flujo financiero más sensible (manipula saldo de la
+        // renta y deja registro en `auditoria`). El span permite correlacionar
+        // logs de validación, error de BD y éxito en una sola traza.
+        let span = tracing::info_span!("registrar_pago", renta_id = id_renta, %usuario);
+        let _enter = span.enter();
+
         let renta = Self::obtener(conn, id_renta)?;
         if renta.estado != "Activa" && renta.estado != "Activo" {
+            tracing::warn!(estado = %renta.estado, "Pago rechazado: renta no activa");
             return Err(AppError::Business(
                 "Solo se pueden registrar pagos en rentas activas.".into(),
             ));
@@ -475,7 +827,17 @@ impl RentaService {
                 )?;
                 Ok(id)
             })
-            .map_err(|e| AppError::Database(e.to_string()))?;
+            .map_err(|e| {
+                tracing::error!(error = %e, "Transacción de pago falló");
+                AppError::Database(e.to_string())
+            })?;
+        tracing::info!(
+            pago_id = id,
+            monto = %pago.monto,
+            abono_nuevo = %abono_nuevo,
+            saldo_nuevo = %saldo_nuevo,
+            "Pago registrado contra renta"
+        );
         Ok(RentaRepository::pagos_de(conn, id_renta)?
             .into_iter()
             .find(|p| p.id == id)
@@ -554,16 +916,16 @@ impl RentaService {
     }
 }
 
-/// Normaliza campos (trim, placa a mayúsculas, montos con coma → punto)
+/// Normaliza campos (trim → mayúsculas, montos con coma → punto)
 fn normalizar(d: &mut RentaDatos) {
-    d.placa = d.placa.as_ref().map(|s| s.trim().to_uppercase()).filter(|s| !s.is_empty());
-    d.nombre_cliente = d.nombre_cliente.trim().to_string();
-    d.no_licencia = d.no_licencia.as_ref().map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
-    d.nacionalidad = d.nacionalidad.as_ref().map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
-    d.ubicacion_recogida = d.ubicacion_recogida.as_ref().map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
-    d.ubicacion_retorno = d.ubicacion_retorno.as_ref().map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
-    d.observaciones = d.observaciones.as_ref().map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
-    d.tanque_salida = d.tanque_salida.as_ref().map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
+    d.placa = d.placa.as_ref().map(|s| mayusculas(s)).filter(|s| !s.is_empty());
+    d.nombre_cliente = mayusculas(&d.nombre_cliente);
+    d.no_licencia = d.no_licencia.as_ref().map(|s| mayusculas(s)).filter(|s| !s.is_empty());
+    d.nacionalidad = d.nacionalidad.as_ref().map(|s| mayusculas(s)).filter(|s| !s.is_empty());
+    d.ubicacion_recogida = d.ubicacion_recogida.as_ref().map(|s| mayusculas(s)).filter(|s| !s.is_empty());
+    d.ubicacion_retorno = d.ubicacion_retorno.as_ref().map(|s| mayusculas(s)).filter(|s| !s.is_empty());
+    d.observaciones = d.observaciones.as_ref().map(|s| mayusculas(s)).filter(|s| !s.is_empty());
+    d.tanque_salida = d.tanque_salida.as_ref().map(|s| mayusculas(s)).filter(|s| !s.is_empty());
     // Montos: vacío → "0.00". Sin esto, un campo monetario en blanco se enlaza
     // como '' a CAST(? AS DECIMAL) y Firebird falla con SQLCODE -303
     // "conversion error from string ''" (error real visto en producción al
@@ -580,6 +942,7 @@ fn normalizar(d: &mut RentaDatos) {
         &mut d.costo_inversor,
         &mut d.valor_gasolina,
         &mut d.descuento,
+        &mut d.comision,
         &mut d.abono,
     ] {
         *m = m.trim().replace(',', ".");
@@ -640,9 +1003,15 @@ fn calcular_totales(d: &mut RentaDatos, cfg: &Arc<AppConfig>) {
     let imp = if d.cobra_iva { impuesto(cfg) } else { Decimal::ZERO };
     let impuestos = (subtotal * imp).round_dp(2);
     let total = subtotal + impuestos;
+    // Comisión (checkbox + valor del formulario): se resta del total para
+    // obtener el valor neto (información financiera). El total que paga el
+    // cliente NO cambia: la comisión es un costo de la empresa.
+    let comision = if d.tiene_comision { dec(&d.comision, "") } else { Decimal::ZERO };
+    let valor_neto = (total - comision).max(Decimal::ZERO);
     d.subtotal = subtotal.round_dp(2).to_string();
     d.impuestos = impuestos.to_string();
     d.total = total.round_dp(2).to_string();
+    d.valor_neto = valor_neto.round_dp(2).to_string();
     d.saldo_pendiente = total.round_dp(2).to_string();
 }
 

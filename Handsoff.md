@@ -1,6 +1,6 @@
-# Handsoff — DynaRent ERP (Tauri + SvelteKit + Firebird)
+# Handsoff — Dinamo Rent ERP (Tauri + SvelteKit + Firebird)
 
-> Última actualización: **2026-08-17** · Estado: **todos los módulos operativos, validación verde · instalación limpia validada E2E en sandbox · release v1.0.16 publicada y firmada — SetUp Inicial automático (se lanza en el primer ingreso para configurar la empresa), auto-update corregido (permisos ACL del updater: check/download/install y restart) y versión real del binario en la ventana (sidebar, login y Acerca de vía getVersion()) · auto-update operativo (repo público, historial saneado, clave de firma rotada; secret `TAURI_SIGNING_PRIVATE_KEY` configurado) · suite completa en verde: 260 vitest · 54 cargo lib + integración completa**
+> Última actualización: **2026-08-19** · Estado: **todos los módulos operativos, validación verde · release v1.0.18 en preparación · Bloques 1-4 aplicados (tracing, informes optimizados, repository DRY, accesibilidad WCAG 2.1, dependabot, ts-rs) · edición de rentas cerradas · extensiones acumulables · mayúsculas automáticas · backups de la BD (Fase 8) · auto-update activo · CI en Node 24**
 
 > **Instalación limpia validada de punta a punta (11-08, noche):** se cerró el hueco del
 > release v1.0.0 en equipos nuevos (la app se colgaba esperando una BD inexistente).
@@ -30,8 +30,8 @@
 > intento (el exe quedó en 19:50, anterior a los fixes de las 20:56), se relanzó
 > `npm run tauri build` completo desacoplado (`Start-Process`) y terminó sin el `os error 32`.
 > Artefactos en `src-tauri/target/release/bundle/`:
-> **`nsis/DynaRent_1.0.0_x64-setup.exe`** (23,8 MB) y **`msi/DynaRent_1.0.0_x64_en-US.msi`**
-> (35,4 MB) · `dynarent.exe` relinkeado a las 22:25 (v1.0.0, 12,2 MB) con las **16
+> **`nsis/DinamoRent_1.0.0_x64-setup.exe`** (23,8 MB) y **`msi/DinamoRent_1.0.0_x64_en-US.msi`**
+> (35,4 MB) · `dinamo-rent.exe` relinkeado a las 22:25 (v1.0.0, 12,2 MB) con las **16
 > migraciones embebidas verificadas** (grep de 0001/0005/0010/0016 en el binario). Suites
 > validadas antes del build: `cargo test --lib` **43/43** · `migraciones_integration` **11/11**.
 > 🐛 **Bug 3 (descubierto con Windows Sandbox, 12-08) — la app moría en equipos limpios sin
@@ -49,11 +49,11 @@
 > test **OPERATIVO** — BD creada (2.9 MB), proceso vivo a los 12 s, Login OK con admin sembrado.
 > Reproducible con `scripts/dinamorent-sandbox.wsb` + `scripts/smoke-test-sandbox.ps1`
 > (resultado en `scripts/smoke-result.txt`).
-> 🚀 **Release v1.0.1 publicada (12-08):** [github.com/aleksei-corom/DynaRent/releases/tag/v1.0.1]
-> — instaladores `DynaRent_1.0.1_x64-setup.exe` (NSIS, 20 MB) y `.msi` (31 MB) construidos
+> 🚀 **Release v1.0.1 publicada (12-08):** [github.com/CORJAR-Computers/dinamo_rent_tr/releases/tag/v1.0.1]
+> — instaladores `DinamoRent_1.0.1_x64-setup.exe` (NSIS, 20 MB) y `.msi` (31 MB) construidos
 > **por CI** (workflow `release.yml`, disparado por el tag `v1.0.1`) con los fixes de
 > instalación limpia ya fusionados en main. Notas de la release documentan el bug.
-> 🚀 **Release v1.0.2 publicada (14-08):** [github.com/aleksei-corom/DynaRent/releases/tag/v1.0.2]
+> 🚀 **Release v1.0.2 publicada (14-08):** [github.com/CORJAR-Computers/dinamo_rent_tr/releases/tag/v1.0.2]
 > — instaladores `DinamoRent_1.0.2_x64-setup.exe` (NSIS, ~21 MB) y `.msi` (~31 MB)
 > construidos por CI. Añade IVA por renta (checkbox, migración 0019), auto-cálculo de
 > días/horas al cerrar, cambio de vehículo sin cerrar la renta y combos con búsqueda
@@ -69,7 +69,7 @@
 > (`scripts/verificar-updater-e2e.sh`: firma real → `latest.json` → `check()` detecta la
 > v1.0.3 → `download()` verifica firma + bytes idénticos; las versiones del fixture se
 > derivan de `tauri.conf.json` para no quedar fijas). ✅ **Publicado (14-08):** el secret
-> `TAURI_SIGNING_PRIVATE_KEY` quedó configurado (contenido de `~/.tauri/dynarent.key`,
+> `TAURI_SIGNING_PRIVATE_KEY` quedó configurado (contenido de `~/.tauri/dinamorent.key`,
 > respaldado fuera del repo) y la **release v1.0.3 salió firmada** — los `.sig` y el
 > `latest.json` validan criptográficamente contra la pubkey embebida (Ed25519/BLAKE2b
 > sobre los artefactos reales). Las instalaciones **v1.0.2 no tienen updater**: se
@@ -78,7 +78,7 @@
 > 🚀 **Releases v1.0.4 → v1.0.9 publicadas (14-08, diagnóstico y documento):** la cadena
 > arrancó con la **v1.0.4** (diagnóstico en producción: el toast de errores de BD ahora
 > muestra el detalle real de Firebird — SQLCODE/columna/lock — y el logging se activa en
-> release escribiendo a `%APPDATA%\com.dynarent.app\logs\app.log`, 5 MB por archivo
+> release escribiendo a `%APPDATA%\com.corjar.dinamorent\logs\app.log`, 5 MB por archivo
 > con rotación conservada). Con eso se capturó el **-303 `conversion error from string ""`**
 > al crear/modificar rentas → fix en la **v1.0.5** (`normalizar()` convierte montos vacíos a
 > `"0.00"` antes del `CAST(? AS DECIMAL)` en rentas/reservas/autos + test de regresión).
@@ -101,82 +101,9 @@
 > 10px — imposible firmar), compensado con espaciados internos (cláusula adicional
 > 40→18px, títulos 3→2px) y verificado con el PDF real: sigue en 2 hojas Carta con las
 > firmas completas.
-> 🚀 **Release v1.0.16 publicada (17-08) — SetUp Inicial automático y auto-update corregido:**
-> [github.com/aleksei-corom/DynaRent/releases/tag/v1.0.16].
-> Añade el **SetUp Inicial automático**: el flag `setup_completed` de config.ini (que existía
-> pero nadie lo leía ni lo escribía) ahora se consulta con el comando `setup_estado` (lee el
-> flag persistido), `guardar_empresa` lo marca en config.ini al guardar, y el layout lleva al
-> **Administrador a `/empresa` en el primer ingreso** para configurar la empresa (nombre,
-> dirección, teléfonos de contacto con el código del país y logo), sin bucles ni pisar
-> cambiar-password, con 6 tests nuevos; corrige el **auto-update** (la capability solo
-> exponía `core:default` y el chequeo fallaba con `Command plugin:updater|check not allowed
-> by ACL` — se añadieron `updater:default` + `process:default`); y muestra la **versión real
-> del binario** en la ventana (nuevo store `app.svelte.ts` con `getVersion()` — sidebar,
-> login y modal Acerca de; se eliminó el `v1.0.14` hardcodeado). Suite total **260 vitest ·
-> 54 cargo lib**. Pipeline del release (constancia): workflow **Release**, trigger **push del
-> tag `v1.0.16`**, run
-> [#31993165607](https://github.com/aleksei-corom/DynaRent/actions/runs/31993165607),
-> **success** (04:03:56Z → 04:12:03Z, ~8 min 46 s): paginación → changelog automático
-> (5 commits desde v1.0.15, commit `069ee40`) → build (NSIS + MSI) → **firma del updater** →
-> release publicada con los **5 assets** (`DynaRent_1.0.16_x64-setup.exe` ~23 MB y
-> `DynaRent_1.0.16_x64_en-US.msi` ~33 MB, `.sig` x2 y `latest.json`; sha256 reales
-> `6d2353d3…` / `dc72e172…`). El `latest.json` del endpoint real ya sirve la v1.0.16 con
-> firma válida (verificada E2E con la pubkey de producción): las instalaciones v1.0.3+
-> detectarán la versión nueva al arrancar.
-> 🚀 **Release v1.0.15 publicada (17-08) — SetUp Inicial con País y branding de la
-> empresa en los documentos:** [github.com/aleksei-corom/DynaRent/releases/tag/v1.0.15].
-> Añade el **campo País en el SetUp Inicial** (`/empresa`, migración 0021): la empresa
-> configura su país y los **teléfonos de contacto llevan su código** (+57, +58, +593…,
-> antes +57 fijo) en el contrato y las órdenes; el **Contrato, la Orden de Renta y la
-> Orden de Reserva** muestran los datos de la empresa (nombre, dirección, teléfonos con
-> código y logo) desde el setup; el modal **«Acerca de»** (DynaRent ERP by CORJAR)
-> muestra la versión real en el sidebar/login; el **override de config.ini por env
-> vars** `DYNARENT_*` quedó implementado (en memoria, con tests); y el **barrido final
-> de marca Dinamo** corrigió el seed (`DynaRent SAS`), env vars, rutas de máquina y la
-> BD `dynarent_v3.fdb` en los procedimientos. **12 tests nuevos** (integración del
-> flujo de setup con país, store con prefijo por país y ruta `/empresa`): suite total
-> 254 vitest · 54 cargo lib. Pipeline del release (constancia): workflow **Release**,
-> trigger **push del tag `v1.0.15`**, run
-> [#31988667031](https://github.com/aleksei-corom/DynaRent/actions/runs/31988667031),
-> **success** (02:39:36Z → 02:50:33Z, ~10 min 57 s): paginación → changelog
-> automático (12 commits desde v1.0.14, commit `6473d0d`) → build (NSIS + MSI) →
-> **firma del updater** → release publicada con los **5 assets**
-> (`DynaRent_1.0.15_x64-setup.exe` ~23 MB y `DynaRent_1.0.15_x64_en-US.msi` ~33 MB,
-> `.sig` x2 y `latest.json`; sha256 reales `f32ef004…` / `e8c25a68…`). El `latest.json`
-> del endpoint real ya sirve la v1.0.15 con firma válida: las instalaciones v1.0.3+
-> detectarán la versión nueva al arrancar.
-> 🚀 **Release v1.0.14 publicada (16-08) — primera release pública con auto-update
-> operativo:** [github.com/aleksei-corom/DynaRent/releases/tag/v1.0.14]. El repo quedó
-> **público** con el historial saneado (`git filter-repo`: purgados de todo el historial
-> los PNG de contratos de `static/preview-shots/`, `data/config.ini`, la BD y
-> `Contrato_Dinamo.docx`; el backup pre-saneamiento de /tmp y los restos del `.git` local
-> —rama `backup-clon-pre-v1012`, reflog y tags v1.0.0–v1.0.13 realineados al historial
-> reescrito— quedaron destruidos/purgados) y la **clave de firma del updater rotada**
-> (`~/.tauri/dynarent.key`, pubkey en `tauri.conf.json` + secret
-> `TAURI_SIGNING_PRIVATE_KEY`). Validado de punta a punta: E2E del updater contra el
-> endpoint real, y smoke test + `verificar-despliegue.ps1` en **Windows Sandbox limpio**
-> (v1.0.14, 6/6 comprobaciones OK).
-> **Pipeline del release (constancia):** workflow **Release** (`release.yml`), trigger
-> **push del tag `v1.0.14`**, run
-> [#31973941450](https://github.com/aleksei-corom/DynaRent/actions/runs/31973941450),
-> **success** (21:35:25Z → 21:45:57Z, ~10,5 min). Pasos: checkout → setup Node 24 / Bun /
-> Rust → cache cargo → `bun install` → **test verificador de paginación** (Chrome/Edge
-> headless) → **changelog automático** (`v1.0.13..HEAD`, 15 commits, commit `e68d3c6`) →
-> **`tauri build` + publicar** (tauri-action): MSI con `light` (WiX) y NSIS con `makensis`
-> (nsis-3.11) → `DynaRent_1.0.14_x64-setup.exe` + `DynaRent_1.0.14_x64_en-US.msi`;
-> **"Finished 2 updater signatures"** (`*.exe.sig` + `*.msi.sig`) con la clave nueva —
-> **0 warnings de mismatch** (el único "mismatch" del log es el chequeo rutinario de
-> versiones de tauri-action); release creada ("Couldn't find release with tag v1.0.14.
-> Creating one.") con los **5 assets** (NSIS, MSI, 2 `.sig`, `latest.json`). E2E positivo
-> contra la release real (app simulada en 1.0.13): `check()` detectó la v1.0.14,
-> `download()` bajó el MSI real (34.997.970 B) y **la firma del CI validó contra la
-> pubkey de producción**. Avisos menores del run: el identifier `com.dynarent.app` termina
-> en `.app` (advertencia de tauri-action; inofensivo en Windows — es el directorio de
-> datos `%APPDATA%\com.dynarent.app`) y el aviso estándar de Node 20 deprecado en un
-> action de post-paso.
 > 🐛 **Hallazgo del CI (12-08) — el feature `linking` de rsfbclient rompía el build de
 > release**: el release v1.0.0 **nunca había pasado por CI** (se publicó con artefactos
-> locales) y el primer build en GitHub Actions fallaba en el linkeo de `dynarent_lib.dll`
+> locales) y el primer build en GitHub Actions fallaba en el linkeo de `dinamo_rent_lib.dll`
 > con LNK2019/LNK1120 (símbolos `isc_*`/`fb_interpret` sin resolver). Causa: el feature por
 > defecto `linking` de `rsfbclient` exige `fbclient.lib` en build time; localmente compilaba
 > porque la máquina de desarrollo tiene el SDK de Firebird, el runner limpio de GitHub no.
@@ -209,7 +136,7 @@
 > comparendos 5/5) · vitest ✅ · `svelte-check` 0/0 · `eslint` 0.
 
 > **Publicado en origin/main (11-08):** el trabajo del Agente SIMIT de estos días quedó
-> empujado a `github.com/aleksei-corom/DynaRent` (rama `main`) como **6 commits
+> empujado a `github.com/CORJAR-Computers/dinamo_rent_tr` (rama `main`) como **6 commits
 > temáticos**: `9561b2a` Fase 1 (jar persistente + siembra de sesión + token de una solución +
 > `sync_dev`), `1e7bf80` fixes (fechas DD/MM/YYYY y pre-check de fecha antes de dedup),
 > `1e53fd6` herramientas de monitoreo/test (`check-simit`, `watch-simit`, `test-check-simit`,
@@ -219,7 +146,7 @@
 > `--force`, y el commit único original `5457376` quedó reescrito en los 4 temáticos (recuperable
 > en el reflog local). Verificado contra el servidor con `git ls-remote` y la API de GitHub
 > (HEAD remoto = `d82de75…`, cadena de padres intacta). La suite completa validó el árbol en
-> verde antes de publicar: `cargo test` ✅ (lib 37 passed + 1 ignored) · vitest **197/197** ·
+> verde antes de publicar: `cargo test` ✅ (lib 80 passed + 1 ignored) · vitest **197/197** ·
 > `svelte-check` **0/0** · `eslint` **0**. Detalle de cada commit en `SIMIT_MIGRACION_PYTHON_RUST.md` §4/§6.
 
 > **Herramientas de monitoreo y test del Agente SIMIT (11-08):** tras la validación E2E, el
@@ -410,11 +337,29 @@ y `IntoParams` para tuplas de **≤15**. Cualquier SELECT largo debe partirse en
   (generator `GEN_RENTA_NO_CONTRATO`, asignado en el INSERT con `NEXT VALUE FOR`; migración
   `0003_no_contrato.sql` con backfill + índice único). El frontend lo recibe como `noContrato`
   y el contrato imprimible lo muestra en «CONTRATO Nº».
-- **Tests:** `tests/rentas_integration.rs` (6, incl. creación con abono inicial → saldo = total − abono
-  y `no_contrato` secuencial +1 e independiente del id) · `src/routes/rentas/rentas.test.ts` (11,
+- **Tests:** `tests/rentas_integration.rs` (8, incl. creación con abono inicial → saldo = total − abono,
+  `no_contrato` secuencial +1 e independiente del id, edición de renta cerrada con recálculo y
+  extensión de horas/días) · `src/routes/rentas/rentas.test.ts` (11,
   incl. impresión con pagos/inspecciones y apertura del contrato como documento independiente).
 - **Nota:** la tabla `rentas` **no tiene `updated_at`** (solo `created_at`); los UPDATE no lo usan.
   No se debe agregar `updated_at = CURRENT_TIMESTAMP` a UPDATEs de `rentas`.
+- **Edición de rentas cerradas** (solo Administrador): `RentaCierreEditDatos` permite corregir
+  errores de digitación post-cierre. Campos editables: `valor_dia`, `valor_hora_extra`,
+  `dias_calculados`, `horas_extras`, `descuento`, `observaciones` (motivo obligatorio).
+  `RentaService::editar_cerrada()` reconstruye subtotal/impuestos/total/saldo con los valores
+  (originales o editados), preserva el abono y registra auditoría detallada ANTES→DESPUÉS.
+  Comando `editar_renta_cerrada` con `require_eliminacion`. Botón «Editar» visible solo en
+  rentas con estado `Cerrada` y usuarios con permiso de eliminación.
+- **Extensiones acumulables** (migración `0024_extensiones_renta.sql`): tablas de historial
+  `extensiones_renta` (tipo horas/días, cantidad, valor_unitario, valor_total, observaciones,
+  usuario, created_at). `RentaService::extender()` valida renta Activa, calcula nuevo retorno,
+  acumula `horas_extras`/`dias_calculados` y `valor_dia_extra`, recalcula totales y registra
+  auditoría `EXTENSION RENTA`. Múltiples extensiones son acumulables y cada una se persiste
+  en el historial. Comando `extender_renta` + `listar_extensiones_renta`. Frontend: botón «Extender»
+  (+) en rentas activas, modal con selector de tipo, cantidad, valor unitario, preview del
+  nuevo retorno y tabla de historial de extensiones previas.
+- **Tests:** `tests/rentas_integration.rs` (8 incl. `renta_editar_cerrada_recalculo_totales` y
+  `renta_extender_horas_y_dias`) · `src/routes/rentas/rentas.test.ts` (11).
 
 ### ✅ Comparendos (`/comparendos`)
 - **Backend:** `repositories/comparendo.rs`, `services/comparendo.rs` (valida placa existente en
@@ -507,6 +452,10 @@ y `IntoParams` para tuplas de **≤15**. Cualquier SELECT largo debe partirse en
   (balance = pagos + abonos reservas − gastos − mantenimiento − comparendos; **utilidad por
   vehículo** = ingresos − costos por placa, ordenada desc), `commands/informe.rs`
   (`informe_mensual` con `fecha_inicio`/`fecha_fin` requeridos — ya no es por mes/año).
+  **Optimización (Bloque 1):** los 6 totales del rango se consolidan en una sola query
+  `UNION ALL` (`totales_rango`) y los 6 movimientos por placa en otra (`movimientos_por_placa`).
+  El informe mensual pasa de **13 a 5 round-trips**. El comando `informe_mensual` es `async`
+  con `spawn_blocking` para no bloquear el event loop de Tauri.
 - **Frontend:** `api.ts` (`informeApi.mensual(sessionId, fechaInicio, fechaFin)`), `+page.svelte`
   (selector de **rango de fechas** con Fecha inicio/Fecha fin, tarjetas de balance, desglose por
   categoría con barras, tabla de rentas del rango, **tabla de utilidad por vehículo** con barras
@@ -554,6 +503,31 @@ y `IntoParams` para tuplas de **≤15**. Cualquier SELECT largo debe partirse en
   (`max-height: none; overflow: visible`) para que tablas largas (p. ej. informes) no se
   recorten. Páginas migradas: rentas, reservas, comparendos, informes.
 
+### ✅ Backups de la BD (`/backups` — Fase 8 del plan, completa el 19-08)
+- **Backend:** `services/backup.rs` — scheduler automático en `[backup] schedule_times`
+  (4 horarios por defecto: 09:00, 13:00, 19:00, 23:00, revisado cada `check_interval_ms`),
+  rotación a `backup_max_copies` (10), **cifrado opcional** AES-256-GCM por chunks de 1 MiB
+  (PBKDF2-SHA256 100k iteraciones, salt aleatorio de 16 B prefijado, magic `DRENC-01`;
+  `encryption_enabled`/`encryption_password`) y **restauración** (staging descifrado/copia +
+  `gbak -r` a temporal + rename atómico con reintentos; la app se relanza con
+  `--restaurar-backup=<staging>` y el swap ocurre en el arranque, antes de abrir el pool).
+  `commands/backup.rs` — `backup_estado`, `backup_ahora` y `backup_restaurar` (solo
+  Administrador: los backups contienen TODA la BD).
+- **Frontend:** `api.ts` (`backupApi`), `+page.svelte` en `/backups` — crear manual, estado
+  (horarios, próxima/última corrida, última restauración, cifrado), listado de copias con
+  tamaño y badge de cifrado, y **restaurar** (confirmación + contraseña si la copia está
+  cifrada; la app se reinicia sola). Ítem «Backups» en ADMINISTRACIÓN del menú lateral y en
+  la paleta Ctrl+K.
+- **Tests:** 19 unitarios en `backup.rs` (formato/rotación/horarios/cifrado roundtrip y
+  manipulación/staging/rename/reintentos) + `tests/backup_integration.rs` (4, con **gbak real**
+  contra una copia de la BD: `.fbk` no byte-a-byte del `.fdb`, roundtrip cifrado, restauración
+  plana y cifrada validadas abriendo un pool sobre la BD restaurada).
+- **Nota:** el motor Embedded abre el `.fdb` en exclusiva por proceso → con la app corriendo
+  la vía operativa del scheduler es el **fallback de copia** (el tradeoff ya documentado en
+  `DEPLOYMENT_CLIENTES.md` §4.1); **restaurar exige reiniciar** la app (el swap ocurre al
+  arrancar). Copy/rename/rotación llevan reintentos ante sharing violations transitorias
+  (Windows Defender, fix `d28d796`).
+
 ---
 
 ## 3. Pendiente / mejoras sugeridas
@@ -592,7 +566,7 @@ y `IntoParams` para tuplas de **≤15**. Cualquier SELECT largo debe partirse en
       arg `r` de informeExcel). Validación: `npm run lint` 0 problemas, `npm run check` 0/0,
       `npm run test` 190/190, `npm run build` ✅ — el pre-commit (`bun run lint`) ya no bloquea.
 - [x] **Configurar `business.impuesto_porcentaje`** en el `config.ini` real de producción (dev usa 19).
-      *Hecho (10-08): el config real (`%APPDATA%\com.dynarent.app\config.ini`) ya trae
+      *Hecho (10-08): el config real (`%APPDATA%\com.corjar.dinamorent\config.ini`) ya trae
       `impuesto_porcentaje = 19` en `[business]` (auto-generado con los defaults) y la app lo lee al
       arrancar. Para CAMBIAR la tasa en producción: editar esa clave en `[business]` del config.ini y
       reiniciar la app (sin rebuild; `AppConfig::save()` preserva la clave — no la pisa). Se documentó
@@ -610,15 +584,19 @@ y `IntoParams` para tuplas de **≤15**. Cualquier SELECT largo debe partirse en
       `contrato-real-pag1..4.png`) sin desbordes, texto cortado ni imágenes rotas.
       Quedan pendientes el **modal de inspección** de rentas, el **calendario** y el **panel del
       Agente SIMIT** en la app real (ver primera tarea de §3).
-- [x] **Mostrar la versión REAL de la app en la barra de menú lateral.** Resuelto el 17-08 con
-      la v1.0.16: el sidebar y el login mostraban **v1.0.14 hardcodeado** (quedaba desfasado
-      al instalar otra versión — el sandbox con la v1.0.15 instalada seguía diciendo v1.0.14).
-      Ahora la versión se lee **del binario instalado** con `getVersion()` (nuevo store
-      `app.svelte.ts`, permiso `core:app:allow-version` ya incluido en `core:default`) y se
-      muestra dinámicamente en sidebar, login y modal **Acerca de** — siempre coincide con la
-      versión instalada, sin hardcodear nada. El default `application.version` de
-      `config.rs` y `config.ini.example` se mantiene alineado (1.0.16 en el bump del 17-08).
-      El auto-update quedó verificado E2E contra el endpoint real (release v1.0.16).
+- [x] **Mostrar la versión REAL de la app en la barra de menú lateral.** El 14-08 el usuario
+      reportó que el menú lateral muestra **v3.2.0** (versión heredada del proyecto anterior).
+      *HECHO (18-08, commit `81c55a5` feat: version real de la app): comando Tauri `app_version`
+      (backend, `package_info` → Cargo.toml / tauri.conf.json en el build) + store
+      `src/lib/stores/app.svelte.ts`; `+layout.svelte` y `login/+page.svelte` renderizan la
+      versión real (`v{version}`) en vez del literal, con test de integración (`15a2311`).
+      Queda solo el repaso visual en la app real (con la prueba de campo del auto-update, §6
+      de RELEASE_CHECKLIST, v1.0.17).*
+- [-] **Setup wizard de primera ejecución y diálogo de config BD** — **descartados (19-08):**
+      el proyecto es de **uso interno de Dinamo**; la instalación con defaults (auto-create del
+      `.fdb` + `seed_admin` al arrancar, config en `data_dir`) es suficiente. Se retoman solo si
+      hay despliegues externos. Con esto la **Fase 8 del plan quedó completa** (backups
+      automáticos + cifrado + restauración — ver §2 «Backups de la BD»).
 
 ## 4. Convenciones a respetar
 
@@ -634,22 +612,88 @@ y `IntoParams` para tuplas de **≤15**. Cualquier SELECT largo debe partirse en
    Guards frontend centralizados en `utils/guards.ts` (`validarSesion`, `guardSesion`, `haySesion`, `guardRole`).
 5. **PII:** clientes se descifran en el backend con `db_encryption_key` (`pii_key` en caliente).
 6. **Errores:** `AppError` → `to_payload()` → `{kind, message, detail}`; el frontend lanza `ApiError`.
-7. **Tests:** integración Rust contra `data/dynarent_v3.fdb` (serial, autos/clientes reales de
+7. **Tests:** integración Rust contra `data/dinamo_rent_v3.fdb` (serial, autos/clientes reales de
    solo lectura, limpieza de registros temporales). Frontend con mock de Tauri
    (`src/test/tauri.ts` + `register`), `session.setSession` en `beforeEach`.
+8. **Tracing estructurado (Bloque 1):** `tracing` + `tracing-subscriber` con `EnvFilter`
+   (`RUST_LOG=info,dinamo_rent_lib=debug`). Coexistencia con `tauri-plugin-log` via
+   `tracing_log::LogTracer`. Spans etiquetados en `login`, `cerrar_renta` y `registrar_pago`
+   para correlacionar logs con auditoría. El `tracing_subscriber` se inicializa en `lib.rs`
+   ANTES del setup de Tauri.
+9. **Repository DRY (Bloque 2):** `core::repository` centraliza helpers duplicados en 10
+   repositorios: `map_fb_error` (genérica + FK-específica + Duplicate-específica), `opt_str`,
+   `parse_fecha`, `parse_fecha_opt`, `parse_hora_opt` y macro `params!`. Los repositorios
+   migrados (renta, cliente, mantenimiento) importan de `crate::core::repository`; los
+   pendientes (auto, reserva, gasto, comparendo, usuario, empresa, auditoría) conservan
+   helpers locales con `// TODO: migrar a core::repository`.
+10. **Accesibilidad WCAG 2.1 (Bloque 4):** `Modal.svelte` implementa focus trap (Tab cicla
+    entre elementos enfocables), autofocus al primer elemento, restauración del foco al cerrar
+    y `aria-labelledby` con `id` dinámico. `FormField.svelte` genera ids estables para
+    `<label for>`, `aria-describedby` (hint/error) y `aria-invalid` en campos con error.
+    Layout incluye skip-link (`Saltar al contenido`) y `<main id="main-content">`.
+    Página de error global `+error.svelte` (404/5xx) con botones reintentar/ir-al-dashboard.
+    Navegación `<nav>` con `aria-label="Navegación principal"`.
+11. **Normalización de texto (mayúsculas automáticas):** todos los campos de texto libre se
+   convierten a MAYÚSCULAS en `services/X.rs::normalizar()` con el helper `core::validators::mayusculas()`
+   (trim + `to_uppercase()`). **Excepciones** (se mantienen tal cual): `email`, `rol`, `web`, fechas,
+   horas, montos y códigos postales. Los `<select>` del frontend (categoría/tipo en gastos y
+   mantenimiento) transforman sus opciones a uppercase (`.map(c => c.toUpperCase())`) para que
+   coincidan con los valores de la DB y el edit-form siempre muestre el valor correcto.
+   Las **validaciones contra listas permitidas** (categoría de gastos, tipo de mantenimiento)
+   son **case-insensitive**: compara `trim().to_uppercase()` del valor contra la lista
+   uppercased, para que no fallen con valores de config.ini en camelCase.
+   `TIPO_CAMBIO_ACEITE` en mantenimiento también se compara case-insensitive para que la
+   sincronización de `proximo_aceite` funcione con el valor stored en mayúsculas.
 
 ---
+
+### 4.1 Dependencias y tooling
+- **Dependabot** (`.github/dependabot.yml`): actualizaciones semanales (lunes) de npm (frontend),
+  Cargo (backend) y mensuales de GitHub Actions. Grupos: svelte, testing, eslint (npm);
+  firebird, crypto (cargo). Prefijos de commit: `chore(deps)`, `chore(ci)`.
+- **ts-rs** (`Cargo.toml`): genera tipos TypeScript en `src/lib/types/generated/` a partir de
+  `#[derive(TS)]` en structs Rust. Los tipos generados (`Renta`, `Pago`, `Inspeccion`,
+  `RentaDatos`) se actualizan con `cargo test`. El frontend puede importarlos con
+  `import type { Pago } from '$lib/types/generated/Pago'`.
+- **domain/ scaffold** (`src-tauri/src/domain/`): documentación de la futura migración a value
+  objects (Dinero, Placa, RangoFechas). No hay código de producción — solo guía para
+  migración incremental (Fases 1-4 documentadas en `domain/README.md`).
+- **Store BusinessLists** (`src/lib/stores/business.svelte.ts`): cachea `businessApi.listas()`
+  con TTL de 5 min. Las rutas (rentas, autos, clientes, reservas) usan `businessLists.ensure(sid())`
+  en vez de llamar a la API directamente. `invalidate()` fuerza recarga. Se resetea en logout.
+- **Async spawn_blocking** (Bloque 1): `listar_rentas` e `informe_mensual` son `async` y
+  ejecutan queries en `tauri::async_runtime::spawn_blocking` para no bloquear el event loop.
+  Patrón: `pool.clone()` → closure con `pool.get()` → `spawn_blocking` → `await`.
 
 ## 5. Migraciones de base de datos — ciclo de trabajo
 
 El esquema Firebird se gestiona con un runner propio (`src-tauri/src/core/migrations.rs`) que
 aplica en orden los scripts de `src-tauri/migrations/` no ejecutados y registra cada versión en
-`schema_migrations`. Serie actual: **0001-0016** (propósito de cada una y esquema canónico de
+`schema_migrations`. Serie actual: **0001-0025** (propósito de cada una y esquema canónico de
 índices en el README §Migraciones). La **0015** (columna `comparendos.numero_comparendo` +
 índice) da soporte a la deduplicación del Agente SIMIT; ya está aplicada a la BD dev. La
 **0016** (`atribucion_comparendo_renta.sql`, DML idempotente) vincula los comparendos sin
 renta/cliente con la renta que cubría el vehículo el día de la infracción (misma lógica que
 `renta_del_dia`); aplicada a la BD dev (con datos actuales: 0 de 27 comparendos en rango).
+
+Después vinieron la **0017** (`empresa_config.sql`, datos de la empresa en una tabla de una
+fila para el setup inicial; el logo se guarda como archivo en `<data_dir>/logos/`), la **0018**
+(`empresa_ciudad.sql`, columna `CIUDAD` explícita — antes se derivaba de la dirección con una
+heurística), la **0019** (`renta_cobra_iva.sql`, flag `COBRA_IVA` por renta, default 1 para
+conservar el comportamiento de las existentes) y la **0020** (`renta_valor_gasolina.sql`, cargo
+por gasolina en la renta, default 0). El Agente SIMIT trajo la **0021** (`comparendo_origen_simit.sql`,
+procedencia persistente `origen` 'SIMIT'/'Manual' + `ultimo_visto_simit` + índice) y la **0022**
+(`agente_simit_ultimo_resultado.sql`, último resultado de la sincronización persistido para que
+el filtro «Solo nuevos» sobreviva al reinicio). La **0023** (`renta_comision.sql`) añade la
+comisión por renta (`TIENE_COMISION`/`COMISION`/`VALOR_NETO`) sin tocar el total que cobra al
+cliente. Todas son idempotentes (patrón 5.2) y ya están aplicadas a la BD dev. La **0024**
+(`extensiones_renta.sql`) crea la tabla de historial de extensiones de rentas (horas o días
+extras acumulables) con índice, ambos con guards `RDB$RELATIONS`/`RDB$INDICES`. La **0025**
+(`audit_inmutable.sql`) crea excepciones nombradas (`EXC_AUDIT_NO_UPDATE`, `EXC_AUDIT_NO_DELETE`)
+y triggers `BEFORE UPDATE`/`BEFORE DELETE` sobre `auditoria` que lanzan `EXCEPTION` para
+bloquear modificaciones (append-only, no-repudio). Patrón: `EXECUTE BLOCK` con guard en
+`RDB$EXCEPTIONS`/`RDB$TRIGGERS` + `EXECUTE STATEMENT` con el DDL. La tabla queda
+inmutable salvo desactivación explícita del trigger (`ALTER TRIGGER ... INACTIVE`).
 
 ### 5.1 Cómo añadir una migración nueva (000N)
 
@@ -754,7 +798,7 @@ con `firebird-driver`, `cryptography` y `openpyxl`; corren contra la BD de una i
 
 ### 6.1 Importador de Autos/Clientes — `scripts/importar_autos_clientes.py`
 
-Lleva datos de **AUTOS** y **CLIENTES** a la BD de una instalación DynaRent desde un dump SQL
+Lleva datos de **AUTOS** y **CLIENTES** a la BD de una instalación DinamoRent desde un dump SQL
 o desde una hoja de cálculo. Caso de uso: el cliente tiene una copia de su BD (exportada a
 SQL) o los datos están recopilados en Excel y hay que poblar la instalación.
 
@@ -808,28 +852,30 @@ actualizados) → auditoría registrada. Fixtures de ejemplo en `scripts/fixture
 
 ### 6.2 Verificación de despliegue — `scripts/verificar-despliegue.ps1`
 
-Post-instalación en el equipo del cliente: comprueba exe **v1.0.3** instalado, **arranca la
+Post-instalación en el equipo del cliente: comprueba exe **v1.0.15** instalado, **arranca la
 app** y verifica que siga viva 10 s (el check crítico — el bug del v1.0.0 moría ahí), y luego
-valida los datos que crea el **primer arranque** (`%APPDATA%\com.dynarent.app`: `config.ini`
-+ `dynarent_v3.fdb`). Veredicto `OK` / `FALLOS` con checks numerados, exit 0/1.
+valida los datos que crea el **primer arranque** (`%APPDATA%\com.corjar.dinamorent`: `config.ini`
++ `dinamo_rent_v3.fdb`). Veredicto `OK` / `FALLOS` con checks numerados, exit 0/1.
 
 > **Orden de checks (fix 12-08):** primero se arranca la app y después se comprueban los
-datos — la carpeta `%APPDATA%\com.dynarent.app` se crea en el primer arranque (el
+datos — la carpeta `%APPDATA%\com.corjar.dinamorent` se crea en el primer arranque (el
 propio fix de instalación limpia), así que comprobarla antes producía FALLOS falsos.
 Validado de punta a punta en Windows Sandbox con la v1.0.1 oficial: **VEREDICTO OK (6/6)**.
 Harness reutilizable: `scripts/verificar-despliegue-sandbox.ps1` +
 `scripts/dinamorent-sandbox-verificar.wsb`. Ver `DEPLOYMENT_CLIENTES.md` para el plan completo.
 
+> **Modo `-DryRun` (17-08):** `-DryRun` ejecuta los mismos chequeos y el veredicto reales
+> contra un ambiente simulado en `%TEMP%` (exe, carpeta de datos y BD fake), sin tocar la
+> máquina real; `-SimularFallo` fuerza el camino de FALLOS. Validado de punta a punta en el
+> host: caso OK (6/6, exit 0) y caso FALLOS (4 fallos con detalles, exit 1).
+
 También de esta línea: `scripts/dinamorent-sandbox.wsb` + `scripts/smoke-test-sandbox.ps1`
-(smoke test del instalador en Windows limpio, ver nota de portada 12-08). Los scripts
-apuntan al bundle `nsis/` local — hoy verifican la **v1.0.16**; el smoke test de la
-v1.0.15 salió **VEREDICTO OPERATIVO** en equipo limpio (instalador OK, app viva, BD
-creada) y destapó que el SetUp Inicial no se lanzaba (arreglado en la v1.0.16, §7.6).
+(smoke test del instalador en Windows limpio, ver nota de portada 12-08).
 
 ### 6.3 Dejar lista la BD de desarrollo desde cero (2026-08-14)
 
-Receta validada en un clon nuevo (sin `data/config.ini` ni `data/dynarent_v3.fdb`).
-Deja la BD dev (`data/dynarent_v3.fdb`) funcional para que `cargo test --tests`
+Receta validada en un clon nuevo (sin `data/config.ini` ni `data/dinamo_rent_v3.fdb`).
+Deja la BD dev (`data/dinamo_rent_v3.fdb`) funcional para que `cargo test --tests`
 corra completo en verde — sin esto, las suites con flota fallan con un mensaje que
 indica correr el setup (antes se omitían silenciosamente):
 
@@ -847,7 +893,7 @@ indica correr el setup (antes se omitían silenciosamente):
    `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`
    — clave local al clon, nunca al repo.
 4. **Sembrar flota de prueba**: `python scripts/importar_autos_clientes.py
-   --sql scripts/fixtures/dump_autos_clientes.sql --db data/dynarent_v3.fdb`
+   --sql scripts/fixtures/dump_autos_clientes.sql --db data/dinamo_rent_v3.fdb`
    — primero dry-run (sin `--commit`) y luego `--commit` (transaccional). Inserta 2 autos +
    2 clientes con PII cifrada y auditoría `IMPORTACION_DATOS`. Necesario para el test 0016
    (`expect("hay autos en la BD dev")`) y para que las suites de rentas corran de verdad
@@ -864,7 +910,7 @@ indica correr el setup (antes se omitían silenciosamente):
    `renta_no_contrato_secuencial_independiente_del_id` asume `no_contrato != id`, lo que
    requiere historial dev previo (en BD virgen ambos arrancan en 1).
 
-Resultado: `cargo test --tests` en verde (lib 48 + integración: migraciones 11/11, rentas 8/8
+Resultado: `cargo test --tests` en verde (lib 80 + integración: migraciones 11/11, rentas 8/8
 y el resto de suites). Nota (14-08): el flake de
 `services::simit::consulta_401_clasifica_como_unauthorized` (mock HTTP bajo paralelismo) se
 arregló con agente propio por test + `#[serial]` + mock con timeouts — estresado en verde
@@ -883,22 +929,14 @@ sin tocar código: **nombre, NIT, dirección, ciudad, teléfono, email, web y lo
   en `EMPRESA_CONFIG` (idempotente, patrón 0015). Antes la ciudad se derivaba
   de la dirección con una heurística frágil (la penúltima parte entre comas);
   ahora es un campo explícito del setup.
-- **Migración 0021** (`0021_empresa_pais.sql`): columna `PAIS VARCHAR(100)` en
-  `EMPRESA_CONFIG` (idempotente). Los **teléfonos de contacto llevan el código
-  del país** configurado (+57 Colombia, +58 Venezuela, +593 Ecuador…) en el
-  contrato y las órdenes, vía el mapa `CODIGOS_PAISES` de
-  `src/lib/utils/geografia.ts` (antes +57 fijo). Detalle en §7.6.
 - **Backend**: `repositories/empresa.rs` + `services/empresa.rs` +
   `commands/empresa.rs`:
   - `empresa_publica` (sin sesión) — nombre + logo para el login y el menú lateral.
   - `obtener_empresa` (sesión activa) — configuración completa (página /empresa
     e impresiones).
   - `guardar_empresa` (roles_con_usuarios, por defecto solo Administrador) —
-    persiste datos + logo (data URL → archivo; PNG/JPG/WebP/SVG, máx 2 MB),
-    registra auditoría (`CONFIG_EMPRESA`) y **marca el setup inicial como
-    completado** en config.ini (v1.0.16, ver §7.6).
-  - `setup_estado` (v1.0.16, sesión activa) — devuelve si el setup inicial ya
-    se completó (lee el flag persistido de config.ini, no el de memoria).
+    persiste datos + logo (data URL → archivo; PNG/JPG/WebP/SVG, máx 2 MB) y
+    registra auditoría (`CONFIG_EMPRESA`).
 - **Ciudad en el contrato**: la cláusula compromisoria del ContratoRenta
   ("cámara de comercio de {ciudad} / domicilio en {ciudad}") usa la ciudad
   configurada; si no hay ninguna, conserva 'Cartagena' (la del contrato
@@ -929,9 +967,9 @@ no los de Dinamo:
 - Se eliminaron el SVG provisional (`LogoDynaRent.svg`) y los duplicados de la
   raíz del clon; el logo queda solo en `static/`.
 
-⚠️ El `origin` del clon apunta al repo nuevo `github.com/aleksei-corom/DynaRent`
-— verificar el remote antes de cualquier `git push` (no apuntar a repos de
-terceros ni al proyecto original).
+⚠️ El `origin` del clon apunta a `D:/dinamo_rent_tr` (ruta local) — **no hacer
+`git push` dentro del clon**; al distribuir hay que crear un repo nuevo
+(ej. `CORJAR-Computers/dynarent`) y cambiar el remote.
 
 ### 7.2 Ajustes del módulo de rentas (2026-08-13)
 
@@ -1019,7 +1057,7 @@ acciones. El botón «Nuevo» de cliente y el `ClienteFormModal` embebido ya
 existían y se conservan.
 
 **Seed de BD mínima para CI** (`src-tauri/src/bin/seed_ci.rs`): siembra
-`data/dynarent_v3.fdb` determinista (config → pool → migraciones → admin
+`data/dinamo_rent_v3.fdb` determinista (config → pool → migraciones → admin
 `Admin123!` → 2 autos → 2 clientes) para que `cargo test --tests` se EJECUTE
 completo en CI (antes solo se compilaba con `--no-run`). Idempotente (upsert por
 placa/no_doc); persiste una clave PII de desarrollo si config.ini viene vacía
@@ -1076,86 +1114,33 @@ Tests de integración nuevos (BD dev y BD fresca de CI):
 `renta_creada_desde_reserva_completa_la_reserva` (completa + rechaza reuso) y
 `renta_desde_reserva_cancelada_rechazada` (reserva cancelada no genera renta).
 Validación: cargo test --tests ✅, vitest 242/242 ✅, svelte-check 0/0 ✅, lint ✅.
+### 7.6 — CI en Node 24 y fin de los flakes de los tests SIMIT (2026-08-17)
 
-### 7.6 — SetUp Inicial automático, país, versión real y ACL del auto-update (2026-08-17, v1.0.16)
+**CI: actions a runtime Node 24.** GitHub deprecó Node.js 20 en los runners
+(changelog 2025-09-19) y las actions `checkout@v4`, `setup-node@v4` y
+`setup-python@v5` corrían forzadas en Node 24 con una anotación de advertencia
+en cada corrida. Se bumparon en `ci.yml` y `release.yml`:
 
-Sesión que cierra el flujo de primer uso y el auto-update. Origen: al verificar
-la instalación de la v1.0.15 en Windows Sandbox (equipo limpio) el smoke test
-salió **VEREDICTO OPERATIVO** (instalador OK, app viva, BD creada) pero el
-**SetUp Inicial no se lanzaba** — y el botón «Buscar actualización» fallaba con
-`Command plugin:updater|check not allowed by ACL`. Dos causas distintas:
+- `actions/checkout@v4` → `@v5` (runtime node24).
+- `actions/setup-node@v4` → `@v5` (runtime node24); el `node-version: '24'` instalado no cambia.
+- `actions/setup-python@v5` → `@v6` (runtime node24, solo ci.yml); el `python-version: '3.12'` no cambia.
+- `tauri-apps/tauri-action@v0` **se mantiene**: es el uso documentado oficial (sin v1) y solo
+  corre en release.yml por tag.
 
-#### A) SetUp Inicial automático (el flag existía pero nadie lo usaba)
+Verificado en GitHub: el CI del HEAD tras el bump pasó verde (7m8s) y `gh run view` ya no
+muestra el bloque ANNOTATIONS de deprecación.
 
-El flag `setup_completed` estaba en `config.ini` (defaults) desde siempre pero
-**no había ningún código que lo leyera ni lo escribiera** — por eso un equipo
-limpio no ofrecía el formulario de la empresa tras el login.
+**Flake de los tests SIMIT con servidor TCP local eliminado.** Los unit tests
+`cookie_jar_compartido_entre_peticiones`, `sembrar_cookies_sitio_siembra_el_jar` (y la race
+latente de `consulta_401_clasifica_como_unauthorized`) fallaban intermitentemente en CI:
+el socket **aceptado** hereda el modo no bloqueante del listener en Windows, así que el
+primer `read()` devolvía `WouldBlock` (os error 10035), el hilo del servidor de test
+paniqueaba con "timeout leyendo el request" y el cliente ureq recibía una conexión
+abortada (os error 10053). Fix en el helper compartido `servidor_http` de `simit.rs`:
 
-- **`config.rs`**: campo `setup_completed: bool` en `AppConfig`; método
-  `persist_setup_completado()` (escritura atómica temp+rename, mismo patrón que
-  `persist_db_encryption_key`) y `setup_completado_persistido()` (re-lee el
-  flag de config.ini: refleja el cambio en la misma ejecución, sin reiniciar).
-- **`commands/empresa.rs`**: comando nuevo `setup_estado(session_id)` (requiere
-  sesión, devuelve `setup_completado_persistido()`); `guardar_empresa` persiste
-  el flag tras guardar (best-effort, log si falla). Registrado en `lib.rs`.
-- **Frontend**: `setupApi.estado()` en `api.ts`; el store `empresa.svelte.ts`
-  gana `setupCompletado` (null = sin consultar) + `cargarSetup()` (consulta una
-  sola vez) + `marcarSetupCompletado()`; el **layout** consulta el estado tras
-  validar sesión y un `$effect` redirige al **Administrador** a `/empresa` si
-  está pendiente (solo rol Administrador — un Operador no queda atrapado en un
-  bucle con el guardRole de la página — y excluyendo `/login`,
-  `/cambiar-password` y la propia `/empresa`); la página `/empresa` marca el
-  setup al guardar y, si el usuario llegó por el flujo de setup, continúa al
-  dashboard.
-- **Tests (6 nuevos)**: integración backend (flag `false` inicial → tras
-  `guardar_empresa` `setup_estado` devuelve `true` en la misma ejecución y
-  `setup_completed = true` queda en config.ini; sin sesión → `session_expired`)
-  — el helper `dev_state_copia` ahora copia **también config.ini** a un
-  directorio temporal para que los tests no escriban sobre el config real de
-  dev; store (consulta única, marcar, error conserva null); ruta (guarda con
-  setup pendiente → marca + `goto('/dashboard')`; ya completado → no navega).
+- `stream.set_nonblocking(false)` tras el accept → el read bloquea y `SO_RCVTIMEO` (10 s)
+  hace de deadline real.
+- `WouldBlock`/`Interrupted` se **reintentan** (5 ms) hasta el deadline en vez de paniquear;
+  `TimedOut` sigue siendo el único panic legítimo.
 
-#### B) País en el SetUp Inicial (teléfonos con su código)
-
-Campo **País** en `/empresa` (migración 0021, `SelectConNuevo` como en
-clientes): el prefijo telefónico de los contactos sale del país configurado
-(`conPrefijoPais` en el store, mapa `CODIGOS_PAISES` en `geografia.ts` con 29
-países → +57, +1, +58, +593…; sin país configurado el fallback es Colombia
-+57; un teléfono que ya lleva `+` no se duplica). Los 3 documentos
-(Contrato, Orden de Renta y Orden de Reserva) muestran los datos de la empresa
-desde el setup — el **pie de contacto** (dirección + teléfonos con código +
-email, omitiendo vacíos) se añadió a las Órdenes en el commit `14cc782`, que
-antes solo mostraban nombre + logo.
-
-#### C) Versión real del binario en la ventana
-
-Sidebar, login y Acerca de mostraban **v1.0.14 hardcodeado** (el sandbox con la
-v1.0.15 instalada seguía diciendo v1.0.14). Nuevo store `src/lib/stores/app.svelte.ts`
-que lee la versión con **`getVersion()`** de `@tauri-apps/api/app` (la versión
-embebida en el binario desde `tauri.conf.json` — permiso `core:app:allow-version`
-ya incluido en `core:default`, sin tocar la ACL) y los 3 puntos la muestran
-dinámicamente. `application.version` de `config.rs`/`config.ini.example`
-mantenido alineado al bump.
-
-#### D) ACL del auto-update (fix)
-
-La capability `src-tauri/capabilities/default.json` solo exponía `core:default`
-y TODO comando de plugin pasa por la ACL en Tauri v2: `check()` del updater
-fallaba con `plugin:updater|check not allowed by ACL` (el chequeo del arranque
-fallaba en silencio; el botón manual lo destapó). Se añadieron
-**`updater:default`** (check/download/install/download-and-install) y
-**`process:default`** (restart — el `relaunch()` tras instalar), sin exponer
-fs/shell/http (postura G-C4 conservada). ⚠️ La ACL va embebida en el binario:
-una versión instalada sin el fix NO puede auto-actualizarse — hay que instalar
-el instalador nuevo una vez a mano para salir del hueco (la v1.0.16 ya lo trae).
-
-#### Verificación
-
-- Local: cargo test --lib 54 ✅ · `empresa_comandos_integration` 3 ✅ (con
-  config.ini aislado) · vitest **260** (30 archivos) ✅ · svelte-check 0/0 ✅.
-- Release **v1.0.16** publicada por CI (run #31993165607, success 8m46s): 5
-  assets, sha256 reales `6d2353d3…` (exe) / `dc72e172…` (msi); `latest.json`
-  sirve la v1.0.16 y la **firma se verificó E2E con la pubkey de producción**
-  (binario `updater_e2e` contra un `latest.json` local que apunta al MSI real:
-  "firma verificada y bytes idénticos al artifact"). CI de main verde tras el
-  push (run #31995861236, 5m27s).
+Validación: simit 14/14, 5 corridas consecutivas verdes, lib 80/80, y el CI del push en verde.

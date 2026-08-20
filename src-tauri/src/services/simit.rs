@@ -49,6 +49,7 @@ use std::time::{Duration, Instant};
 
 use chrono::{Local, NaiveDate};
 use cookie_store::CookieStore;
+use rsfbclient::{Execute, Queryable};
 use serde::Serialize;
 use serde::Deserialize;
 use sha2::Digest;
@@ -181,7 +182,9 @@ const DEFAULT_TIMEOUT_SECONDS: u64 = 30;
 // ─── Tipos de datos ───────────────────────────────────────────────────────────
 
 /// Un comparendo/multa tal como lo devuelve el SIMIT, ya mapeado al dominio
-#[derive(Debug, Clone, Serialize)]
+/// (Serialize/Deserialize: se persiste en la BD como JSON y se restaura al
+/// arrancar para que el filtro «Solo nuevos» sobreviva al reinicio).
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RegistroSimit {
     /// Número oficial del comparendo (clave de deduplicación)
@@ -200,18 +203,23 @@ pub struct RegistroSimit {
     pub es_comparendo: bool,
     /// true = se insertó en esta sincronización; false = ya estaba en la BD
     pub nuevo: bool,
+    /// id en la tabla `comparendos` (Some si existe/insertó en esta corrida);
+    /// permite al frontend marcar en la tabla cuáles son nuevos vs existentes
+    pub id: Option<i64>,
 }
 
 /// Error de una placa individual (no aborta la sincronización)
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ErrorPlacaSimit {
     pub placa: String,
     pub error: String,
 }
 
-/// Resumen serializable de una sincronización (evento + comando de estado)
-#[derive(Debug, Clone, Default, Serialize)]
+/// Resumen serializable de una sincronización (evento + comando de estado).
+/// Serialize/Deserialize: se persiste en la BD tras cada corrida (tabla
+/// `agente_simit_ultimo_resultado`) y se restaura al arrancar.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResultadoSincronizacion {
     /// Marca de tiempo de inicio (RFC3339 local)
@@ -237,7 +245,7 @@ pub struct ResultadoSincronizacion {
 }
 
 /// Métricas de rendimiento de la sincronización
-#[derive(Debug, Clone, Default, Serialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MetricasSimit {
     /// Tiempo total de la sincronización (ms)
@@ -802,7 +810,7 @@ pub fn sincronizar<R: tauri::Runtime>(
                 for mut reg in registros {
                     resultado.encontrados += 1;
                     // Fecha inválida → se omite el registro (no aborta la placa).
-                    // Va ANTES de ya_existe: existe_duplicado llama parse_fecha
+                    // Va ANTES del dedup: id_existente llama parse_fecha
                     // y una fecha malformada (p.ej. sin número oficial) abortaría
                     // toda la sincronización en vez de omitir el registro.
                     if NaiveDate::parse_from_str(&reg.fecha_infraccion, "%Y-%m-%d").is_err() {
@@ -816,10 +824,22 @@ pub fn sincronizar<R: tauri::Runtime>(
                     }
                     // ¿Ya existe? (número oficial o placa+fecha+monto). Si el
                     // SIMIT reporta pagado un comparendo ya registrado, se
-                    // sincroniza el estado (la BD converge con el SIMIT).
-                    if ya_existe(conn, &reg)? {
+                    // sincroniza el estado (la BD converge con el SIMIT). En
+                    // ambos casos se toca `ultimo_visto_simit` (confirmación)
+                    // y se conserva el id para marcar el registro en la UI.
+                    let numero =
+                        reg.numero.as_deref().map(str::trim).filter(|n| !n.is_empty());
+                    if let Some(id) = ComparendoRepository::id_existente(
+                        conn,
+                        numero,
+                        &reg.placa,
+                        &reg.fecha_infraccion,
+                        &reg.monto,
+                    )? {
+                        reg.id = Some(id);
+                        ComparendoRepository::marcar_visto_simit_por_id(conn, id)?;
                         if reg.estado == "Pagado" {
-                            if let Some(num) = reg.numero.as_deref().map(str::trim).filter(|n| !n.is_empty()) {
+                            if let Some(num) = numero {
                                 ComparendoRepository::marcar_pagado_por_numero(conn, num)?;
                             }
                         }
@@ -837,6 +857,8 @@ pub fn sincronizar<R: tauri::Runtime>(
                         id_cliente: None,
                         estado: reg.estado.clone(),
                         observaciones: Some(observaciones_para(&reg)),
+                        // Procedencia persistente: este comparendo vino del SIMIT.
+                        origen: Some("SIMIT".into()),
                     };
                     // Atribución persistente: se resuelve qué renta cubría el
                     // vehículo el día de la infracción y se guarda el vínculo
@@ -848,7 +870,11 @@ pub fn sincronizar<R: tauri::Runtime>(
                         datos.id_renta = Some(id_renta);
                         datos.id_cliente = id_cliente;
                     }
-                    ComparendoRepository::insertar(conn, &datos)?;
+                    let id = ComparendoRepository::insertar(conn, &datos)?;
+                    // El Agente acaba de confirmar este comparendo en el portal:
+                    // se toca ultimo_visto_simit (y origen converge a SIMIT).
+                    ComparendoRepository::marcar_visto_simit_por_id(conn, id)?;
+                    reg.id = Some(id);
                     resultado.insertados += 1;
                     reg.nuevo = true;
                     resultado.registros.push(reg);
@@ -947,22 +973,6 @@ pub fn sincronizar<R: tauri::Runtime>(
     }
 
     Ok(resultado)
-}
-
-/// ¿El registro ya existe en la BD? Deduplica por número oficial y, como
-/// respaldo, por placa + fecha + monto.
-fn ya_existe(conn: &mut PooledConnection, reg: &RegistroSimit) -> Result<bool, AppError> {
-    if let Some(num) = reg.numero.as_deref().map(str::trim).filter(|n| !n.is_empty()) {
-        if ComparendoRepository::existe_por_numero(conn, num)? {
-            return Ok(true);
-        }
-    }
-    if !reg.fecha_infraccion.is_empty()
-        && ComparendoRepository::existe_duplicado(conn, &reg.placa, &reg.fecha_infraccion, &reg.monto)?
-    {
-        return Ok(true);
-    }
-    Ok(false)
 }
 
 /// Observaciones legibles para el registro insertado (trazabilidad SIMIT)
@@ -1088,7 +1098,7 @@ fn generar_reporte_html(
   <p class="pie">🆕 = registrado en la BD en esta sincronización.</p>
   {vacio}
   {errores}
-  <div class="pie">Generado automáticamente por el Agente SIMIT de DynaRent · {sincronizado}</div>
+  <div class="pie">Generado automáticamente por el Agente SIMIT de Dinamo Rent · {sincronizado}</div>
 </body>
 </html>"#,
         sincronizado = esc_html(&r.sincronizado_en),
@@ -1226,6 +1236,75 @@ impl EstadoAgenteSimit {
     }
 }
 
+// ─── Persistencia del último resultado (filtro «Solo nuevos» tras reinicio) ─
+
+/// Fila única de `agente_simit_ultimo_resultado` (id fijo, upsert).
+const ULTIMO_RESULTADO_ID: i16 = 1;
+
+/// Persiste el último resultado de sincronización como JSON en la BD (una
+/// sola fila, upsert). Sin esto el filtro «Solo nuevos» y el panel perdían
+/// la última corrida al reiniciar la app; con esto se restauran al arrancar.
+pub fn persistir_ultimo_resultado(
+    conn: &mut PooledConnection,
+    resultado: &ResultadoSincronizacion,
+) -> Result<(), AppError> {
+    let json = serde_json::to_string(resultado)
+        .map_err(|e| AppError::Generic(format!("serializar último resultado: {e}")))?;
+    let actualizadas = conn.execute(
+        "UPDATE agente_simit_ultimo_resultado \
+         SET resultado_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        (json.clone(), ULTIMO_RESULTADO_ID),
+    )?;
+    if actualizadas == 0 {
+        conn.execute(
+            "INSERT INTO agente_simit_ultimo_resultado (id, resultado_json) VALUES (?, ?)",
+            (ULTIMO_RESULTADO_ID, json),
+        )?;
+    }
+    Ok(())
+}
+
+/// Carga el último resultado persistido (None si aún no hay corrida guardada).
+pub fn cargar_ultimo_resultado(
+    conn: &mut PooledConnection,
+) -> Result<Option<ResultadoSincronizacion>, AppError> {
+    let rows: Vec<(Option<String>,)> = conn.query(
+        "SELECT resultado_json FROM agente_simit_ultimo_resultado WHERE id = ?",
+        (ULTIMO_RESULTADO_ID,),
+    )?;
+    let Some((Some(json),)) = rows.first() else {
+        return Ok(None);
+    };
+    let resultado = serde_json::from_str(json)
+        .map_err(|e| AppError::Generic(format!("parsear último resultado persistido: {e}")))?;
+    Ok(Some(resultado))
+}
+
+/// Restaura en el estado en memoria el último resultado persistido (arranque).
+/// Best-effort: si la BD no tiene fila o falla la lectura, el agente arranca
+/// en blanco como antes (la primera corrida programada lo llena de nuevo).
+pub(crate) fn restaurar_ultimo_resultado(pool: &Pool, estado: &EstadoAgenteSimit) {
+    match pool.get() {
+        Ok(mut conn) => match cargar_ultimo_resultado(&mut conn) {
+            Ok(Some(resultado)) => {
+                log::info!(
+                    "Agente SIMIT: último resultado restaurado ({} nuevas, corrida de {})",
+                    resultado.insertados,
+                    resultado.sincronizado_en
+                );
+                estado.registrar_ok(resultado);
+            }
+            Ok(None) => {}
+            Err(e) => log::warn!(
+                "Agente SIMIT: no se pudo cargar el último resultado persistido: {e}"
+            ),
+        },
+        Err(e) => log::warn!(
+            "Agente SIMIT: no se pudo conectar para restaurar el último resultado: {e}"
+        ),
+    }
+}
+
 /// Ejecuta una sincronización y actualiza el estado del agente.
 /// Es la única entrada compartida por el scheduler y el comando manual.
 /// Si se proporciona `app`, emite eventos de progreso al frontend.
@@ -1251,6 +1330,12 @@ pub fn run_sync<R: tauri::Runtime>(
 
     let mut conn = pool.get()?;
     let resultado = sincronizar(&mut conn, cfg, app)?;
+    // Persistir el resultado (filtro «Solo nuevos» y panel sobreviven al
+    // reinicio). Best-effort: si falla, el estado en memoria sigue valiendo
+    // para la sesión actual y se reintenta en la siguiente corrida.
+    if let Err(e) = persistir_ultimo_resultado(&mut conn, &resultado) {
+        log::warn!("Agente SIMIT: no se pudo persistir el último resultado: {e}");
+    }
     estado.registrar_ok(resultado.clone());
     Ok(resultado)
 }
@@ -1453,6 +1538,7 @@ fn mapear_registros(dto: &RespuestaConsulta, placa: &str) -> Vec<RegistroSimit> 
                     .unwrap_or_default(),
                 es_comparendo: m.comparendo.unwrap_or(false),
                 nuevo: false,
+                id: None,
             })
         })
         .collect()
@@ -1724,6 +1810,7 @@ mod tests {
             descripcion: "Exceso de velocidad".into(),
             es_comparendo: true,
             nuevo: false,
+            id: None,
         };
         let obs = observaciones_para(&reg);
         assert!(obs.contains("Comparendo"));
@@ -1798,9 +1885,19 @@ mod tests {
                         Err(e) => panic!("servidor de test: accept falló: {e}"),
                     }
                 };
+                // El socket aceptado hereda el modo no bloqueante del listener
+                // en Windows: el primer read() devolvía WouldBlock (os error
+                // 10035) antes de llegar los bytes del request, el hilo del
+                // servidor paniqueaba y el cliente recibía una conexión
+                // abortada (os error 10053) — el flake de CI. Forzamos modo
+                // bloqueante y dejamos que SO_RCVTIMEO haga el deadline.
+                stream
+                    .set_nonblocking(false)
+                    .expect("socket de test en modo bloqueante");
                 stream
                     .set_read_timeout(Some(TIMEOUT_MOCK))
                     .expect("read timeout del socket de test");
+                let inicio_read = std::time::Instant::now();
                 let mut buf = Vec::new();
                 let mut tmp = [0u8; 2048];
                 loop {
@@ -1812,10 +1909,19 @@ mod tests {
                                 break;
                             }
                         }
+                        // Defensivo: en modo bloqueante no debería ocurrir, pero
+                        // si alguna plataforma devuelve WouldBlock/Interrupted se
+                        // reintenta hasta el deadline en vez de paniquear.
                         Err(e)
                             if e.kind() == std::io::ErrorKind::WouldBlock
-                                || e.kind() == std::io::ErrorKind::TimedOut =>
+                                || e.kind() == std::io::ErrorKind::Interrupted =>
                         {
+                            if inicio_read.elapsed() > TIMEOUT_MOCK {
+                                panic!("servidor de test: timeout leyendo el request ({e})");
+                            }
+                            std::thread::sleep(std::time::Duration::from_millis(5));
+                        }
+                        Err(e) if e.kind() == std::io::ErrorKind::TimedOut => {
                             panic!("servidor de test: timeout leyendo el request ({e})");
                         }
                         Err(e) => panic!("servidor de test: error leyendo el request: {e}"),

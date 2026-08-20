@@ -36,6 +36,9 @@ function renta(overrides: Partial<Renta> = {}): Renta {
 		subtotal: '1350000.00',
 		impuestos: '0.00',
 		cobraIva: true,
+		tieneComision: false,
+		comision: '0.00',
+		valorNeto: '1350000.00',
 		total: '1350000.00',
 		abono: '500000.00',
 		saldoPendiente: '850000.00',
@@ -71,6 +74,8 @@ function comparendo(overrides: Partial<Comparendo> = {}): Comparendo {
 		observaciones: 'Exceso de velocidad',
 		createdAt: null,
 		updatedAt: null,
+		origen: 'Manual',
+		ultimoVistoSimit: null,
 		responsable: null,
 		...overrides
 	};

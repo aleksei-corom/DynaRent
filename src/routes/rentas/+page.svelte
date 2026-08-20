@@ -5,11 +5,13 @@
 		reservaApi,
 		clienteApi,
 		autoApi,
-		businessApi,
 		ApiError,
 		type Renta,
 		type RentaDatos,
 		type RentaCierreDatos,
+		type RentaCierreEditDatos,
+		type ExtensionDatos,
+		type ExtensionRenta,
 		type PagoDatos,
 		type InspeccionDatos,
 		type ClienteConPii,
@@ -18,6 +20,7 @@
 		type Reserva
 	} from '$lib/api';
 	import { sid, session } from '$lib/stores/session.svelte';
+	import { businessLists } from '$lib/stores/business.svelte';
 	import { toast } from '$lib/stores/toast.svelte';
 	import { formatCOP, formatContrato, formatDate } from '$lib/utils/format';
 	import { calcularDiasHoras } from '$lib/utils/calcularDiasHoras';
@@ -60,7 +63,11 @@
 			sub: [a.tipo ?? '', a.color ?? ''].filter(Boolean).join(' ').trim()
 		}))
 	);
-	let lists = $state<BusinessLists | null>(null);
+	// TAREA 3.2 (Bloque 3 — Performance): `lists` se sirve desde el store
+	// global `businessLists` (cache TTL 5 min, invalidable). La primera
+	// ruta que monta dispara la carga; las siguientes leen del cache sin
+	// round-trip.
+	const lists = $derived<BusinessLists | null>(businessLists.lists);
 	let loading = $state(true);
 
 	// ¿El rol actual puede eliminar registros? (roles_con_eliminar de config.ini)
@@ -106,10 +113,26 @@
 	let inspeccionError = $state('');
 	let guardandoInspeccion = $state(false);
 
+	// Modal extender renta
+	let extenderId = $state<number | null>(null);
+	let extenderRenta = $state<Renta | null>(null);
+	let extension = $state<ExtensionDatos>(defaultExtension());
+	let extenderando = $state(false);
+	let extenderError = $state('');
+	let historialExtensiones = $state<ExtensionRenta[]>([]);
+	let cargandoHistorial = $state(false);
+
 	// Modal imprimir
 	let imprimirRenta = $state<Renta | null>(null);
 	// Modal contrato (documento independiente, papel Carta)
 	let imprimirContrato = $state<Renta | null>(null);
+
+	// Modal editar renta cerrada (solo Administrador)
+	let editandoCerradaId = $state<number | null>(null);
+	let editandoCerradaRenta = $state<Renta | null>(null);
+	let editCerrada = $state<RentaCierreEditDatos>(defaultEditCerrada());
+	let editandoCerrada = $state(false);
+	let editCerradaError = $state('');
 
 	// Cancelar / eliminar
 	let cancelarId = $state<number | null>(null);
@@ -148,6 +171,8 @@
 			valorGasolina: '0',
 			descuento: '0',
 			cobraIva: false,
+			tieneComision: false,
+			comision: '0',
 			abono: '0',
 			observaciones: '',
 			kmSalida: '',
@@ -192,6 +217,26 @@
 		};
 	}
 
+	function defaultExtension(): ExtensionDatos {
+		return {
+			tipo: 'horas',
+			cantidad: 1,
+			valor: '',
+			observaciones: ''
+		};
+	}
+
+	function defaultEditCerrada(): RentaCierreEditDatos {
+		return {
+			valorDia: '',
+			valorHoraExtra: '',
+			diasCalculados: null,
+			horasExtras: null,
+			descuento: '',
+			observaciones: ''
+		};
+	}
+
 	// ── Calculadora en vivo (espejo del cálculo del backend) ──
 	// El IVA solo se aplica si el checkbox «cobrar IVA» está activo.
 	const brutoCalc = $derived(
@@ -208,6 +253,9 @@
 		form.cobraIva ? Math.round(subtotalCalc * (tasaIva / 100) * 100) / 100 : 0
 	);
 	const totalCalc = $derived(subtotalCalc + ivaCalc);
+	// Comisión: solo aplica si el checkbox está activo; neto = total − comisión
+	const comisionCalc = $derived(form.tieneComision ? Math.max(0, parseFloat(form.comision) || 0) : 0);
+	const netoCalc = $derived(Math.max(0, totalCalc - comisionCalc));
 	const saldoCalc = $derived(Math.max(0, totalCalc - (parseFloat(form.abono) || 0)));
 
 	function recalcularDias() {
@@ -295,23 +343,18 @@
 
 	onMount(async () => {
 		if (!guardSesion()) return;
-		if (!lists) {
-			try {
-				lists = await businessApi.listas(sid());
-			} catch {
-				/* opcional */
-			}
-		}
-		try {
-			clientes = await clienteApi.listar(sid());
-		} catch {
-			clientes = [];
-		}
-		try {
-			autos = await autoApi.listar(sid());
-		} catch {
-			autos = [];
-		}
+		// TAREA 3.2 + 3.3 (Bloque 3 — Performance):
+		//  - `businessLists.ensure` carga las listas si no están en cache
+		//    (TTL 5 min) o reutiliza las cacheadas — evita 1 round-trip por
+		//    cada navegación a /rentas.
+		//  - `Promise.all` paraleliza las cargas independientes (clientes,
+		//    autos, listas) que antes corrían en secuencia → 3 round-trips
+		//    en paralelo en vez de 3 secuenciales.
+		await Promise.all([
+			businessLists.ensure(sid()).catch(() => null),
+			clienteApi.listar(sid()).then((c) => (clientes = c)).catch(() => (clientes = [])),
+			autoApi.listar(sid()).then((a) => (autos = a)).catch(() => (autos = []))
+		]);
 		await cargar();
 
 		// Precarga desde una reserva (?desdeReserva=<id>): abre el formulario
@@ -384,6 +427,8 @@
 			valorGasolina: r.valorGasolina ?? '0',
 			descuento: r.descuento,
 			cobraIva: r.cobraIva,
+			tieneComision: r.tieneComision,
+			comision: r.comision,
 			abono: r.abono,
 			observaciones: r.observaciones ?? '',
 			kmSalida: r.kmSalida,
@@ -522,6 +567,51 @@
 		}
 	}
 
+	// ── Extender renta ──
+	async function abrirExtender(r: Renta) {
+		extenderId = r.id;
+		extenderRenta = r;
+		extension = defaultExtension();
+		extenderError = '';
+		historialExtensiones = [];
+		// Cargar historial de extensiones
+		cargandoHistorial = true;
+		try {
+			historialExtensiones = await rentaApi.listarExtensiones(sid(), r.id);
+		} catch {
+			// Ignorar errores al cargar historial
+		} finally {
+			cargandoHistorial = false;
+		}
+	}
+
+	async function confirmarExtender() {
+		if (extenderId === null) return;
+		if (!extension.valor || parseFloat(extension.valor) <= 0) {
+			extenderError = 'El valor de la extensión es obligatorio y debe ser mayor a cero.';
+			return;
+		}
+		if (extension.cantidad <= 0) {
+			extenderError = 'La cantidad debe ser mayor a cero.';
+			return;
+		}
+		extenderando = true;
+		try {
+			await rentaApi.extender(sid(), extenderId, extension);
+			toast.success(
+				extension.tipo === 'horas'
+					? `Renta extendida +${extension.cantidad}h.`
+					: `Renta extendida +${extension.cantidad} día(s).`
+			);
+			extenderId = null;
+			await cargar();
+		} catch (e) {
+			extenderError = e instanceof ApiError ? e.message : 'No se pudo extender la renta.';
+		} finally {
+			extenderando = false;
+		}
+	}
+
 	// ── Pago ──
 	function abrirPago(r: Renta) {
 		pagandoId = r.id;
@@ -554,6 +644,40 @@
 		inspeccionError = '';
 	}
 
+	// ── Editar renta cerrada (solo Administrador) ──
+	function abrirEditarCerrada(r: Renta) {
+		editandoCerradaId = r.id;
+		editandoCerradaRenta = r;
+		// Pre-cargar valores actuales para facilitar la corrección
+		editCerrada = {
+			valorDia: r.valorDia,
+			valorHoraExtra: r.valorHoraExtra,
+			diasCalculados: r.diasCalculados,
+			horasExtras: r.horasExtras,
+			descuento: r.descuento,
+			observaciones: ''
+		};
+		editCerradaError = '';
+	}
+
+	async function confirmarEditarCerrada() {
+		if (editandoCerradaId === null || !editCerrada.observaciones?.trim()) {
+			editCerradaError = 'Debe indicar el motivo de la corrección (obligatorio para auditoría).';
+			return;
+		}
+		editandoCerrada = true;
+		try {
+			await rentaApi.editarCerrada(sid(), editandoCerradaId, editCerrada);
+			toast.success('Renta cerrada actualizada. Valores recalculados.');
+			editandoCerradaId = null;
+			await cargar();
+		} catch (e) {
+			editCerradaError = e instanceof ApiError ? e.message : 'No se pudo editar la renta cerrada.';
+		} finally {
+			editandoCerrada = false;
+		}
+	}
+
 	async function confirmarInspeccion() {
 		if (inspeccionandoId === null) return;
 		inspeccionError = '';
@@ -582,7 +706,6 @@
 			await cargar();
 		} catch (e) {
 			toast.error(e instanceof ApiError ? e.message : 'No se pudo cancelar la renta.');
-			cancelarId = null;
 		} finally {
 			cancelando = false;
 		}
@@ -598,7 +721,6 @@
 			await cargar();
 		} catch (e) {
 			toast.error(e instanceof ApiError ? e.message : 'No se pudo eliminar la renta.');
-			eliminarId = null;
 		} finally {
 			eliminando = false;
 		}
@@ -660,13 +782,15 @@
 		{ key: 'vehiculo', header: 'Vehículo' },
 		{ key: 'itinerario', header: 'Itinerario' },
 		{ key: 'financiero', header: 'Total / Saldo' },
+		{ key: 'comision', header: 'Comisión' },
+		{ key: 'valorNeto', header: 'Valor neto' },
 		{ key: 'estado', header: 'Estado' },
 		{ key: 'acciones', header: '', align: 'right' as const }
 	];
 </script>
 
 <svelte:head>
-	<title>Rentas — DynaRent ERP</title>
+	<title>Rentas — Dinamo Rent ERP</title>
 </svelte:head>
 
 <div class="space-y-5">
@@ -757,6 +881,12 @@
 						<p class="font-bold text-text-primary tabular-nums">{formatCOP(r.total)}</p>
 						<p class="text-xs text-text-secondary tabular-nums">Saldo: <span class="font-semibold {parseFloat(r.saldoPendiente) > 0 ? 'text-alerta' : 'text-exito'}">{formatCOP(r.saldoPendiente)}</span></p>
 					</div>
+				{:else if col.key === 'comision'}
+					<p class="text-right tabular-nums whitespace-nowrap {parseFloat(r.comision) > 0 ? 'font-semibold text-peligro' : 'text-text-secondary/50'}">
+						{parseFloat(r.comision) > 0 ? `-${formatCOP(r.comision)}` : '—'}
+					</p>
+				{:else if col.key === 'valorNeto'}
+					<p class="text-right font-semibold text-text-primary tabular-nums whitespace-nowrap">{formatCOP(r.valorNeto)}</p>
 				{:else if col.key === 'estado'}
 					<span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap {estadoClases(r.estado)}">
 						<span class="w-1.5 h-1.5 rounded-full bg-current opacity-70"></span>
@@ -793,6 +923,13 @@
 							>
 								<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
 							</button>
+							<button
+								class="p-2 rounded-lg text-text-secondary hover:text-exito hover:bg-exito/10 transition-colors"
+								title="Extender renta (agregar horas/días)"
+								onclick={() => abrirExtender(r)}
+							>
+								<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+							</button>
 						{/if}
 						<button
 							class="p-2 rounded-lg text-text-secondary hover:text-primary hover:bg-primary/10 transition-colors"
@@ -808,6 +945,15 @@
 						>
 							<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.862 4.487zm0 0L19.5 7.125" /></svg>
 						</button>
+						{#if r.estado === 'Cerrada' && puedeEliminar}
+							<button
+								class="p-2 rounded-lg text-text-secondary hover:text-alerta hover:bg-alerta/10 transition-colors"
+								title="Editar renta cerrada (corregir digitación)"
+								onclick={() => abrirEditarCerrada(r)}
+							>
+								<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17l-5.1-5.1m0 0L11.42 4.97m-5.1 5.1H21M3 3h18v18H3V3z" /></svg>
+							</button>
+						{/if}
 						{#if rentaActiva(r)}
 							<button
 								class="p-2 rounded-lg text-text-secondary hover:text-alerta hover:bg-alerta/10 transition-colors"
@@ -1037,6 +1183,17 @@
 						<input class="input" inputmode="decimal" placeholder="100000" bind:value={form.abono} />
 					</FormField>
 				</div>
+				<label class="flex items-center gap-2 text-sm text-text-primary cursor-pointer rounded-lg border border-border px-3 py-2 hover:bg-alt-row/60 transition-colors mt-3 w-fit">
+					<input type="checkbox" class="accent-primary" bind:checked={form.tieneComision} />
+					Cobrar comisión <span class="text-xs text-text-secondary">(se resta del total → valor neto)</span>
+				</label>
+				{#if form.tieneComision}
+					<div class="mt-2 max-w-[240px]">
+						<FormField label="Valor comisión" hint="COP" dense>
+							<input class="input" inputmode="decimal" placeholder="50000" bind:value={form.comision} />
+						</FormField>
+					</div>
+				{/if}
 			</div>
 
 			<!-- ── Panel derecho: resumen + observaciones + acciones (sticky) ── -->
@@ -1054,6 +1211,9 @@
 						<p class="text-[10px] opacity-80 mt-0.5">
 							{form.cobraIva ? `IVA ${tasaIva}% incluido` : 'Sin IVA (checkbox desactivado)'}
 						</p>
+						{#if form.tieneComision}
+							<p class="text-[10px] opacity-90 mt-0.5 font-semibold">Valor neto: {formatCOP(netoCalc)}</p>
+						{/if}
 					</div>
 					<!-- Desglose compacto -->
 					<div class="space-y-1 text-xs">
@@ -1065,6 +1225,16 @@
 							<div class="flex justify-between">
 								<span class="text-text-secondary">IVA ({tasaIva}%)</span>
 								<span class="font-semibold text-text-primary tabular-nums">{formatCOP(ivaCalc)}</span>
+							</div>
+						{/if}
+						{#if form.tieneComision}
+							<div class="flex justify-between">
+								<span class="text-text-secondary">Comisión</span>
+								<span class="font-semibold text-text-primary tabular-nums">-{formatCOP(comisionCalc)}</span>
+							</div>
+							<div class="flex justify-between">
+								<span class="text-text-secondary font-semibold">Valor neto</span>
+								<span class="font-bold text-text-primary tabular-nums">{formatCOP(netoCalc)}</span>
 							</div>
 						{/if}
 						<div class="flex justify-between">
@@ -1343,6 +1513,152 @@
 				Guardando...
 			{:else}
 				Registrar inspección
+			{/if}
+		</button>
+	{/snippet}
+</Modal>
+
+<!-- Modal editar renta cerrada (solo Administrador) -->
+<Modal
+	open={editandoCerradaId !== null}
+	title={editandoCerradaRenta ? `Corregir renta cerrada #${String(editandoCerradaRenta.id).padStart(4, '0')}` : ''}
+	subtitle="Modifica los campos financieros y recalcula los totales."
+	onClose={() => (editandoCerradaId = null)}
+	width="max-w-2xl"
+>
+	{#snippet children()}
+		<div class="mb-4 rounded-lg bg-peligro/10 border border-peligro/30 px-3 py-2.5 text-sm text-peligro" role="alert">{editCerradaError}</div>
+
+		<div class="mb-4 rounded-lg bg-alerta/10 border border-alerta/30 px-3 py-2.5 text-sm text-alerta">
+			<strong>⚠️ Atención:</strong> Solo los campos financieros se modificarán. El abono, el cliente y la placa NO se pueden editar.
+		</div>
+
+		<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+			<FormField label="Valor día" required>
+				<input class="input" type="number" step="0.01" min="0" bind:value={editCerrada.valorDia} />
+			</FormField>
+			<FormField label="Valor hora extra">
+				<input class="input" type="number" step="0.01" min="0" bind:value={editCerrada.valorHoraExtra} />
+			</FormField>
+			<FormField label="Días calculados" required>
+				<input class="input" type="number" min="1" bind:value={editCerrada.diasCalculados} />
+			</FormField>
+			<FormField label="Horas extras">
+				<input class="input" type="number" min="0" bind:value={editCerrada.horasExtras} />
+			</FormField>
+			<FormField label="Descuento">
+				<input class="input" type="number" step="0.01" min="0" bind:value={editCerrada.descuento} />
+			</FormField>
+			<div class="col-span-full">
+				<FormField label="Motivo de la corrección" required hint="Obligatorio para auditoría">
+					<textarea class="input min-h-[60px] resize-y" placeholder="Describe el error de digitación que se corrige..." bind:value={editCerrada.observaciones} maxlength="500"></textarea>
+			</FormField>
+		</div>
+
+		<div class="mt-4 p-3 rounded-lg bg-alt-row/60 border border-border">
+			<p class="text-sm font-semibold text-text-primary mb-2">Valores actuales de la renta:</p>
+			<p class="text-sm text-text-secondary">Total: <span class="font-semibold text-text-primary">{formatCOP(editandoCerradaRenta?.total ?? '0')}</span> | Saldo: <span class="font-semibold">{formatCOP(editandoCerradaRenta?.saldoPendiente ?? '0')}</span></p>
+		</div>
+		</div>
+	{/snippet}
+
+	{#snippet footer()}
+		<button class="btn-ghost" onclick={() => (editandoCerradaId = null)} disabled={editandoCerrada}>Cancelar</button>
+		<button class="btn-primary" onclick={confirmarEditarCerrada} disabled={editandoCerrada}>
+			{#if editandoCerrada}
+				<svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+				Guardando...
+			{:else}
+				Aplicar corrección
+			{/if}
+		</button>
+	{/snippet}
+</Modal>
+
+<!-- Modal extender renta -->
+<Modal
+	open={extenderId !== null}
+	title={extenderRenta ? `Extender renta #${String(extenderRenta.id).padStart(4, '0')}` : ''}
+	subtitle="Agregar horas o días extras a la renta activa."
+	onClose={() => (extenderId = null)}
+	width="max-w-md"
+>
+	{#snippet children()}
+		{#if extenderError}
+			<div class="mb-4 rounded-lg bg-peligro/10 border border-peligro/30 px-3 py-2.5 text-sm text-peligro" role="alert">{extenderError}</div>
+		{/if}
+
+		<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+			<FormField label="Tipo de extensión" required>
+				<select class="input" bind:value={extension.tipo}>
+					<option value="horas">Horas extra</option>
+					<option value="dias">Día(s) extra</option>
+				</select>
+			</FormField>
+			<FormField label="Cantidad" required>
+				<input class="input" type="number" min="1" bind:value={extension.cantidad} />
+			</FormField>
+			<FormField label="Valor unitario" required hint={extension.tipo === 'horas' ? 'Valor por hora extra' : 'Valor por día extra'}>
+				<input class="input" type="number" step="0.01" min="0" placeholder="$0" bind:value={extension.valor} />
+			</FormField>
+			<FormField label="Observaciones">
+				<input class="input" placeholder="Motivo de la extensión..." bind:value={extension.observaciones} maxlength="200" />
+			</FormField>
+		</div>
+
+		{#if extenderRenta}
+			<div class="mt-4 p-3 rounded-lg bg-alt-row/60 border border-border">
+				<p class="text-sm font-semibold text-text-primary mb-2">Resumen:</p>
+				<div class="text-sm text-text-secondary space-y-1">
+					<p>Retorno actual: <span class="font-semibold">{formatDate(extenderRenta.fechaRetorno)} {fmtHora(extenderRenta.horaRetorno)}</span></p>
+					<p> Nuevo retorno: <span class="font-semibold text-exito">
+						{extension.tipo === 'horas'
+							? `${extension.cantidad} hora(s) más`
+							: `${extension.cantidad} día(s) más`}
+					</span></p>
+					{#if extension.valor && parseFloat(extension.valor) > 0}
+						<p>Valor total extensión: <span class="font-semibold text-primary">{formatCOP((parseFloat(extension.valor) * extension.cantidad).toString())}</span></p>
+					{/if}
+				</div>
+			</div>
+
+			{#if historialExtensiones.length > 0}
+				<div class="mt-4">
+					<p class="text-sm font-semibold text-text-primary mb-2">Historial de extensiones:</p>
+					<div class="space-y-2">
+						{#each historialExtensiones as ext}
+							<div class="p-2 rounded-lg bg-alt-row/40 border border-border text-sm">
+								<div class="flex justify-between items-center">
+									<span class="font-semibold text-text-primary">
+										{ext.tipo === 'horas' ? `+${ext.cantidad}h` : `+${ext.cantidad}d`}
+								</span>
+									<span class="font-semibold text-primary">{formatCOP(ext.valorTotal)}</span>
+								</div>
+								<div class="text-xs text-text-secondary mt-1">
+									{ext.usuario ?? 'sistema'} · {ext.createdAt ? formatDate(ext.createdAt.split(' ')[0]) : '—'}
+									{#if ext.observaciones}
+										<span class="ml-2">· {ext.observaciones}</span>
+									{/if}
+								</div>
+							</div>
+						{/each}
+					</div>
+				</div>
+			{/if}
+			{#if cargandoHistorial}
+				<p class="text-xs text-text-secondary mt-2">Cargando historial...</p>
+			{/if}
+		{/if}
+	{/snippet}
+
+	{#snippet footer()}
+		<button class="btn-ghost" onclick={() => (extenderId = null)} disabled={extenderando}>Cancelar</button>
+		<button class="btn-primary" onclick={confirmarExtender} disabled={extenderando}>
+			{#if extenderando}
+				<svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+				Extendiendo...
+			{:else}
+				Aplicar extensión
 			{/if}
 		</button>
 	{/snippet}

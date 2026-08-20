@@ -10,6 +10,7 @@ use base64::Engine;
 
 use crate::core::audit::log_audit;
 use crate::core::error::AppError;
+use crate::core::validators::mayusculas;
 use crate::core::PooledConnection;
 use crate::repositories::empresa::{EmpresaConfig, EmpresaConfigDatos, EmpresaRepository};
 
@@ -46,7 +47,7 @@ impl EmpresaService {
     ) -> Result<EmpresaConfig, AppError> {
         let row = EmpresaRepository::obtener(conn)?;
         Ok(match row {
-            Some((nombre, nit, dir, tel, email, web, ciudad, pais, logo)) => EmpresaConfig {
+            Some((nombre, nit, dir, tel, email, web, ciudad, logo)) => EmpresaConfig {
                 nombre,
                 nit,
                 direccion: dir,
@@ -54,7 +55,6 @@ impl EmpresaService {
                 email,
                 web,
                 ciudad,
-                pais,
                 logo: Self::logo_a_data_url(data_dir, logo.as_deref()),
             },
             None => EmpresaConfig::default(),
@@ -73,7 +73,6 @@ impl EmpresaService {
         cfg.email = None;
         cfg.web = None;
         cfg.ciudad = None;
-        cfg.pais = None;
         Ok(cfg)
     }
 
@@ -90,14 +89,17 @@ impl EmpresaService {
             s.as_ref().map(|v| v.trim().to_string()).filter(|v| !v.is_empty())
                 .map(|v| v.chars().take(max).collect())
         };
-        let nombre = limpiar(&datos.nombre, 120);
-        let nit = limpiar(&datos.nit, 40);
-        let direccion = limpiar(&datos.direccion, 200);
-        let telefono = limpiar(&datos.telefono, 40);
-        let email = limpiar(&datos.email, 120);
-        let web = limpiar(&datos.web, 120);
-        let ciudad = limpiar(&datos.ciudad, 100);
-        let pais = limpiar(&datos.pais, 100);
+        let limpiar_upper = |s: &Option<String>, max: usize| -> Option<String> {
+            s.as_ref().map(|v| mayusculas(v)).filter(|v| !v.is_empty())
+                .map(|v| v.chars().take(max).collect())
+        };
+        let nombre = limpiar_upper(&datos.nombre, 120);
+        let nit = limpiar_upper(&datos.nit, 40);
+        let direccion = limpiar_upper(&datos.direccion, 200);
+        let telefono = limpiar_upper(&datos.telefono, 40);
+        let email = limpiar(&datos.email, 120); // email: sin mayúsculas
+        let web = limpiar(&datos.web, 120); // web: URL, sin mayúsculas
+        let ciudad = limpiar_upper(&datos.ciudad, 100);
 
         // ── Logo: data URL -> archivo (o eliminar si viene null/vacío) ──
         // Borra siempre los logos previos `empresa.*` para no dejar huérfanos.
@@ -166,7 +168,6 @@ impl EmpresaService {
                 email: email.clone(),
                 web: web.clone(),
                 ciudad: ciudad.clone(),
-                pais: pais.clone(),
                 logo: None,
             },
             logo_archivo.as_deref(),
@@ -188,7 +189,6 @@ impl EmpresaService {
             email,
             web,
             ciudad,
-            pais,
             logo: logo_archivo
                 .as_deref()
                 .and_then(|a| Self::logo_a_data_url(data_dir, Some(a))),

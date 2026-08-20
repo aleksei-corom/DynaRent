@@ -62,6 +62,13 @@
 	let busqueda = $state('');
 	let estadoFiltro = $state('');
 	let placaFiltro = $state('');
+	// Solo comparendos de origen SIMIT que el SIMIT dejó de confirmar
+	// (ultimo_visto_simit anterior a 3 días o nunca confirmado): candidatos a
+	// pagados/eliminados en el portal sin que la BD lo sepa.
+	let noConfirmados = $state(false);
+	// Solo los que el Agente SIMIT insertó en la última sincronización
+	// (persistido en la BD — sobrevive al reinicio de la app).
+	let soloNuevos = $state(false);
 	let searchTimer: ReturnType<typeof setTimeout> | undefined;
 
 	// Modal crear/editar
@@ -141,7 +148,7 @@
 			const ws = wb.addWorksheet('Comparendos SIMIT');
 			ws.columns = Array.from({ length: 10 }, () => ({ width: 16 }));
 			ws.mergeCells(1, 1, 1, 10);
-			ws.getCell('A1').value = 'DYNARENT — REPORTE SIMIT';
+			ws.getCell('A1').value = 'DINAMO RENT A CAR — REPORTE SIMIT';
 			ws.getCell('A1').font = { bold: true, size: 14 };
 			ws.mergeCells(2, 1, 2, 10);
 			ws.getCell('A2').value = `Sincronización: ${new Date(resultado.sincronizadoEn).toLocaleString('es-CO')}`;
@@ -208,7 +215,8 @@
 				sid(),
 				busqueda.trim() || undefined,
 				placaFiltro || undefined,
-				estadoFiltro || undefined
+				estadoFiltro || undefined,
+				noConfirmados || undefined
 			);
 		} catch (e) {
 			toast.error(e instanceof ApiError ? e.message : 'No se pudieron cargar los comparendos.');
@@ -314,6 +322,7 @@
 		const term = busqueda;
 		const _est = estadoFiltro;
 		const _plac = placaFiltro;
+		const _sinConf = noConfirmados;
 		if (primerCiclo) {
 			primerCiclo = false;
 			return;
@@ -409,7 +418,6 @@
 			await cargar();
 		} catch (e) {
 			toast.error(e instanceof ApiError ? e.message : 'No se pudo eliminar el comparendo.');
-			eliminarId = null;
 		} finally {
 			eliminando = false;
 		}
@@ -429,13 +437,32 @@
 		return 'bg-alerta/10 text-alerta border-alerta/25';
 	}
 
-	const tablaComparendos = $derived(comparendos as unknown as Record<string, unknown>[]);
+	// ids de comparendos insertados en la ÚLTIMA sincronización del Agente SIMIT
+	// (persistidos en la BD; se restauran al arrancar) → badge 🆕 sobre la fila
+	// en la tabla y filtro «Solo nuevos» (client-side sobre la lista ya cargada).
+	const idsNuevosUltimaSync = $derived(
+		new Set(
+			(agente?.ultimoResultado?.registros ?? [])
+				.filter((r) => r.nuevo && r.id != null)
+				.map((r) => r.id as number)
+		)
+	);
+
+	// Filtros combinables: «No confirmadas» filtra en el backend (la lista
+	// `comparendos` ya viene reducida) y «Solo nuevos» se aplica client-side
+	// SIEMPRE sobre esa lista. Con ambos marcados se muestra la intersección:
+	// no confirmadas ∧ nuevas de la última sincronización.
+	const comparendosVisibles = $derived(
+		comparendos.filter((c) => !soloNuevos || idsNuevosUltimaSync.has(c.id))
+	);
+	const tablaComparendos = $derived(comparendosVisibles as unknown as Record<string, unknown>[]);
 
 	const columnas = [
 		{ key: 'id', header: 'No.' },
 		{ key: 'vehiculo', header: 'Vehículo' },
 		{ key: 'fecha', header: 'Infracción' },
 		{ key: 'responsable', header: 'Quién lo tenía' },
+		{ key: 'origen', header: 'Origen' },
 		{ key: 'monto', header: 'Monto' },
 		{ key: 'estado', header: 'Estado' },
 		{ key: 'observaciones', header: 'Observaciones' },
@@ -444,7 +471,7 @@
 </script>
 
 <svelte:head>
-	<title>Comparendos — DynaRent ERP</title>
+	<title>Comparendos — Dinamo Rent ERP</title>
 </svelte:head>
 
 <div class="space-y-5">
@@ -453,7 +480,7 @@
 		<div>
 			<h2 class="text-2xl font-bold text-text-primary">Comparendos</h2>
 			<p class="text-sm text-text-secondary mt-0.5">
-				{comparendos.length} comparendo{comparendos.length === 1 ? '' : 's'} · multas de tránsito por vehículo
+				{comparendosVisibles.length} comparendo{comparendosVisibles.length === 1 ? '' : 's'} · multas de tránsito por vehículo
 			</p>
 		</div>
 		<button class="btn-primary" onclick={abrirNuevo}>
@@ -676,6 +703,36 @@
 				<option value={a.placa}>{a.placa} · {a.marca} {a.modelo}</option>
 			{/each}
 		</select>
+		<label
+			class="inline-flex items-center gap-2 text-sm text-text-secondary cursor-pointer select-none"
+			title="Comparendos de origen SIMIT que el SIMIT dejó de confirmar (≥3 días) o que nunca se confirmaron — posiblemente pagados o eliminados en el portal."
+		>
+			<input type="checkbox" class="accent-primary" bind:checked={noConfirmados} />
+			<span>
+				No confirmadas por SIMIT
+				{#if noConfirmados}
+					<span class="text-peligro font-semibold">(≥3 días)</span>
+				{/if}
+			</span>
+		</label>
+		<label
+			class="inline-flex items-center gap-2 text-sm text-text-secondary cursor-pointer select-none"
+			title="Solo los comparendos que el Agente SIMIT insertó en la última sincronización (persistido en la BD — sobrevive al reinicio de la app)."
+			class:opacity-50={!agente?.ultimoResultado}
+		>
+			<input
+				type="checkbox"
+				class="accent-primary"
+				bind:checked={soloNuevos}
+				disabled={!agente?.ultimoResultado}
+			/>
+			<span>
+				Solo nuevos de la última sincronización
+				{#if soloNuevos && idsNuevosUltimaSync.size > 0}
+					<span class="text-exito font-semibold">({idsNuevosUltimaSync.size})</span>
+				{/if}
+			</span>
+		</label>
 	</div>
 
 	<!-- Tabla -->
@@ -720,6 +777,23 @@
 					{:else}
 						<p class="text-sm text-text-secondary">—</p>
 					{/if}
+				{:else if col.key === 'origen'}
+					<div class="flex items-center gap-1.5">
+						<span
+							class="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap {c.origen === 'SIMIT' ? 'bg-primary/10 text-primary border-primary/25' : 'bg-black/5 text-text-secondary border-border'}"
+							title={c.origen === 'SIMIT' && c.ultimoVistoSimit ? `Confirmado por SIMIT el ${formatDate(c.ultimoVistoSimit.slice(0, 10))}` : c.origen === 'SIMIT' ? 'Importado por el Agente SIMIT' : 'Registrado manualmente'}
+						>
+							{c.origen === 'SIMIT' ? 'SIMIT' : 'Manual'}
+						</span>
+						{#if idsNuevosUltimaSync.has(c.id)}
+							<span
+								class="inline-flex items-center rounded-full border border-exito/25 bg-exito/10 px-1.5 py-0.5 text-[11px] font-bold text-exito whitespace-nowrap"
+								title="Nuevo en la última sincronización con el SIMIT"
+							>
+								🆕 Nuevo
+							</span>
+						{/if}
+					</div>
 				{:else if col.key === 'monto'}
 					<p class="font-bold text-text-primary tabular-nums text-right whitespace-nowrap">{formatCOP(c.monto)}</p>
 				{:else if col.key === 'estado'}

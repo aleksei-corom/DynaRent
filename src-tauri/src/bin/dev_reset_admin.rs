@@ -2,7 +2,7 @@
 //!
 //! Resetea la contraseña del usuario admin a una conocida (Argon2id).
 //! Uso: `cargo run --features dev --bin dev_reset_admin -- <nueva_password>`
-//! Se usa sobre la BD de desarrollo (data/dynarent_v3.fdb).
+//! Se usa sobre la BD de desarrollo (data/dinamo_rent_v3.fdb).
 //!
 //! ⚠️ Este binario NO se compila en builds de release por dos mecanismos
 //! complementarios:
@@ -17,9 +17,9 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use dynarent_lib::core::config::AppConfig;
-use dynarent_lib::core::security;
-use dynarent_lib::repositories::usuario::UsuarioRepository;
+use dinamo_rent_lib::core::config::AppConfig;
+use dinamo_rent_lib::core::security;
+use dinamo_rent_lib::repositories::usuario::UsuarioRepository;
 
 /// Implementación real del reseteo (sólo debug).
 #[cfg(debug_assertions)]
@@ -31,13 +31,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .cloned()
         .unwrap_or_else(|| "Admin123!".to_string());
 
-    // Localiza data_dir: primero D:/Proyectos/DynaRent/data, sino CARGO_MANIFEST_DIR/../data
+    // Localiza data_dir: primero D:/dinamo_rent_tr/data, sino CARGO_MANIFEST_DIR/../data
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let data_dir = manifest.join("../data");
     let resource_dir = manifest.join("resources");
     let cfg = Arc::new(AppConfig::load(&data_dir, &resource_dir, &manifest));
 
-    let pool = dynarent_lib::core::db::create_pool(&cfg)?;
+    let pool = dinamo_rent_lib::core::db::create_pool(&cfg)?;
     let mut conn = pool.get()?;
 
     let usuario = UsuarioRepository::obtener_para_autenticacion(&mut conn, "admin")?;

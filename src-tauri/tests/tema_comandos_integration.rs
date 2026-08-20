@@ -13,12 +13,12 @@ use serial_test::serial;
 use tauri::Manager;
 use tauri::test::{mock_builder, mock_context, noop_assets};
 
-use dynarent_lib::commands::auth::{guardar_tema, obtener_tema};
-use dynarent_lib::core::config::AppConfig;
-use dynarent_lib::core::rbac::SessionStore;
-use dynarent_lib::core::security::LoginAttemptTracker;
-use dynarent_lib::services::usuario::{UsuarioDatos, UsuarioService};
-use dynarent_lib::services::AppState;
+use dinamo_rent_lib::commands::auth::{guardar_tema, obtener_tema};
+use dinamo_rent_lib::core::config::AppConfig;
+use dinamo_rent_lib::core::rbac::SessionStore;
+use dinamo_rent_lib::core::security::LoginAttemptTracker;
+use dinamo_rent_lib::services::usuario::{UsuarioDatos, UsuarioService};
+use dinamo_rent_lib::services::AppState;
 
 /// Guard RAII minimalista: ejecuta la clausura al salir del scope, incluso si
 /// un `assert!` falla (panic-safe). Garantiza que el usuario temporal siempre
@@ -37,7 +37,7 @@ fn dev_state() -> AppState {
     let data_dir = manifest.join("../data");
     let resource_dir = manifest.join("resources");
     let cfg = Arc::new(AppConfig::load(&data_dir, &resource_dir, &manifest));
-    let pool = dynarent_lib::core::db::create_pool(&cfg).expect("pool embedded");
+    let pool = dinamo_rent_lib::core::db::create_pool(&cfg).expect("pool embedded");
     AppState {
         pool,
         sessions: Mutex::new(SessionStore::new(3600)),

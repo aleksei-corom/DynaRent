@@ -13,17 +13,17 @@ use std::sync::{Arc, Mutex};
 
 use serial_test::serial;
 
-use dynarent_lib::core::config::AppConfig;
-use dynarent_lib::core::rbac::SessionStore;
-use dynarent_lib::core::security::LoginAttemptTracker;
-use dynarent_lib::services::AppState;
+use dinamo_rent_lib::core::config::AppConfig;
+use dinamo_rent_lib::core::rbac::SessionStore;
+use dinamo_rent_lib::core::security::LoginAttemptTracker;
+use dinamo_rent_lib::services::AppState;
 
 fn dev_state() -> AppState {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let data_dir = manifest.join("../data");
     let resource_dir = manifest.join("resources");
     let cfg = Arc::new(AppConfig::load(&data_dir, &resource_dir, &manifest));
-    let pool = dynarent_lib::core::db::create_pool(&cfg).expect("pool embedded");
+    let pool = dinamo_rent_lib::core::db::create_pool(&cfg).expect("pool embedded");
     AppState {
         pool,
         sessions: Mutex::new(SessionStore::new(3600)),
@@ -45,7 +45,7 @@ fn eliminar_requiere_roles_con_eliminar() {
         let mut sessions = state.sessions.lock().unwrap_or_else(|e| e.into_inner());
         let token = sessions.create(1, "operador", "Operador", "Op", false);
         drop(sessions);
-        let err = dynarent_lib::commands::require_eliminacion(&state, &token)
+        let err = dinamo_rent_lib::commands::require_eliminacion(&state, &token)
             .expect_err("Operador no puede eliminar registros");
         assert_eq!(err.kind, "permission");
     }
@@ -57,18 +57,18 @@ fn eliminar_requiere_roles_con_eliminar() {
         let token_admin = sessions.create(3, "admin", "Administrador", "Adm", false);
         drop(sessions);
         assert!(
-            dynarent_lib::commands::require_eliminacion(&state, &token_sup).is_ok(),
+            dinamo_rent_lib::commands::require_eliminacion(&state, &token_sup).is_ok(),
             "Supervisor tiene rol de borrado"
         );
         assert!(
-            dynarent_lib::commands::require_eliminacion(&state, &token_admin).is_ok(),
+            dinamo_rent_lib::commands::require_eliminacion(&state, &token_admin).is_ok(),
             "Administrador tiene rol de borrado"
         );
     }
 
     // Sin sesión → session_expired
     {
-        let err = dynarent_lib::commands::require_eliminacion(&state, "no-existe")
+        let err = dinamo_rent_lib::commands::require_eliminacion(&state, "no-existe")
             .expect_err("sin sesión no se elimina");
         assert_eq!(err.kind, "session_expired");
     }

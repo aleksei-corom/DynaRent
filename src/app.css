@@ -1,6 +1,6 @@
 @import 'tailwindcss';
 
-/* ─── Tokens de tema DynaRent (fuente: config.ini [ui]) ───────────────────
+/* ─── Tokens de tema Dinamo Rent (fuente: config.ini [ui]) ───────────────────
    Paleta semántica: los componentes usan únicamente estas variables, así que
    el tema oscuro se consigue redefiniéndolas bajo .dark (ver abajo). */
 @theme {

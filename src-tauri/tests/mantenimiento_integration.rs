@@ -1,5 +1,5 @@
 //! mantenimiento_integration.rs — Pruebas de integración del servicio de
-//! mantenimiento contra el .fdb de desarrollo (data/dynarent_v3.fdb).
+//! mantenimiento contra el .fdb de desarrollo (data/dinamo_rent_v3.fdb).
 //!
 //! Usa un auto real de la BD (solo lectura) y crea/elimina mantenimientos
 //! temporales en cada test. Verifica además la sincronización de
@@ -11,20 +11,20 @@ use std::sync::{Arc, Mutex};
 use chrono::Local;
 use serial_test::serial;
 
-use dynarent_lib::core::config::AppConfig;
-use dynarent_lib::core::rbac::SessionStore;
-use dynarent_lib::core::security::LoginAttemptTracker;
-use dynarent_lib::repositories::auto::AutoRepository;
-use dynarent_lib::repositories::mantenimiento::MantenimientoDatos;
-use dynarent_lib::services::mantenimiento::MantenimientoService;
-use dynarent_lib::services::AppState;
+use dinamo_rent_lib::core::config::AppConfig;
+use dinamo_rent_lib::core::rbac::SessionStore;
+use dinamo_rent_lib::core::security::LoginAttemptTracker;
+use dinamo_rent_lib::repositories::auto::AutoRepository;
+use dinamo_rent_lib::repositories::mantenimiento::MantenimientoDatos;
+use dinamo_rent_lib::services::mantenimiento::MantenimientoService;
+use dinamo_rent_lib::services::AppState;
 
 fn dev_state() -> AppState {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let data_dir = manifest.join("../data");
     let resource_dir = manifest.join("resources");
     let cfg = Arc::new(AppConfig::load(&data_dir, &resource_dir, &manifest));
-    let pool = dynarent_lib::core::db::create_pool(&cfg).expect("pool embedded");
+    let pool = dinamo_rent_lib::core::db::create_pool(&cfg).expect("pool embedded");
     AppState {
         pool,
         sessions: Mutex::new(SessionStore::new(3600)),
@@ -72,7 +72,7 @@ fn mantenimiento_crud_roundtrip() {
     let creado = MantenimientoService::crear(&mut conn, cfg, datos.clone()).expect("crear mantenimiento");
     let id = creado.id;
     assert_eq!(creado.placa, placa);
-    assert_eq!(creado.tipo, "Frenos");
+    assert_eq!(creado.tipo, "FRENOS");
     assert_eq!(creado.costo, "350000.00", "costo normalizado con 2 decimales");
     assert_eq!(creado.total, "350000.00", "total = costo");
     assert!(!creado.vehiculo.is_empty(), "JOIN con autos para la UI");
@@ -86,7 +86,7 @@ fn mantenimiento_crud_roundtrip() {
     datos.costo = "400000".into();
     let actualizado =
         MantenimientoService::actualizar(&mut conn, cfg, id, datos.clone()).expect("actualizar");
-    assert_eq!(actualizado.tipo, "Llantas");
+    assert_eq!(actualizado.tipo, "LLANTAS");
     assert_eq!(actualizado.costo, "400000.00");
 
     // Historial por placa
@@ -95,7 +95,7 @@ fn mantenimiento_crud_roundtrip() {
     assert!(historial.iter().any(|m| m.id == id));
 
     // Eliminar
-    MantenimientoService::eliminar(&mut conn, id).expect("eliminar");
+    MantenimientoService::eliminar(&mut conn, id, "test").expect("eliminar");
     assert!(MantenimientoService::obtener(&mut conn, id).is_err(), "eliminado");
 }
 
@@ -187,7 +187,7 @@ fn mantenimiento_sincroniza_proximo_aceite_y_alertas() {
 
     // Limpieza: eliminar mantenimiento (recalcula proximo_aceite desde el
     // historial restante) y restaurar el valor previo sin importar si era None.
-    MantenimientoService::eliminar(&mut conn, id).expect("eliminar");
+    MantenimientoService::eliminar(&mut conn, id, "test").expect("eliminar");
     AutoRepository::actualizar_proximo_aceite(&mut conn, &placa, previo).expect("restaurar");
 }
 
@@ -226,7 +226,7 @@ fn mantenimiento_totales_y_contar() {
         "la placa aparece en los totales por placa"
     );
     assert!(
-        totales.por_tipo.iter().any(|t| t.clave == "Frenos"),
+        totales.por_tipo.iter().any(|t| t.clave == "FRENOS"),
         "el tipo aparece en los totales por tipo"
     );
 
@@ -236,6 +236,6 @@ fn mantenimiento_totales_y_contar() {
     let recientes = MantenimientoService::recientes(&mut conn, 50).expect("recientes");
     assert!(recientes.iter().any(|m| m.id == c1.id || m.id == c2.id));
 
-    MantenimientoService::eliminar(&mut conn, c1.id).expect("eliminar m1");
-    MantenimientoService::eliminar(&mut conn, c2.id).expect("eliminar m2");
+    MantenimientoService::eliminar(&mut conn, c1.id, "test").expect("eliminar m1");
+    MantenimientoService::eliminar(&mut conn, c2.id, "test").expect("eliminar m2");
 }

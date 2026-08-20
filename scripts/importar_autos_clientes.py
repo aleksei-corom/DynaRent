@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """importar_autos_clientes.py — Importa las tablas AUTOS y CLIENTES desde un
-dump SQL o desde un archivo Excel hacia la BD de DynaRent.
+dump SQL o desde un archivo Excel hacia la BD de DinamoRent.
 
 Caso de uso: el cliente tiene una copia de su BD (exportada a SQL) o los datos
 están recopilados en una hoja de cálculo, y hay que llevarlos a la instalación.
@@ -46,7 +46,7 @@ import os
 import sys
 
 os.environ["PATH"] = (
-    r"D:\Proyectos\DynaRent\src-tauri\resources\firebird"
+    r"D:\dinamo_rent_tr\src-tauri\resources\firebird"
     + os.pathsep
     + os.environ.get("PATH", "")
 )
@@ -460,8 +460,8 @@ def main():
     parser.add_argument("--excel", help="Libro Excel con hojas autos/clientes")
     parser.add_argument("--hoja-autos", default="autos")
     parser.add_argument("--hoja-clientes", default="clientes")
-    parser.add_argument("--db", default=r"D:\Proyectos\DynaRent\data\dynarent_v3.fdb")
-    parser.add_argument("--ini", default=r"D:\Proyectos\DynaRent\data\config.ini")
+    parser.add_argument("--db", default=r"D:\dinamo_rent_tr\data\dinamo_rent_v3.fdb")
+    parser.add_argument("--ini", default=r"D:\dinamo_rent_tr\data\config.ini")
     parser.add_argument("--commit", action="store_true", help="Escribe los cambios")
     parser.add_argument("--quiet", action="store_true", help="Solo resumen final")
     args = parser.parse_args()

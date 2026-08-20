@@ -1,5 +1,5 @@
 //! reservas_integration.rs — Pruebas de integración del servicio de reservas
-//! contra el .fdb de desarrollo (data/dynarent_v3.fdb).
+//! contra el .fdb de desarrollo (data/dinamo_rent_v3.fdb).
 //!
 //! Usa un cliente y un auto reales de la BD (solo lectura) y crea/elimina
 //! reservas temporales en cada test.
@@ -10,21 +10,21 @@ use std::sync::{Arc, Mutex};
 use chrono::{Duration, Local};
 use serial_test::serial;
 
-use dynarent_lib::core::config::AppConfig;
-use dynarent_lib::core::rbac::SessionStore;
-use dynarent_lib::core::security::LoginAttemptTracker;
-use dynarent_lib::repositories::auto::AutoRepository;
-use dynarent_lib::repositories::cliente::ClienteRepository;
-use dynarent_lib::repositories::reserva::ReservaDatos;
-use dynarent_lib::services::reserva::ReservaService;
-use dynarent_lib::services::AppState;
+use dinamo_rent_lib::core::config::AppConfig;
+use dinamo_rent_lib::core::rbac::SessionStore;
+use dinamo_rent_lib::core::security::LoginAttemptTracker;
+use dinamo_rent_lib::repositories::auto::AutoRepository;
+use dinamo_rent_lib::repositories::cliente::ClienteRepository;
+use dinamo_rent_lib::repositories::reserva::ReservaDatos;
+use dinamo_rent_lib::services::reserva::ReservaService;
+use dinamo_rent_lib::services::AppState;
 
 fn dev_state() -> AppState {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let data_dir = manifest.join("../data");
     let resource_dir = manifest.join("resources");
     let cfg = Arc::new(AppConfig::load(&data_dir, &resource_dir, &manifest));
-    let pool = dynarent_lib::core::db::create_pool(&cfg).expect("pool embedded");
+    let pool = dinamo_rent_lib::core::db::create_pool(&cfg).expect("pool embedded");
     AppState {
         pool,
         sessions: Mutex::new(SessionStore::new(3600)),

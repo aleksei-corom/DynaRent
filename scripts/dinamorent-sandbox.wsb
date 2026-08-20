@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
 dinamorent-sandbox.wsb — Windows Sandbox para probar el instalador de
-DynaRent en un entorno aislado (Windows limpio por sesión).
+DinamoRent en un entorno aislado (Windows limpio por sesión).
 
 Uso:
   1. Requiere Windows Sandbox habilitado (Containers-DisposableClientVM) y
@@ -22,13 +22,13 @@ cerrar el Sandbox.
   <MappedFolders>
     <!-- Carpeta del host con el instalador (solo lectura dentro del Sandbox) -->
     <MappedFolder>
-      <HostFolder>D:\Proyectos\DynaRent\src-tauri\target\release\bundle</HostFolder>
+      <HostFolder>D:\dinamo_rent_tr\src-tauri\target\release\bundle</HostFolder>
       <SandboxFolder>C:\shared\bundle</SandboxFolder>
       <ReadOnly>true</ReadOnly>
     </MappedFolder>
     <!-- Carpeta compartida para escribir el resultado del smoke test -->
     <MappedFolder>
-      <HostFolder>D:\Proyectos\DynaRent\scripts</HostFolder>
+      <HostFolder>D:\dinamo_rent_tr\scripts</HostFolder>
       <SandboxFolder>C:\shared\out</SandboxFolder>
       <ReadOnly>false</ReadOnly>
     </MappedFolder>

@@ -9,7 +9,7 @@
 
 ## 1. Contexto y objetivo
 
-- El Agente SIMIT de DynaRent consulta comparendos/multas por placa contra
+- El Agente SIMIT de Dinamo Rent consulta comparendos/multas por placa contra
   `consultasimit.fcm.org.co` (microservicio del FCM) resolviendo el captcha Proof-of-Work de
   `qxcaptcha.fcm.org.co`.
 - **Síntoma**: el endpoint de consulta respondía `401 {"codigo":5,"descripcion":"Autenticación

@@ -4,7 +4,7 @@
 	import { authApi, ApiError, type LoginStatus } from '$lib/api';
 	import { session } from '$lib/stores/session.svelte';
 	import { empresa } from '$lib/stores/empresa.svelte';
-	import { appInfo } from '$lib/stores/app.svelte';
+	import { appInfo as app } from '$lib/stores/app.svelte';
 
 	let username = $state('');
 	let password = $state('');
@@ -17,6 +17,8 @@
 	// con fallback estático mientras no haya configuración.
 	onMount(() => {
 		void empresa.cargarPublica();
+		// Versión real de la app (backend, package_info) para el pie del login.
+		void app.cargarVersion();
 	});
 
 	// Debounce: consultar estado de login mientras se escribe el usuario
@@ -187,7 +189,7 @@
 			</form>
 
 			<footer class="mt-6 pt-5 border-t border-border text-center">
-				<p class="text-xs text-text-secondary">© {new Date().getFullYear()} {empresa.nombreMostrar}{appInfo.version ? ` · v${appInfo.version}` : ''}</p>
+				<p class="text-xs text-text-secondary">© {new Date().getFullYear()} {empresa.nombreMostrar}{#if app.version} · v{app.version}{/if}</p>
 			</footer>
 		</div>
 	</div>

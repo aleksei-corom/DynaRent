@@ -131,9 +131,9 @@ fi
 if [ "$INTEGRA" -eq 1 ] && [ "$SOLO_FRONTEND" -eq 0 ]; then
   # BD dev: avisar ANTES de correr si falta o está sin flota. Los tests de
   # integración con flota ahora fallan con instrucción, pero mejor evitarlo.
-  if [ ! -f "$ROOT/data/dynarent_v3.fdb" ]; then
+  if [ ! -f "$ROOT/data/dinamo_rent_v3.fdb" ]; then
     echo ""
-    echo "⚠️  No existe la BD dev (data/dynarent_v3.fdb). Créala con:"
+    echo "⚠️  No existe la BD dev (data/dinamo_rent_v3.fdb). Créala con:"
     echo "    bash scripts/setup-bd-dev.sh"
     echo "    (crea la BD, aplica las 19 migraciones y siembra la flota de prueba)"
   else
@@ -149,7 +149,7 @@ try:
     cfg = configparser.ConfigParser()
     cfg.read(os.path.join(root, "data", "config.ini"))
     con = connect(
-        os.path.join(root, "data", "dynarent_v3.fdb"),
+        os.path.join(root, "data", "dinamo_rent_v3.fdb"),
         user=cfg.get("database", "user", fallback="sysdba").strip(),
         password=cfg.get("database", "password", fallback="").strip(),
         charset="UTF8",

@@ -63,7 +63,8 @@
 	let eliminando = $state(false);
 
 	const categorias = $derived(
-		lists?.tiposGasto?.length ? lists.tiposGasto : ['Combustible', 'Peajes', 'Lavado', 'Mantenimiento', 'Repuestos', 'Parqueadero', 'Seguros', 'Multas', 'Papelería', 'Otros']
+		(lists?.tiposGasto?.length ? lists.tiposGasto : ['Combustible', 'Peajes', 'Lavado', 'Mantenimiento', 'Repuestos', 'Parqueadero', 'Seguros', 'Multas', 'Papelería', 'Otros'])
+			.map(c => c.toUpperCase())
 	);
 
 	function defaultForm(): GastoDatos {
@@ -203,7 +204,6 @@
 			await cargarTodo();
 		} catch (e) {
 			toast.error(e instanceof ApiError ? e.message : 'No se pudo eliminar el gasto.');
-			eliminarId = null;
 		} finally {
 			eliminando = false;
 		}
@@ -228,7 +228,7 @@
 </script>
 
 <svelte:head>
-	<title>Gastos — DynaRent ERP</title>
+	<title>Gastos — Dinamo Rent ERP</title>
 </svelte:head>
 
 <div class="space-y-5">

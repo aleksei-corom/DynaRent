@@ -1,9 +1,9 @@
-# Plan de despliegue en equipos de clientes — DynaRent v1.0.16
+# Plan de despliegue en equipos de clientes — Dinamo Rent v1.0.21
 
-> Procedimiento operativo para dejar los equipos de los clientes en la **v1.0.16** (última
-> versión estable, con **auto-actualización** activa desde la v1.0.3): instalación
+> Procedimiento operativo para dejar los equipos de los clientes en la **v1.0.21** (última
+> versión estable, con **auto-actualización** activa desde la v1.0.14): instalación
 > silenciosa, verificación post-instalación y rollback. **Este es el último despliegue
-> manual por equipo**: desde la v1.0.3 la app detecta y ofrece las versiones nuevas al
+> manual por equipo**: desde la v1.0.14 la app detecta y ofrece las versiones nuevas al
 > arrancar. Complementa a `INSTALACION_OPERACIONES.md` (enlaces de descarga y credenciales
 > iniciales).
 
@@ -11,19 +11,22 @@
 
 ## 0. Reglas de oro
 
-1. **Siempre la v1.0.16 (o superior)** — la v1.0.0 está descontinuada (falla en
-   instalaciones nuevas) y la v1.0.2 no tiene updater (se actualiza una vez a mano a la
-   v1.0.3+ y desde ahí el auto-update).
-2. **Los datos viven en `%APPDATA%\com.dynarent.app\`**, NO en la carpeta de
+1. **Siempre la v1.0.21 (o superior)** — la v1.0.0 está descontinuada (falla en
+   instalaciones nuevas) y la v1.0.2 no tiene updater. OJO: las v1.0.3–v1.0.13 **no
+   pudieron auto-actualizarse** (faltaba el permiso ACL del plugin updater en
+   capabilities; el check fallaba en silencio). La **v1.0.14 es la primera con
+   auto-update funcional** — los equipos en ≤v1.0.13 requieren instalar la v1.0.14 a mano.
+2. **Los datos viven en `%APPDATA%\com.corjar.dinamorent\`**, NO en la carpeta de
    programa. Nunca borrar esa carpeta: es la BD del cliente.
 3. La instalación **no requiere desinstalar** la versión anterior ni borrar nada
    previamente — el instalador reemplaza la app y el arranque migra la BD.
 4. **Credenciales iniciales** (solo instalación nueva): `admin` / `admin123`, con cambio
    forzado en el primer ingreso.
-5. **A partir de la v1.0.3 la app se auto-actualiza**: al arrancar comprueba GitHub
+5. **A partir de la v1.0.14 la app se auto-actualiza**: al arrancar comprueba GitHub
    Releases (`latest.json`) y ofrece instalar la versión nueva (firma minisign verificada
-   antes de instalar). No hace falta re-desplegar los equipos por cada release; el
-   despliegue manual de esta sección solo se ejecuta una vez más (la transición a v1.0.3).
+   antes de instalar). El permiso ACL del plugin updater faltaba en ≤v1.0.13 (el check
+   fallaba en silencio y nunca aparecía el diálogo) y se corrigió en la v1.0.14. No hace
+   falta re-desplegar los equipos por cada release a partir de la v1.0.14.
 
 ---
 
@@ -32,12 +35,12 @@
 | Dato | Cómo obtenerlo |
 |---|---|
 | Versión de Windows (debe ser x64, 10 1803+ / 11) | `winver` o `systeminfo` |
-| ¿Versión anterior instalada? (v1.0.0) | `Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*' , 'HKLM:\SOFTWARE\WOW6432Node\...' | Where-Object DisplayName -match 'Dyna|Dinamo'` |
-| ¿BD existente? (`%APPDATA%\com.dynarent.app\dynarent_v3.fdb`) | `Test-Path "$env:APPDATA\com.dynarent.app\dynarent_v3.fdb"` |
+| ¿Versión anterior instalada? (v1.0.0) | `Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*' , 'HKLM:\SOFTWARE\WOW6432Node\...' | Where-Object DisplayName -like '*Dinamo*'` |
+| ¿BD existente? (`%APPDATA%\com.corjar.dinamorent\dinamo_rent_v3.fdb`) | `Test-Path "$env:APPDATA\com.corjar.dinamorent\dinamo_rent_v3.fdb"` |
 | ¿Backup reciente de la BD? | Crearlo antes de tocar nada (ver §4) |
 
 > Si el equipo **ya tiene una versión anterior con datos**: no hay nada especial —
-> instalar la v1.0.16 encima y verificar (el arranque migra la BD). Solo hay que confirmar
+> instalar la v1.0.14 encima y verificar (el arranque migra la BD). Solo hay que confirmar
 > el backup antes.
 
 ---
@@ -52,14 +55,14 @@
 
 ```powershell
 # NSIS — silenciosa total (sin atajos, sin ejecutar al final)
-& "D:\deploy\DynaRent_1.0.16_x64-setup.exe" /S
+& "D:\deploy\DinamoRent_1.0.21_x64-setup.exe" /S
 # Esperar a que termine (NSIS /S es síncrono al esperar al proceso)
-# Start-Process -Wait -FilePath "D:\deploy\DynaRent_1.0.16_x64-setup.exe" -ArgumentList "/S"
+# Start-Process -Wait -FilePath "D:\deploy\DinamoRent_1.0.21_x64-setup.exe" -ArgumentList "/S"
 ```
 
 ```powershell
 # MSI — para GPO / Intune / SCCM
-msiexec /i "D:\deploy\DynaRent_1.0.16_x64_en-US.msi" /qn /norestart
+msiexec /i "D:\deploy\DinamoRent_1.0.21_x64_en-US.msi" /qn /norestart
 ```
 
 > **WebView2**: si el equipo no lo tiene, el instalador lo descarga e instala
@@ -75,7 +78,7 @@ equipos y ejecutar con una herramienta de gestión (Intune, SCCM, GPO `msi` + `c
 
 ```powershell
 # Ejemplo con psexec (máquina de operaciones):
-psexec \\PC-CLIENTE-01 -s -d "D:\deploy\DynaRent_1.0.16_x64-setup.exe" /S
+psexec \\PC-CLIENTE-01 -s -d "D:\deploy\DinamoRent_1.0.21_x64-setup.exe" /S
 ```
 
 ---
@@ -89,29 +92,59 @@ psexec \\PC-CLIENTE-01 -s -d "D:\deploy\DynaRent_1.0.16_x64-setup.exe" /S
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\verificar-despliegue.ps1
 ```
+> **Probar el script sin tocar la máquina objetivo:** `-DryRun` ejecuta las mismas
+> comprobaciones y el veredicto reales contra un ambiente simulado en `%TEMP%` (exe,
+> carpeta de datos y BD fake), sin instalar ni arrancar nada en el equipo — ideal para
+> validar el script en cualquier máquina. `-SimularFallo` fuerza el camino de FALLOS
+> (versión vieja, app muerta, sin config.ini ni BD) para probar el veredicto de error:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\verificar-despliegue.ps1 -DryRun
+powershell -ExecutionPolicy Bypass -File scripts\verificar-despliegue.ps1 -DryRun -SimularFallo   # fuerza FALLOS (exit 1)
+```
 
 ### Lo que comprueba (equivalente manual)
 
 | # | Comprobación | Esperado |
 |---|---|---|
-| 1 | Exe instalado (`%LOCALAPPDATA%\DynaRent\dynarent.exe`) | existe, versión **1.0.16** |
+| 1 | Exe instalado (`%LOCALAPPDATA%\DinamoRent\dinamo-rent.exe`) | existe, versión **1.0.21** |
 | 2 | Arranque: proceso vivo a los 10 s | **no** se cuelga ni muere (el bug del v1.0.0) |
-| 3 | `%APPDATA%\com.dynarent.app\` | existe (la crea el **primer arranque**; por eso se comprueba después del arranque) |
+| 3 | `%APPDATA%\com.corjar.dinamorent\` | existe (la crea el **primer arranque**; por eso se comprueba después del arranque) |
 | 4 | `config.ini` | existe |
-| 5 | `dynarent_v3.fdb` | existe y pesa > 0 (BD creada o migrada) |
-| 6 | Migraciones: `schema_migrations` tiene 20 versiones | 20 (comprobación opcional con tooling dev) |
+| 5 | `dinamo_rent_v3.fdb` | existe y pesa > 0 (BD creada o migrada) |
+| 6 | Migraciones: `schema_migrations` tiene 23 versiones (0001–0023) | 23 (comprobación opcional con tooling dev) |
 | 7 | Login manual | `admin` + contraseña del cliente (primer ingreso: cambio forzado) |
+| 8 | Auto-update al día | la app **no** muestra «Actualización disponible» al arrancar (la v1.0.21 ya es la vigente) |
 
-> Desde la v1.0.3 la app incluye el updater: al arrancar con internet chequea la release
+> Desde la v1.0.14 la app incluye el updater funcional: al arrancar con internet chequea la release
 > vigente y no muestra nada si ya está al día. Si apareciera el diálogo «Actualización
 > disponible», puede instalarse desde la propia app (la firma se verifica sola).
+
+### 3.1 Confirmación del auto-update (comprobación 8)
+
+La app solo comprueba el updater **al arrancar**. Para confirmar que el equipo quedó
+operativo con el auto-update:
+
+1. Cerrar la app y abrirla de nuevo (el chequeo se hace en cada arranque).
+2. Verificar que **no** aparece el diálogo «Actualización disponible» — si aparece,
+   significa que la release vigente en GitHub es más nueva que la instalada (o que la
+   instalación no quedó en la última versión): instalarlo desde el propio diálogo y
+   repetir.
+3. Comprobación opcional desde la máquina de operaciones: el endpoint del auto-update
+   debe responder con la versión instalada:
+   `curl -s https://github.com/CORJAR-Computers/dinamo_rent_tr/releases/latest/download/latest.json`
+   → `"version": "1.0.13"`.
+
+> Los equipos **sin internet** no pueden auto-actualizarse: el chequeo falla silencioso y
+> la app sigue funcionando. Para esos casos, actualizar a mano con el instalador de la
+> release (ver §2).
 
 ### Si algo falla
 
 | Síntoma | Acción |
 |---|---|
-| Exe no aparece / versión no es 1.0.16 | Reinstalar (¿el instalador correcto? ¿se descargó una versión anterior?) |
-| `config.ini` pero NO la BD | No borrar nada: reinstalar la v1.0.16 (el arranque crea la BD). Si persiste, revisar exclusión de Defender sobre la carpeta |
+| Exe no aparece / versión no es 1.0.13 | Reinstalar (¿el instalador correcto? ¿se descargó una versión anterior?) |
+| `config.ini` pero NO la BD | No borrar nada: reinstalar la v1.0.14 (el arranque crea la BD). Si persiste, revisar exclusión de Defender sobre la carpeta |
 | Proceso muere en <10 s | Capturar Event Log de Aplicación (módulo con errores) y volcar aquí |
 | La BD existente "no abre" | Nunca borrar la carpeta. Restaurar el backup (ver §4) y reinstalar |
 
@@ -123,20 +156,20 @@ powershell -ExecutionPolicy Bypass -File scripts\verificar-despliegue.ps1
 
 ```powershell
 # Copia del archivo (Firebird Embedded: copiar solo con la app cerrada)
-Stop-Process -Name dynarent -ErrorAction SilentlyContinue
-Copy-Item "$env:APPDATA\com.dynarent.app\dynarent_v3.fdb" "D:\backups\dynarent_$(Get-Date -Format yyyyMMdd_HHmmss).fdb"
+Stop-Process -Name dinamo-rent -ErrorAction SilentlyContinue
+Copy-Item "$env:APPDATA\com.corjar.dinamorent\dinamo_rent_v3.fdb" "D:\backups\dinamo_$(Get-Date -Format yyyyMMdd_HHmmss).fdb"
 ```
 
 > **Importante**: copiar el `.fdb` **con la app cerrada** (Firebird Embedded usa WAL y
 > una copia en caliente puede quedar inconsistente). Alternativa robusta: usar `gbak`
 > del runtime de Firebird (`firebird\gbak.exe` en la carpeta de instalación) para un
 > backup consistente:
-> `"$env:LOCALAPPDATA\DynaRent\firebird\gbak.exe" -b -user SYSDBA -password <pass> "$env:APPDATA\com.dynarent.app\dynarent_v3.fdb" "D:\backups\dynarent_$(Get-Date -Format yyyyMMdd_HHmmss).fbk"`
+> `"$env:LOCALAPPDATA\DinamoRent\firebird\gbak.exe" -b -user SYSDBA -password <pass> "$env:APPDATA\com.corjar.dinamorent\dinamo_rent_v3.fdb" "D:\backups\dinamo_$(Get-Date -Format yyyyMMdd_HHmmss).fbk"`
 
 ### 4.2 Rollback (volver a una versión anterior o recuperarse)
 
-1. **Cerrar la app** (`Stop-Process -Name dynarent`).
-2. **Restaurar la BD** desde el backup (reemplazar `dynarent_v3.fdb`).
+1. **Cerrar la app** (`Stop-Process -Name dinamo-rent`).
+2. **Restaurar la BD** desde el backup (reemplazar `dinamo_rent_v3.fdb`).
 3. **Reinstalar la versión deseada** (desinstalar e instalar, o instalar encima).
 4. Arrancar y verificar login + datos.
 
@@ -156,13 +189,16 @@ Copy-Item "$env:APPDATA\com.dynarent.app\dynarent_v3.fdb" "D:\backups\dynarent_$
 
 ```
 [ ] Backup de la BD creado (si el equipo tiene datos)
-[ ] Instalador v1.0.16 descargado (verificar hash/tamaño ~23 MB)
+[ ] Instalador v1.0.14 descargado y verificado:
+      sha256 NSIS: 527d93e5526b2da558b90c35b7a8ba772792ada2575a8b79e9573096673040a5
+      sha256 MSI:  3862b26687a323b5f18642804ae0f7b3cfe882842597a30d126d70a25aaf9ba9
 [ ] Instalación silenciosa OK (código 0)
-[ ] scripts\verificar-despliegue.ps1 → VEREDICTO: OK
+[ ] scripts\verificar-despliegue.ps1 → VEREDICTO: OK (incluye comprobación 8: auto-update al día)
 [ ] Login con el usuario del cliente (no admin123 salvo primer ingreso)
 [ ] Flota / clientes / rentas visibles (datos correctos)
 [ ] Agente SIMIT operativo (si aplica)
 [ ] Credenciales iniciales registradas y contraseña rotada si era admin123
-[ ] (v1.0.3+) la app quedó con auto-update: las próximas versiones no requieren despliegue manual
-    - la v1.0.16 es la última estable al momento de escribir esto (17-08)
+[ ] Auto-update confirmado: la app arrancó sin diálogo «Actualización disponible» y
+      latest.json responde version 1.0.14 (ver §3.1)
+    - la v1.0.14 es la última estable al momento de escribir esto (16-08)
 ```

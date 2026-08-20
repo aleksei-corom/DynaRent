@@ -1,4 +1,4 @@
-# 🖥️ DynaRent ERP - Sistema de Gestión de Flota (Tauri V2)
+# 🖥️ Dinamo Rent ERP - Sistema de Gestión de Flota (Tauri V2)
 
 > Sistema de gestión de flota para renta de vehículos. Administración integral: flota, clientes, rentas, reservas, finanzas, taller y más.
 > **Nueva versión reescrita** utilizando Tauri V2, Rust, SvelteKit y Tailwind CSS.
@@ -7,25 +7,25 @@
 
 ## ⬇️ Descarga e instalación (usuarios finales)
 
-> **Última versión estable: [v1.0.16](https://github.com/aleksei-corom/DynaRent/releases/tag/v1.0.16)** — con el **auto-update** operativo (firma verificada, permisos ACL del updater corregidos), el **SetUp Inicial automático** que se lanza en el primer ingreso para configurar la empresa (nombre, dirección, teléfonos de contacto con el código del país, p. ej. +57, y el logo del Contrato, la Orden de Renta y la Orden de Reserva) y la **versión real del binario** en la ventana (sidebar, login y Acerca de). Construida y validada por CI.
+> **Última versión estable: [v1.0.21](https://github.com/CORJAR-Computers/dinamo_rent_tr/releases/tag/v1.0.21)** — con el **auto-update** activo desde la v1.0.14 (las v1.0.3–v1.0.13 no pudieron auto-actualizarse) y novedades financieras: **comisión por renta** (checkbox + valor; neto = total − comisión) visible en el informe mensual, el balance, el listado de rentas y la timeline por vehículo; y **comparendos con procedencia persistente** (SIMIT/Manual), filtros «No confirmadas por SIMIT» y «Solo nuevos de la última sincronización» (combinables) con el último resultado del agente guardado en la BD (sobrevive al reinicio). Construida y validada por CI.
 
 ### 1. Descargar el instalador
 
-Ve a la página de [releases de GitHub](https://github.com/aleksei-corom/DynaRent/releases) y descarga de la **v1.0.16**:
+Ve a la página de [releases de GitHub](https://github.com/CORJAR-Computers/dinamo_rent_tr/releases) y descarga de la **v1.0.21**:
 
 | Instalador | Cuándo usarlo |
 |---|---|
-| `DynaRent_1.0.16_x64-setup.exe` (NSIS, ~23 MB) | **Recomendado** — instalación asistida con atajo de escritorio |
-| `DynaRent_1.0.16_x64_en-US.msi` (MSI, ~33 MB) | Despliegue empresarial / GPO (instalación silenciosa con `msiexec`) |
+| `DinamoRent_1.0.21_x64-setup.exe` (NSIS, ~21 MB) | **Recomendado** — instalación asistida con atajo de escritorio |
+| `DinamoRent_1.0.21_x64_en-US.msi` (MSI, ~33 MB) | Despliegue empresarial / GPO (instalación silenciosa con `msiexec`) |
 
-> ⚠️ **No uses la v1.0.0** (descontinuada): en equipos nuevos sin BD previa se colgaba antes de llegar al Login. Si ya la tienes instalada **con datos**, no necesitas desinstalar — la v1.0.16 abre tu BD actual tal cual.
+> ⚠️ **No uses la v1.0.0** (descontinuada): en equipos nuevos sin BD previa se colgaba antes de llegar al Login. Si ya la tienes instalada **con datos**, no necesitas desinstalar — la v1.0.21 abre tu BD actual tal cual.
 
 ### 2. Instalar
 
 - Ejecuta el `.exe` (o despliega el `.msi`) en el equipo objetivo. **Windows x64**.
-- En el primer arranque la app crea automáticamente en `%APPDATA%\com.dynarent.app\`:
+- En el primer arranque la app crea automáticamente en `%APPDATA%\com.corjar.dinamorent\`:
   - `config.ini` — configuración inicial.
-  - `dynarent_v3.fdb` — la base de datos Firebird Embedded (portable, no requiere instalación de servidor).
+  - `dinamo_rent_v3.fdb` — la base de datos Firebird Embedded (portable, no requiere instalación de servidor).
 - **No hace falta instalar nada más**: el runtime de Firebird y el de Visual C++ viajan dentro del instalador, y WebView2 se instala automáticamente si el sistema no lo tiene.
 
 ### 3. Primer ingreso
@@ -41,7 +41,7 @@ La app pedirá **cambiar la contraseña** en el primer ingreso. En una instalaci
 
 ### 4. Actualizar desde versiones anteriores
 
-Solo instala la v1.0.16 encima (o desinstala y reinstala conservando `%APPDATA%\com.dynarent.app\`): el arranque es idempotente y aplica únicamente las migraciones pendientes. **No se pierde ningún dato.**
+Solo instala la v1.0.21 encima (o desinstala y reinstala conservando `%APPDATA%\com.corjar.dinamorent\`): el arranque es idempotente y aplica únicamente las migraciones pendientes. **No se pierde ningún dato.**
 
 ---
 
@@ -87,7 +87,7 @@ npm run tauri build
 ## 📂 Estructura del Proyecto
 
 ```
-DynaRent/
+Dinamo_Rent_tr/
 ├── data/                   # Archivos de configuración (config.ini)
 ├── src/                    # Frontend (SvelteKit + Tailwind)
 │   ├── routes/             # Vistas de la aplicación (Dashboard, Rentas, Flota, etc.)
@@ -112,7 +112,7 @@ DynaRent/
 |-----------|-----------|
 | **[PLAN_IMPLEMENTACION_TAURI.md](PLAN_IMPLEMENTACION_TAURI.md)** | 📋 Plan completo de arquitectura y migración técnica desde Python a Tauri |
 | **[Handsoff.md](Handsoff.md)** | 🤖 Registro de decisiones, automatizaciones y guías de desarrollo |
-| **[INSTALACION_OPERACIONES.md](INSTALACION_OPERACIONES.md)** | 🚀 Guía de instalación de la v1.0.16 para operaciones: enlaces a los assets, credenciales iniciales y verificación |
+| **[INSTALACION_OPERACIONES.md](INSTALACION_OPERACIONES.md)** | 🚀 Guía de instalación de la v1.0.21 para operaciones: enlaces a los assets, credenciales iniciales y verificación |
 | **[DEPLOYMENT_CLIENTES.md](DEPLOYMENT_CLIENTES.md)** | 🖥️ Plan de despliegue en equipos de clientes: instalación silenciosa, verificación post-instalación y rollback |
 | **[RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)** | 🚢 Checklist para publicar una release: bump de versión, tag, verificación de assets y anuncio |
 | **[SECURITY.md](SECURITY.md)** | 🔐 Manejo de secretos, rotación de clave PII y reporte de vulnerabilidades |
@@ -132,7 +132,7 @@ DynaRent/
 
 ---
 
-**Versión estable**: 1.0.16 (construida y validada por CI — ver [releases](https://github.com/aleksei-corom/DynaRent/releases)). La versión legacy de la migración Tauri V2 era 4.0.0-beta; desde la **v1.0.0** el versionado sigue el semver del proyecto (1.0.x).
+**Versión estable**: 1.0.21 (construida y validada por CI — ver [releases](https://github.com/CORJAR-Computers/dinamo_rent_tr/releases)). La versión legacy de la migración Tauri V2 era 4.0.0-beta; desde la **v1.0.0** el versionado sigue el semver del proyecto (1.0.x).
 
 
 ---
@@ -192,6 +192,15 @@ La base de datos es un `.fdb` portable de **Firebird Embedded 5.0**. El esquema 
 | `0012_consolidar_indices_simples.sql` | Elimina índices de una columna subsumidos por compuestos (prefijo izquierdo) |
 | `0013_consolidar_indices_auditoria.sql` | Elimina `IX_AUDITORIA_USUARIO` (último subsumido: lo cubre `IX_AUDITORIA_USUARIO_FECHA`) |
 | `0014_limpiar_tablas_tests.sql` | Elimina tablas residuales de sesiones de test (PROBE_T, T2, T_TEST) |
+| `0015_comparendo_numero_simit.sql` | Columna `comparendos.numero_comparendo` + índice (deduplicación del Agente SIMIT) |
+| `0016_atribucion_comparendo_renta.sql` | DML idempotente: vincula comparendos sin renta/cliente con la renta que cubría el vehículo el día de la infracción (`renta_del_dia`) |
+| `0017_empresa_config.sql` | Tabla de una fila con los datos de la empresa (setup inicial; el logo se guarda como archivo en `<data_dir>/logos/`) |
+| `0018_empresa_ciudad.sql` | Columna `CIUDAD` explícita en `EMPRESA_CONFIG` (antes se derivaba de la dirección) |
+| `0019_renta_cobra_iva.sql` | Flag `COBRA_IVA` por renta (checkbox; default 1 conserva el comportamiento de las existentes) |
+| `0020_renta_valor_gasolina.sql` | Cargo por gasolina en la renta (`VALOR_GASOLINA`, default 0) |
+| `0021_comparendo_origen_simit.sql` | Procedencia persistente (`origen` 'SIMIT'/'Manual') + `ultimo_visto_simit` + índice |
+| `0022_agente_simit_ultimo_resultado.sql` | Último resultado del Agente SIMIT persistido (el filtro «Solo nuevos» sobrevive al reinicio) |
+| `0023_renta_comision.sql` | Comisión por renta (`TIENE_COMISION`/`COMISION`/`VALOR_NETO`) + backfill `valor_neto = total` |
 
 ### Esquema canónico de índices (tras 0010-0013)
 
@@ -223,18 +232,18 @@ Principio de la consolidación: **una columna de búsqueda = un solo índice** �
 
 **Síntoma**: `error: failed to build archive at ...rlib ... (os error 32)` al compilar con cargo (típicamente en el crate `tauri`) dentro de `src-tauri\target`. La causa: Windows Defender (escaneo en tiempo real) y/o el índice de búsqueda (`SearchIndexer`) abren los archivos temporales `.tmp*.temp-archive` que `rustc` crea y borra, bloqueándolos un instante.
 
-**Solución**: excluir la carpeta del proyecto de ambos componentes. Reemplazar `D:\Proyectos\DynaRent` por la ruta real del repo en cada máquina.
+**Solución**: excluir la carpeta del proyecto de ambos componentes. Reemplazar `D:\dinamo_rent_tr` por la ruta real del repo en cada máquina.
 
 ### 1) Windows Defender — exclusión de ruta
 
-GUI: **Seguridad de Windows → Protección contra virus y amenazas → Administrar la configuración → Exclusiones → Agregar o quitar exclusiones → + Agregar exclusión → Carpeta** → `D:\Proyectos\DynaRent\src-tauri\target`.
+GUI: **Seguridad de Windows → Protección contra virus y amenazas → Administrar la configuración → Exclusiones → Agregar o quitar exclusiones → + Agregar exclusión → Carpeta** → `D:\dinamo_rent_tr\src-tauri\target`.
 
 O en PowerShell **como administrador**:
 
 ```powershell
-Add-MpPreference -ExclusionPath 'D:\Proyectos\DynaRent\src-tauri\target'
+Add-MpPreference -ExclusionPath 'D:\dinamo_rent_tr\src-tauri\target'
 # Opcional: excluir todo el proyecto (cubre target, node_modules y la BD)
-Add-MpPreference -ExclusionPath 'D:\Proyectos\DynaRent'
+Add-MpPreference -ExclusionPath 'D:\dinamo_rent_tr'
 
 # Verificar (requiere admin)
 Get-MpPreference | Select-Object -ExpandProperty ExclusionPath
@@ -242,7 +251,7 @@ Get-MpPreference | Select-Object -ExpandProperty ExclusionPath
 
 ### 2) Windows Search (índice) — carpeta excluida
 
-GUI: **Configuración → Privacidad y seguridad → Búsqueda en Windows → Excluir carpetas → Agregar** → `D:\Proyectos\DynaRent`.
+GUI: **Configuración → Privacidad y seguridad → Búsqueda en Windows → Excluir carpetas → Agregar** → `D:\dinamo_rent_tr`.
 
 O por PowerShell (por usuario, sin admin; escribe en el crawl scope del índice):
 
@@ -250,7 +259,7 @@ O por PowerShell (por usuario, sin admin; escribe en el crawl scope del índice)
 $base = 'HKCU:\SOFTWARE\Microsoft\Windows Search\CrawlScopeManager\Windows\DefaultGatherManager\AppScope'
 $guid = [Guid]::NewGuid().ToString('B').ToUpper()
 New-Item -Path "$base\$guid" -Force | Out-Null
-New-ItemProperty -Path "$base\$guid" -Name 'URLOrPath' -Value 'file:///D:\Proyectos\DynaRent\' -PropertyType String -Force | Out-Null
+New-ItemProperty -Path "$base\$guid" -Name 'URLOrPath' -Value 'file:///D:\dinamo_rent_tr\' -PropertyType String -Force | Out-Null
 New-ItemProperty -Path "$base\$guid" -Name 'ScopeType' -Value 0 -PropertyType DWord -Force | Out-Null
 New-ItemProperty -Path "$base\$guid" -Name 'Attributes' -Value 0 -PropertyType DWord -Force | Out-Null
 # Reiniciar el índice para que aplique de inmediato (requiere admin):
@@ -270,10 +279,10 @@ cd .. && npm run tauri dev   # build + arranque de la app
 
 ### 4) Flacidez residual (aunque haya exclusiones) — loop de reintentos
 
-Incluso con ambas exclusiones activas, el `os error 32` puede reaparecer **de forma intermitente** en el paso de archive de la lib (el primer `Compiling dynarent` de un build fresco):
+Incluso con ambas exclusiones activas, el `os error 32` puede reaparecer **de forma intermitente** en el paso de archive de la lib (el primer `Compiling dinamo-rent` de un build fresco):
 
 ```
-error: failed to build archive at `...\target\debug\deps\libdynarent_lib.rlib`:
+error: failed to build archive at `...\target\debug\deps\libdinamo_rent_lib.rlib`:
 failed to remove temporary directory: ... (os error 32) at path "...\.tmpXXXX.temp-archive"
 ```
 
@@ -317,7 +326,7 @@ error: script "dev" exited with code 1
 **Solución** (la exclusión de todo el proyecto de las §1/§2 ya cubre `node_modules`; si solo se excluyó `src-tauri\target`, añadir):
 
 ```powershell
-Add-MpPreference -ExclusionPath 'D:\Proyectos\DynaRent\node_modules'
+Add-MpPreference -ExclusionPath 'D:\dinamo_rent_tr\node_modules'
 ```
 
 Y limpiar el caché que quedó a medias tras el crash:
@@ -347,7 +356,7 @@ El sistema cifra datos PII de clientes (cédula, teléfono, licencia) con **AES-
 
 ## 📦 Licencias de terceros
 
-DynaRent ERP redistribuye binarios de Firebird 5.0.3 (licencia dual IDPL+IPL) y VCRedist 14.3 (EULA Microsoft) en `src-tauri/resources/firebird/`. El listado completo de dependencias y sus licencias está en:
+Dinamo Rent ERP redistribuye binarios de Firebird 5.0.3 (licencia dual IDPL+IPL) y VCRedist 14.3 (EULA Microsoft) en `src-tauri/resources/firebird/`. El listado completo de dependencias y sus licencias está en:
 
 - **[THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md)**
 
@@ -367,5 +376,5 @@ bash scripts/sanitize-repo.sh --yes
 
 El script:
 - Borra `Firebird-5.0.3.1683-0-windows-x64/` (copia duplicada, el bundle usa `src-tauri/resources/firebird/`).
-- Hace `git rm --cached` de `data/dynarent_v3.fdb`, `data/config.ini`, `Contrato_Dinamo.docx`, `informe_*.xlsx`, `static/preview-shots/*.pdf` (sin borrar del disco).
+- Hace `git rm --cached` de `data/dinamo_rent_v3.fdb`, `data/config.ini`, `Contrato_Dinamo.docx`, `informe_*.xlsx`, `static/preview-shots/*.pdf` (sin borrar del disco).
 - Imprime instrucciones para purgar el historial con `git filter-repo` (necesario tras el incidente de clave expuesta, ver `SECURITY.md` §4).

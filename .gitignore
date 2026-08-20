@@ -38,7 +38,11 @@ data/config.ini
 
 # Backups y logs
 Backups/
+# La ruta del panel de Backups (src/routes/backups/) no debe quedar ignorada
+!src/routes/backups/
 logs/
+# La ruta del panel de Logs (src/routes/logs/) no debe quedar ignorada
+!src/routes/logs/
 *.log
 
 # Binarios Firebird duplicados (el bundle usa src-tauri/resources/firebird/)
@@ -47,7 +51,7 @@ Firebird-5.0.3.1683-0-windows-x64/
 # Documentos artefacto (van en docs/ o storage externo)
 /Contrato_Dinamo.docx
 /informe_*.xlsx
-static/preview-shots/
+static/preview-shots/*.pdf
 
 # IDE
 .vscode/

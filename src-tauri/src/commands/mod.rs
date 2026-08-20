@@ -4,6 +4,7 @@ pub mod app;
 pub mod auditoria;
 pub mod auth;
 pub mod auto;
+pub mod backup;
 pub mod business;
 pub mod comparendo;
 pub mod cliente;
@@ -11,6 +12,7 @@ pub mod dashboard;
 pub mod empresa;
 pub mod gasto;
 pub mod informe;
+pub mod logs;
 pub mod mantenimiento;
 pub mod pii;
 pub mod reserva;
@@ -45,12 +47,12 @@ pub fn require_usuario_admin(state: &AppState, session_id: &str) -> Result<Sessi
 }
 
 /// Requiere sesión activa con rol habilitado para informes
-/// (roles_con_informes en config.ini — por defecto Administrador y Supervisor).
+/// (roles_con_informes en config.ini — por defecto solo Administrador).
 pub fn require_informes(state: &AppState, session_id: &str) -> Result<SessionData, ErrorPayload> {
     let mut sessions = state.sessions.lock().unwrap_or_else(|e| e.into_inner());
-    // Fallback: si config.ini no define roles_con_informes, Admin + Supervisor
+    // Fallback: si config.ini no define roles_con_informes, solo Admin
     let roles: Vec<&str> = if state.config.roles_con_informes.is_empty() {
-        vec!["Administrador", "Supervisor"]
+        vec!["Administrador"]
     } else {
         state.config.roles_con_informes.iter().map(|s| s.as_str()).collect()
     };
