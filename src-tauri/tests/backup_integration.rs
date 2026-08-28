@@ -20,6 +20,12 @@ use dinamo_rent_lib::services::backup::{
 };
 use rsfbclient::Queryable;
 
+/// Detecta si gbak.exe está disponible en el resource_dir.
+fn gbak_disponible(cfg: &dinamo_rent_lib::core::config::AppConfig) -> bool {
+    cfg.resource_dir.join("firebird").join("gbak.exe").exists()
+}
+
+
 /// Borra el directorio temporal al salir del scope (panic-safe).
 struct LimpiarTemporal(PathBuf);
 impl Drop for LimpiarTemporal {
@@ -64,6 +70,10 @@ fn config_con_backup_en_temp() -> (Arc<AppConfig>, PathBuf, LimpiarTemporal) {
 #[test]
 fn backups_automaticos_crean_fbk_y_rotan() {
     let (cfg, tmp, _guard) = config_con_backup_en_temp();
+    if !gbak_disponible(&cfg) {
+        eprintln!("skip: gbak.exe no disponible");
+        return;
+    }
     let db_size = std::fs::metadata(&cfg.db_path).unwrap().len();
 
     for _ in 0..3 {
@@ -143,6 +153,10 @@ fn tablas_de_usuario(db_path: &Path, cfg: &Arc<AppConfig>) -> i64 {
 #[test]
 fn restauracion_con_gbak_real_roundtrip_del_fdb() {
     let (cfg, _tmp, _guard) = config_con_backup_en_temp();
+    if !gbak_disponible(&cfg) {
+        eprintln!("skip: gbak.exe no disponible");
+        return;
+    }
     let fbk = crear_backup(&cfg).unwrap();
     assert!(
         fbk.exists(),
@@ -167,6 +181,10 @@ fn restauracion_con_gbak_real_roundtrip_del_fdb() {
 #[test]
 fn restauracion_de_backup_cifrado_con_gbak_real() {
     let (mut cfg, tmp, _guard) = config_con_backup_en_temp();
+    if !gbak_disponible(&cfg) {
+        eprintln!("skip: gbak.exe no disponible");
+        return;
+    }
     let cfg = Arc::make_mut(&mut cfg);
     cfg.backup_encryption_enabled = true;
     cfg.backup_encryption_password = "clave-integracion".into();
