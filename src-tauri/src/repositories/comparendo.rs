@@ -4,16 +4,18 @@
 //! - DECIMAL → CAST a VARCHAR (parseo exacto en el servicio/frontend)
 //! - DATE/TIME/TIMESTAMP → CAST a VARCHAR
 //!
-//! > **TODO (Bloque 4 / TAREA 4.2)**: este repositorio aún define helpers
-//! > locales (`map_fb_error`, `opt_str`, `params!`, ...) duplicados con
-//! > `crate::core::repository`. Migración pendiente — ver
-//! > `src/core/repository.rs` para el módulo centralizado.
+//! Helpers (`map_fb_error`, `opt_str`, `params!`, `parse_fecha`,
+//! `parse_hora`) importados de `crate::core::repository` (Bloque 4 /
+//! TAREA 4.2 — DRY).
 
-use chrono::{NaiveDate, NaiveTime};
 use rsfbclient::{Execute, IntoParam, ParamsType, Queryable};
 
 use crate::core::error::AppError;
 use crate::core::PooledConnection;
+// Helpers centralizados (Bloque 4 / TAREA 4.2): antes estaban duplicados
+// localmente en este archivo. La migración los importa de `core::repository`
+// para DRY (igual que cliente/mantenimiento/reserva/renta/usuario/auto/gasto).
+use crate::core::repository::{map_fb_error_fk, opt_str, params, parse_fecha, parse_hora};
 
 use serde::Serialize;
 
@@ -79,15 +81,6 @@ pub struct ComparendoDatos {
     /// Procedencia: "SIMIT" (Agente automático) o "Manual" (default). El
     /// Agente la fija al insertar; el frontend nunca la envía (queda default).
     pub origen: Option<String>,
-}
-
-/// Construye parámetros posicionales de cualquier longitud (tuplas `IntoParams`
-/// limitadas a 15 elementos en rsfbclient). Usa `IntoParam` para que las fechas
-/// viajen como DATE/TIME (el driver no serializa String a esos tipos).
-macro_rules! params {
-    ($($e:expr),+ $(,)?) => {
-        ParamsType::Positional(vec![$($e.into_param()),+])
-    };
 }
 
 /// SELECT interno del cruce con rentas (columnas con prefijos y alias).
@@ -195,20 +188,16 @@ fn from_row(r: ComparendoRow) -> Comparendo {
     }
 }
 
-/// Mapea errores de Firebird a AppError (FK de placa/renta/cliente)
+/// Mapea errores de Firebird a AppError (FK de placa/renta/cliente).
+///
+/// Wrapper que delega en `crate::core::repository::map_fb_error_fk` con el
+/// mensaje específico de comparendos. Antes esto estaba duplicado localmente
+/// (Bloque 4 / TAREA 4.2).
 fn map_fb_error(e: rsfbclient::FbError) -> AppError {
-    let msg = e.to_string();
-    let lower = msg.to_lowercase();
-    if lower.contains("foreign key")
-        || lower.contains("not a valid reference")
-        || lower.contains("referential")
-    {
-        AppError::Business(
-            "La placa, la renta o el cliente seleccionado no existe. Verifica el registro.".into(),
-        )
-    } else {
-        AppError::Database(msg)
-    }
+    map_fb_error_fk(
+        e,
+        "La placa, la renta o el cliente seleccionado no existe. Verifica el registro.",
+    )
 }
 
 pub struct ComparendoRepository;
@@ -534,28 +523,4 @@ impl ComparendoRepository {
         )?;
         Ok(rows)
     }
-}
-
-fn opt_str(v: &Option<String>) -> Option<String> {
-    v.as_ref()
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-}
-
-/// Parsea fecha 'AAAA-MM-DD' a NaiveDate (el servicio ya la validó)
-fn parse_fecha(v: &str) -> Result<NaiveDate, AppError> {
-    NaiveDate::parse_from_str(v.trim(), "%Y-%m-%d")
-        .map_err(|_| AppError::Validation("Fecha inválida (formato AAAA-MM-DD).".into()))
-}
-
-/// Parsea hora 'HH:MM[:SS]' a NaiveTime (el servicio ya la validó)
-fn parse_hora(v: &str) -> Result<NaiveTime, AppError> {
-    let h = v.trim();
-    let h = if h.len() == 5 {
-        format!("{h}:00")
-    } else {
-        h.to_string()
-    };
-    NaiveTime::parse_from_str(&h, "%H:%M:%S")
-        .map_err(|_| AppError::Validation("Hora inválida (formato HH:MM).".into()))
 }

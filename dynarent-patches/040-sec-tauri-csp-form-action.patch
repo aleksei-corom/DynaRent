@@ -1,0 +1,37 @@
+From d4622190663cfffd46b8bf4502e198e77b1f8864 Mon Sep 17 00:00:00 2001
+From: Z User <z@container>
+Date: Fri, 28 Aug 2026 14:41:21 +0000
+Subject: [PATCH] security: tighten Tauri CSP with form-action and
+ upgrade-insecure-requests
+
+Add two defense-in-depth directives to the Content Security Policy:
+
+- form-action 'self': restricts form submissions to the app's own origin,
+  preventing any future form from exfiltrating data to an external URL even
+  if an XSS bypasses script-src.
+- upgrade-insecure-requests: instructs the webview to upgrade http: to
+  https: for any mixed-content resource, reducing exposure to MITM on
+  embedded iframes/images.
+
+Both are additive and do not affect existing functionality (the app loads
+no external resources).
+---
+ src-tauri/tauri.conf.json | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src-tauri/tauri.conf.json b/src-tauri/tauri.conf.json
+index f7e3cf8..5ac13a5 100644
+--- a/src-tauri/tauri.conf.json
++++ b/src-tauri/tauri.conf.json
+@@ -23,7 +23,7 @@
+       }
+     ],
+     "security": {
+-      "csp": "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
++      "csp": "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests"
+     }
+   },
+   "bundle": {
+-- 
+2.47.3
+

@@ -62,8 +62,14 @@
 		return d.toISOString().slice(0, 10);
 	}
 
+	// Token de carga: descarta respuestas de cargas anteriores (p. ej. cuando
+	// el usuario navega meses rápido y la 1ª petición responde después de la
+	// 2ª). Sin esto, los datos del mes anterior sobreescribirían los del mes
+	// actual que el usuario ya está viendo.
+	let cargaId = 0;
 	async function cargar() {
 		if (!guardSesion()) return;
+		const myId = ++cargaId;
 		loading = true;
 		try {
 			const limiteInf = limiteInferiorIso();
@@ -72,12 +78,14 @@
 				rentaApi.listar(sid(), undefined, undefined, undefined, limiteInf, limiteSup),
 				reservaApi.listar(sid(), undefined, undefined, limiteInf, limiteSup)
 			]);
+			if (myId !== cargaId) return; // stale: otra carga más reciente ya está en vuelo
 			rentas = r;
 			reservas = rs;
 		} catch {
+			if (myId !== cargaId) return; // stale: no mostrar error de una carga obsoleta
 			toast.error('No se pudieron cargar los datos del calendario.');
 		} finally {
-			loading = false;
+			if (myId === cargaId) loading = false;
 		}
 	}
 

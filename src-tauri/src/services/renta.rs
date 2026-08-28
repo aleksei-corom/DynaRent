@@ -68,7 +68,7 @@ impl RentaService {
         mut datos: RentaDatos,
     ) -> Result<Renta, AppError> {
         normalizar(&mut datos);
-        completar_cliente(conn, &mut datos);
+        completar_cliente(conn, &mut datos)?;
         calcular_totales(&mut datos, cfg);
         // El abono inicial descuenta del saldo: saldo = total − abono
         datos.saldo_pendiente = (dec(&datos.total, "0.00") - dec(&datos.abono, "0.00"))
@@ -138,7 +138,7 @@ impl RentaService {
             ));
         }
         normalizar(&mut datos);
-        completar_cliente(conn, &mut datos);
+        completar_cliente(conn, &mut datos)?;
         calcular_totales(&mut datos, cfg);
         // Conservar el abono ya registrado: saldo = total − abono actual
         datos.saldo_pendiente = (dec(&datos.total, "0.00") - dec_str(&actual.abono))
@@ -1097,14 +1097,22 @@ fn normalizar_cierre(d: &mut RentaCierreDatos) {
     }
 }
 
-/// Autocompleta nombre_cliente y nacionalidad desde la tabla clientes
-fn completar_cliente(conn: &mut PooledConnection, d: &mut RentaDatos) {
+/// Autocompleta nombre_cliente y nacionalidad desde la tabla clientes.
+///
+/// Propaga los errores de BD en vez de silenciarlos: si la consulta falla
+/// (conexion perdida, FK invalida, etc.) la renta NO debe persistirse con
+/// datos obsoletos del formulario; el caller (crear/actualizar) debe ver el
+/// error y abortar. Antes se hacia `if let Ok(Some(c)) = ...` y un fallo de
+/// BD se tragaba silenciosamente, dejando la renta con el nombre que el
+/// frontend paso (que puede no coincidir con el cliente referenciado).
+fn completar_cliente(conn: &mut PooledConnection, d: &mut RentaDatos) -> Result<(), AppError> {
     if let Some(idc) = d.id_cliente {
-        if let Ok(Some(c)) = ClienteRepository::obtener_por_id(conn, idc) {
+        if let Some(c) = ClienteRepository::obtener_por_id(conn, idc)? {
             d.nombre_cliente = c.nombre_completo;
             d.nacionalidad = c.nacionalidad;
         }
     }
+    Ok(())
 }
 
 /// Recalcula subtotal/impuestos/total/saldo desde las tarifas y costos

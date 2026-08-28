@@ -112,7 +112,7 @@ export default [
 			'no-undef': 'off',
 			// Sin `any` sin justificación. Si necesitas uno, usa `eslint-disable-next-line`
 			// con un comentario explicando por qué. No es error para no romper el build.
-			'@typescript-eslint/no-explicit-any': 'warn',
+			'@typescript-eslint/no-explicit-any': 'error',
 			// Sin @ts-ignore (usar @ts-expect-error con razón, o arreglar el tipo).
 			// En este repo NO hay ninguno hoy; la regla evita que se introduzcan.
 			'@typescript-eslint/ban-ts-comment': 'error',

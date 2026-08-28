@@ -1,0 +1,47 @@
+From 8cdadeab2a5fc1c5afd559a977dc60c42a7aaec9 Mon Sep 17 00:00:00 2001
+From: Z User <z@container>
+Date: Fri, 28 Aug 2026 14:53:57 +0000
+Subject: [PATCH] types(ui): narrow ApiErrorPayload cast in invokeCmd error
+ handling
+
+The structured-error branch cast any object with a `kind` property to
+ApiErrorPayload, but ApiErrorPayload also requires a string `message`.
+If Tauri rejects with an object that has `kind` but no `message` (or a
+non-string message), the constructor received `undefined` and the user
+saw an empty toast / 'undefined' in the error banner.
+
+Validate both fields and the message type before casting; otherwise fall
+through to the generic String(err) branch, which always produces a usable
+message.
+---
+ src/lib/api/base.ts | 14 ++++++++++++--
+ 1 file changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/src/lib/api/base.ts b/src/lib/api/base.ts
+index f55c9f8..5d4bab5 100644
+--- a/src/lib/api/base.ts
++++ b/src/lib/api/base.ts
+@@ -43,8 +43,18 @@ export async function invokeCmd<T>(command: string, args?: Record<string, unknow
+ 				throw new ApiError({ kind: 'generic', message: err });
+ 			}
+ 		}
+-		// Objeto de error estructurado
+-		if (err && typeof err === 'object' && 'kind' in err) {
++		// Objeto de error estructurado: nos aseguramos de que tenga al menos
++		// los campos obligatorios (kind + message) antes de hacer el cast a
++		// ApiErrorPayload. Si solo tiene `kind` (p. ej. un Reject de Tauri
++		// con shape distinto), cae al fallback genérico en vez de leer
++		// `undefined` como message.
++		if (
++			err &&
++			typeof err === 'object' &&
++			'kind' in err &&
++			'message' in err &&
++			typeof (err as { message: unknown }).message === 'string'
++		) {
+ 			throw new ApiError(err as ApiErrorPayload);
+ 		}
+ 		throw new ApiError({ kind: 'generic', message: String(err) });
+-- 
+2.47.3
+

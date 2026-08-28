@@ -1,0 +1,44 @@
+From a959a32ba083d286a3f21eec93fffb49fb4b58a5 Mon Sep 17 00:00:00 2001
+From: Z User <z@container>
+Date: Fri, 28 Aug 2026 14:50:39 +0000
+Subject: [PATCH] a11y(ui): label icon-only action buttons in clientes table
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The Editar and Eliminar buttons in the clientes table contain only an SVG
+icon; their accessible name came solely from the `title` attribute, which
+screen readers are inconsistent about announcing. VoiceOver + NVDA both
+prefer `aria-label` and fall back to inner text — without either, the
+button is announced as just "button".
+
+Add `aria-label` that includes the client name so the user knows which
+client each button acts on (e.g. "Editar cliente María Pérez"). The
+`title` is kept for the visual tooltip.
+---
+ src/routes/clientes/+page.svelte | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/src/routes/clientes/+page.svelte b/src/routes/clientes/+page.svelte
+index 31bd9da..45e478e 100644
+--- a/src/routes/clientes/+page.svelte
++++ b/src/routes/clientes/+page.svelte
+@@ -299,6 +299,7 @@
+ 						<button
+ 							class="p-2 rounded-lg text-text-secondary hover:text-primary hover:bg-primary/10 transition-colors"
+ 							title="Editar"
++							aria-label="Editar cliente {c.nombreCompleto}"
+ 							onclick={() => abrirEditar(c)}
+ 						>
+ 							<svg
+@@ -319,6 +320,7 @@
+ 							<button
+ 								class="p-2 rounded-lg text-text-secondary hover:text-peligro hover:bg-peligro/10 transition-colors"
+ 								title="Eliminar"
++								aria-label="Eliminar cliente {c.nombreCompleto}"
+ 								onclick={() => {
+ 									eliminarId = c.id;
+ 									eliminarNombre = c.nombreCompleto;
+-- 
+2.47.3
+

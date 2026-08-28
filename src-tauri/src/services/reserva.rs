@@ -62,7 +62,7 @@ impl ReservaService {
         mut datos: ReservaDatos,
     ) -> Result<Reserva, AppError> {
         normalizar(&mut datos);
-        completar_cliente(conn, &mut datos);
+        completar_cliente(conn, &mut datos)?;
         calcular_total(&mut datos);
         validar(&datos, cfg)?;
         let id = ReservaRepository::insertar(conn, &datos)?;
@@ -86,7 +86,7 @@ impl ReservaService {
     ) -> Result<Reserva, AppError> {
         Self::obtener(conn, id)?;
         normalizar(&mut datos);
-        completar_cliente(conn, &mut datos);
+        completar_cliente(conn, &mut datos)?;
         calcular_total(&mut datos);
         validar(&datos, cfg)?;
         ReservaRepository::actualizar(conn, id, &datos)?;
@@ -191,14 +191,22 @@ fn normalizar(d: &mut ReservaDatos) {
     }
 }
 
-/// Autocompleta nombre_cliente y nacionalidad desde la tabla clientes cuando hay id_cliente
-fn completar_cliente(conn: &mut PooledConnection, d: &mut ReservaDatos) {
+/// Autocompleta nombre_cliente y nacionalidad desde la tabla clientes cuando hay id_cliente.
+///
+/// Propaga los errores de BD en vez de silenciarlos: si la consulta falla
+/// (conexion perdida, FK invalida, etc.) la reserva NO debe persistirse con
+/// datos obsoletos del formulario; el caller (crear/actualizar) debe ver el
+/// error y abortar. Antes se hacia `if let Ok(Some(c)) = ...` y un fallo de
+/// BD se tragaba silenciosamente, dejando la reserva con el nombre que el
+/// frontend paso (que puede no coincidir con el cliente referenciado).
+fn completar_cliente(conn: &mut PooledConnection, d: &mut ReservaDatos) -> Result<(), AppError> {
     if let Some(idc) = d.id_cliente {
-        if let Ok(Some(c)) = ClienteRepository::obtener_por_id(conn, idc) {
+        if let Some(c) = ClienteRepository::obtener_por_id(conn, idc)? {
             d.nombre_cliente = c.nombre_completo;
             d.nacionalidad = c.nacionalidad;
         }
     }
+    Ok(())
 }
 
 /// Recalcula el total desde las tarifas (el backend es la fuente de verdad)

@@ -1,0 +1,76 @@
+From 81f213c76614f6bab11f23f6aa6a737925cbbb68 Mon Sep 17 00:00:00 2001
+From: Z User <z@container>
+Date: Fri, 28 Aug 2026 15:12:16 +0000
+Subject: [PATCH] fix(rust): propagate DB errors in renta completar_cliente
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+completar_cliente used `if let Ok(Some(c)) = ClienteRepository::obtener_por_id(...)`
+which silently swallowed any database error (lost connection, FK probe
+failure, etc.). When that happened the rental was still persisted with
+whatever nombre_cliente/nacionalidad the frontend had sent, which could
+diverge from the client referenced by id_cliente — a silent data
+integrity bug.
+
+Change the helper to return Result<(), AppError> and propagate the
+error. The two callers (crear and actualizar) now use `?` so a DB
+failure aborts the operation cleanly with the real error message.
+---
+ src-tauri/src/services/renta.rs | 21 ++++++++++++++++-----
+ 1 file changed, 16 insertions(+), 5 deletions(-)
+
+diff --git a/src-tauri/src/services/renta.rs b/src-tauri/src/services/renta.rs
+index 59357f9..f43e546 100644
+--- a/src-tauri/src/services/renta.rs
++++ b/src-tauri/src/services/renta.rs
+@@ -68,7 +68,7 @@ impl RentaService {
+         mut datos: RentaDatos,
+     ) -> Result<Renta, AppError> {
+         normalizar(&mut datos);
+-        completar_cliente(conn, &mut datos);
++        completar_cliente(conn, &mut datos)?;
+         calcular_totales(&mut datos, cfg);
+         // El abono inicial descuenta del saldo: saldo = total − abono
+         datos.saldo_pendiente = (dec(&datos.total, "0.00") - dec(&datos.abono, "0.00"))
+@@ -138,7 +138,7 @@ impl RentaService {
+             ));
+         }
+         normalizar(&mut datos);
+-        completar_cliente(conn, &mut datos);
++        completar_cliente(conn, &mut datos)?;
+         calcular_totales(&mut datos, cfg);
+         // Conservar el abono ya registrado: saldo = total − abono actual
+         datos.saldo_pendiente = (dec(&datos.total, "0.00") - dec_str(&actual.abono))
+@@ -1097,14 +1097,25 @@ fn normalizar_cierre(d: &mut RentaCierreDatos) {
+     }
+ }
+ 
+-/// Autocompleta nombre_cliente y nacionalidad desde la tabla clientes
+-fn completar_cliente(conn: &mut PooledConnection, d: &mut RentaDatos) {
++/// Autocompleta nombre_cliente y nacionalidad desde la tabla clientes.
++///
++/// Propaga los errores de BD en vez de silenciarlos: si la consulta falla
++/// (conexion perdida, FK invalida, etc.) la renta NO debe persistirse con
++/// datos obsoletos del formulario; el caller (crear/actualizar) debe ver el
++/// error y abortar. Antes se hacia `if let Ok(Some(c)) = ...` y un fallo de
++/// BD se tragaba silenciosamente, dejando la renta con el nombre que el
++/// frontend paso (que puede no coincidir con el cliente referenciado).
++fn completar_cliente(
++    conn: &mut PooledConnection,
++    d: &mut RentaDatos,
++) -> Result<(), AppError> {
+     if let Some(idc) = d.id_cliente {
+-        if let Ok(Some(c)) = ClienteRepository::obtener_por_id(conn, idc) {
++        if let Some(c) = ClienteRepository::obtener_por_id(conn, idc)? {
+             d.nombre_cliente = c.nombre_completo;
+             d.nacionalidad = c.nacionalidad;
+         }
+     }
++    Ok(())
+ }
+ 
+ /// Recalcula subtotal/impuestos/total/saldo desde las tarifas y costos
+-- 
+2.47.3
+

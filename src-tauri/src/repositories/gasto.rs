@@ -4,16 +4,17 @@
 //! - DECIMAL → CAST a VARCHAR (parseo exacto en el servicio/frontend)
 //! - DATE/TIMESTAMP → CAST a VARCHAR
 //!
-//! > **TODO (Bloque 4 / TAREA 4.2)**: este repositorio aún define helpers
-//! > locales (`map_fb_error`, `opt_str`, `params!`, ...) duplicados con
-//! > `crate::core::repository`. Migración pendiente — ver
-//! > `src/core/repository.rs` para el módulo centralizado.
+//! Helpers (`map_fb_error`, `opt_str`, `params!`, `parse_fecha`) importados
+//! de `crate::core::repository` (Bloque 4 / TAREA 4.2 — DRY).
 
-use chrono::NaiveDate;
 use rsfbclient::{Execute, IntoParam, ParamsType, Queryable};
 
 use crate::core::error::AppError;
 use crate::core::PooledConnection;
+// Helpers centralizados (Bloque 4 / TAREA 4.2): antes estaban duplicados
+// localmente en este archivo. La migración los importa de `core::repository`
+// para DRY (igual que cliente/mantenimiento/reserva/renta/usuario/auto).
+use crate::core::repository::{map_fb_error_fk, opt_str, params, parse_fecha};
 
 use serde::Serialize;
 
@@ -44,15 +45,6 @@ pub struct GastoDatos {
     pub descripcion: String,
     pub monto: String,
     pub comprobante: Option<String>,
-}
-
-/// Construye parámetros posicionales de cualquier longitud (tuplas `IntoParams`
-/// limitadas a 15 elementos en rsfbclient). Usa `IntoParam` para que las fechas
-/// viajen como TIMESTAMP (el driver no serializa String a DATE).
-macro_rules! params {
-    ($($e:expr),+ $(,)?) => {
-        ParamsType::Positional(vec![$($e.into_param()),+])
-    };
 }
 
 /// Orden de columnas del SELECT de gastos (debe coincidir con `GastoRow`)
@@ -91,20 +83,16 @@ fn from_row(r: GastoRow) -> Gasto {
     }
 }
 
-/// Mapea errores de Firebird a AppError (FK de placa)
+/// Mapea errores de Firebird a AppError (FK de placa).
+///
+/// Wrapper que delega en `crate::core::repository::map_fb_error_fk` con el
+/// mensaje específico de gastos (placa inexistente). Antes esto estaba
+/// duplicado localmente (Bloque 4 / TAREA 4.2).
 fn map_fb_error(e: rsfbclient::FbError) -> AppError {
-    let msg = e.to_string();
-    let lower = msg.to_lowercase();
-    if lower.contains("foreign key")
-        || lower.contains("not a valid reference")
-        || lower.contains("referential")
-    {
-        AppError::Business(
-            "La placa seleccionada no existe. Verifica que el vehículo esté registrado.".into(),
-        )
-    } else {
-        AppError::Database(msg)
-    }
+    map_fb_error_fk(
+        e,
+        "La placa seleccionada no existe. Verifica que el vehículo esté registrado.",
+    )
 }
 
 pub struct GastoRepository;
@@ -326,16 +314,4 @@ impl GastoRepository {
         )?;
         Ok(rows)
     }
-}
-
-fn opt_str(v: &Option<String>) -> Option<String> {
-    v.as_ref()
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-}
-
-/// Parsea fecha 'AAAA-MM-DD' a NaiveDate (el servicio ya la validó)
-fn parse_fecha(v: &str) -> Result<NaiveDate, AppError> {
-    NaiveDate::parse_from_str(v.trim(), "%Y-%m-%d")
-        .map_err(|_| AppError::Validation("Fecha inválida (formato AAAA-MM-DD).".into()))
 }

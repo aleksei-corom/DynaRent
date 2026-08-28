@@ -148,7 +148,12 @@
 		// Pequeño retardo para que el clic en la lista tenga tiempo de dispararse
 		// antes de cerrar (el pointerdown global ya cierra al hacer clic fuera).
 		setTimeout(() => {
-			if (abierto) cerrar();
+			// Si el foco volvió al input (o a un hijo del root) dentro de los
+			// 120 ms (p. ej. el usuario re-enfocó tras un blur intermitente),
+			// NO cerrar: el combo sigue activo y el usuario sigue escribiendo.
+			if (abierto && rootRef && !rootRef.contains(document.activeElement)) {
+				cerrar();
+			}
 		}, 120);
 	}
 

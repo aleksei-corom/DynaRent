@@ -6,6 +6,13 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
 	clearScreen: false,
+	// Defense-in-depth: never emit source maps in any build (dev or prod).
+	// Vite defaults to false in prod, but setting it explicitly prevents a
+	// future config change or plugin from accidentally shipping source maps
+	// to end users (which would expose the original TS/Svelte source).
+	build: {
+		sourcemap: false
+	},
 	server: {
 		port: 5173,
 		strictPort: true,

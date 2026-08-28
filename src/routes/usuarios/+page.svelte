@@ -530,6 +530,7 @@
 		: 'Crea una cuenta con contraseña inicial y rol.'}
 	onClose={() => (modalOpen = false)}
 	width="max-w-xl"
+	dismissible={!guardando}
 >
 	{#snippet children()}
 		{#if formError}
@@ -701,6 +702,7 @@
 	subtitle="El usuario deberá cambiar esta contraseña en su próximo ingreso."
 	onClose={() => (forzarUsuario = null)}
 	width="max-w-md"
+	dismissible={!forcando}
 >
 	{#snippet children()}
 		{#if forzarError}

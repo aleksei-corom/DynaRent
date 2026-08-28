@@ -1,0 +1,1071 @@
+From 1b24d1464972421991ef49eee856c46b33667fb2 Mon Sep 17 00:00:00 2001
+From: Z User <z@container>
+Date: Fri, 28 Aug 2026 15:22:58 +0000
+Subject: [PATCH] Apply all 30 DynaRent improvement patches for combined diff
+
+---
+ .github/workflows/ci.yml                 | 33 +++++++++++
+ .npmrc                                   |  1 +
+ eslint.config.js                         |  2 +-
+ src-tauri/src/commands/auditoria.rs      | 26 +++++----
+ src-tauri/src/core/config.rs             | 73 +++++++++++++++++++++++-
+ src-tauri/src/repositories/comparendo.rs | 66 ++++++---------------
+ src-tauri/src/repositories/gasto.rs      | 53 +++++------------
+ src-tauri/src/repositories/renta.rs      | 64 +++++++--------------
+ src-tauri/src/services/cliente.rs        |  8 ++-
+ src-tauri/src/services/dashboard.rs      |  8 ++-
+ src-tauri/src/services/informe.rs        | 34 ++++++++++-
+ src-tauri/src/services/pii.rs            | 38 ++++++++++--
+ src-tauri/src/services/renta.rs          | 21 +++++--
+ src-tauri/src/services/reserva.rs        | 21 +++++--
+ src-tauri/tauri.conf.json                |  2 +-
+ src/lib/api/base.ts                      | 14 ++++-
+ src/lib/components/SearchSelect.svelte   |  7 ++-
+ src/lib/components/Toast.svelte          |  3 +-
+ src/lib/stores/empresa.svelte.ts         | 28 ++++++---
+ src/routes/+layout.svelte                |  2 +
+ src/routes/alertas/+page.svelte          | 18 +++---
+ src/routes/autos/+page.svelte            |  2 +
+ src/routes/calendario/+page.svelte       | 10 +++-
+ src/routes/clientes/+page.svelte         |  2 +
+ src/routes/usuarios/+page.svelte         |  2 +
+ vite.config.ts                           |  7 +++
+ 26 files changed, 357 insertions(+), 188 deletions(-)
+
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 4f7e9b6..6bf980c 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -58,6 +58,14 @@ jobs:
+       - name: Format check (prettier)
+         run: bun run format:check
+ 
++      # ── Security audit: CVEs conocidos en dependencias npm ──
++      # npm audit consulta la base de datos del npm registry y falla si hay
++      # vulnerabilidades de nivel high o critical. Usa package-lock.json (los
++      # deps son los mismos que en bun.lock). --audit-level=high para no
++      # bloquear el CI por low/moderate que suelen tener workaround.
++      - name: npm audit (high+critical)
++        run: npx npm audit --audit-level=high --omit=dev
++
+       - name: Svelte check
+         run: bunx svelte-kit sync && bunx svelte-check --tsconfig ./tsconfig.json
+ 
+@@ -132,3 +140,28 @@ jobs:
+           # termina con `exit $LASTEXITCODE`, y tras -SimularFallo (exit 1) el paso saldría
+           # con exit 1 aunque ambos casos hayan validado.
+           exit 0
++
++  # ── Security audit: CVEs conocidos en dependencias Cargo ──
++  # cargo-audit consulta la base de datos RustSec (RUSTSEC-*) y falla si
++  # alguna dependencia (directa o transitiva) tiene un advisory sin mitigar.
++  # No requiere compilar la app (lee Cargo.lock) → corre en paralelo con
++  # validate y tarda ~30 s.
++  security-audit:
++    name: Security audit (cargo audit)
++    runs-on: ubuntu-latest
++    timeout-minutes: 10
++    permissions:
++      contents: read
++    steps:
++      - name: Checkout
++        uses: actions/checkout@v7
++
++      - name: Setup Rust
++        uses: dtolnay/rust-toolchain@stable
++
++      - name: Install cargo-audit
++        run: cargo install cargo-audit --locked --force
++
++      - name: Run cargo audit
++        working-directory: src-tauri
++        run: cargo audit --deny warnings
+diff --git a/.npmrc b/.npmrc
+index b6f27f1..d9ca886 100644
+--- a/.npmrc
++++ b/.npmrc
+@@ -1 +1,2 @@
+ engine-strict=true
++save-exact=true
+diff --git a/eslint.config.js b/eslint.config.js
+index ae3a2b4..52ffe5b 100644
+--- a/eslint.config.js
++++ b/eslint.config.js
+@@ -112,7 +112,7 @@ export default [
+ 			'no-undef': 'off',
+ 			// Sin `any` sin justificación. Si necesitas uno, usa `eslint-disable-next-line`
+ 			// con un comentario explicando por qué. No es error para no romper el build.
+-			'@typescript-eslint/no-explicit-any': 'warn',
++			'@typescript-eslint/no-explicit-any': 'error',
+ 			// Sin @ts-ignore (usar @ts-expect-error con razón, o arreglar el tipo).
+ 			// En este repo NO hay ninguno hoy; la regla evita que se introduzcan.
+ 			'@typescript-eslint/ban-ts-comment': 'error',
+diff --git a/src-tauri/src/commands/auditoria.rs b/src-tauri/src/commands/auditoria.rs
+index 5a4cfdf..e285c0d 100644
+--- a/src-tauri/src/commands/auditoria.rs
++++ b/src-tauri/src/commands/auditoria.rs
+@@ -2,26 +2,26 @@
+ //!
+ //! Acceso restringido a roles de administración de usuarios (roles_con_usuarios).
+ 
+-use crate::core::error::ErrorPayload;
++use crate::core::error::{AppError, ErrorPayload};
+ use crate::repositories::auditoria::AuditoriaFiltros;
+ use crate::services::auditoria::{AuditoriaResultado, AuditoriaService};
+ use crate::services::AppState;
+ use tauri::State;
+ 
+-use super::{conn, require_usuario_admin};
++use super::require_usuario_admin;
+ 
+ type Cmd<T> = Result<T, ErrorPayload>;
+ 
+ /// Lista eventos de auditoría con filtros opcionales y paginación (solo admin).
+ ///
+-/// TODO Tarea 3.4 (Bloque 3 — Performance): envolver en
+-/// `tauri::async_runtime::spawn_blocking`. `listar_auditoria` hace 2 queries
+-/// (COUNT + SELECT paginado) con LIKE sobre `mensaje` que puede escanear toda
+-/// la tabla `auditoria` si crece mucho — conviene no retener el event loop
+-/// mientras Firebird resuelve el WHERE.
++/// `async` + `spawn_blocking`: `listar_auditoria` hace 2 queries (COUNT +
++/// SELECT paginado) con LIKE sobre `mensaje` que puede escanear toda la tabla
++/// `auditoria` si crece mucho — conviene no retener el event loop de Tauri
++/// mientras Firebird resuelve el WHERE. Patrón equivalente al de
++/// `listar_rentas` e `informe_mensual` (TAREA 3.4 / Bloque 3 — Performance).
+ #[tauri::command]
+ #[allow(clippy::too_many_arguments)]
+-pub fn listar_auditoria(
++pub async fn listar_auditoria(
+     state: State<'_, AppState>,
+     session_id: String,
+     usuario: Option<String>,
+@@ -33,7 +33,7 @@ pub fn listar_auditoria(
+     por_pagina: Option<i64>,
+ ) -> Cmd<AuditoriaResultado> {
+     require_usuario_admin(&state, &session_id)?;
+-    let mut c = conn(&state)?;
++    let pool = state.pool.clone();
+     let filtros = AuditoriaFiltros {
+         usuario,
+         accion,
+@@ -41,7 +41,13 @@ pub fn listar_auditoria(
+         fecha_hasta,
+         busqueda,
+     };
+-    AuditoriaService::listar(&mut c, filtros, pagina, por_pagina).map_err(|e| e.to_payload())
++    tauri::async_runtime::spawn_blocking(move || -> Result<AuditoriaResultado, AppError> {
++        let mut c = pool.get().map_err(AppError::from)?;
++        AuditoriaService::listar(&mut c, filtros, pagina, por_pagina)
++    })
++    .await
++    .map_err(|e| AppError::Generic(format!("La tarea listar_auditoria falló: {e}")).to_payload())?
++    .map_err(|e| e.to_payload())
+ }
+ 
+ /// Acciones distintas disponibles para el filtro (solo admin)
+diff --git a/src-tauri/src/core/config.rs b/src-tauri/src/core/config.rs
+index 693cddb..005077a 100644
+--- a/src-tauri/src/core/config.rs
++++ b/src-tauri/src/core/config.rs
+@@ -18,7 +18,7 @@ const DEFAULTS: &[(&str, &str, &str)] = &[
+     ("database", "host", "localhost"),
+     ("database", "port", "3050"),
+     ("database", "user", "sysdba"),
+-    ("database", "password", "masterkey"),
++    ("database", "password", ""),
+     ("database", "database", "dynarent"),
+     ("database", "path", "dynarent_v3.fdb"),
+     ("database", "timeout", "10"),
+@@ -142,7 +142,7 @@ fn serialize_ini(map: &IniMap) -> String {
+     out
+ }
+ 
+-#[derive(Debug, Clone)]
++#[derive(Clone)]
+ pub struct AppConfig {
+     // ── Database ──
+     pub db_user: String,
+@@ -217,6 +217,73 @@ pub struct AppConfig {
+     pub resource_dir: PathBuf,
+ }
+ 
++// ── Debug manual: redacta secretos para evitar que terminen en logs ──
++// AppConfig contiene db_password, db_encryption_key y backup_encryption_password.
++// Si se usara el Debug derivado, un log::debug!("{:?}", config) o un dbg!(&config)
++// volcaría esos secretos en claro al archivo de logs. Esta impl los reemplaza
++// por "<redacted>" para que el resto de los campos sigan siendo útiles al depurar.
++impl std::fmt::Debug for AppConfig {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++        f.debug_struct("AppConfig")
++            .field("db_user", &self.db_user)
++            .field("db_password", &"<redacted>")
++            .field("db_path", &self.db_path)
++            .field("fbclient_path", &self.fbclient_path)
++            .field("pool_size", &self.pool_size)
++            .field("session_timeout", &self.session_timeout)
++            .field("max_login_attempts", &self.max_login_attempts)
++            .field("account_lockout_duration", &self.account_lockout_duration)
++            .field("login_rate_limit_window", &self.login_rate_limit_window)
++            .field("max_login_attempts_in_window", &self.max_login_attempts_in_window)
++            .field("db_encryption_key", &"<redacted>")
++            .field("simit_enabled", &self.simit_enabled)
++            .field("simit_interval_hours", &self.simit_interval_hours)
++            .field("simit_polite_delay_ms", &self.simit_polite_delay_ms)
++            .field("simit_report_dir", &self.simit_report_dir)
++            .field("simit_max_retries", &self.simit_max_retries)
++            .field("simit_retry_base_delay_ms", &self.simit_retry_base_delay_ms)
++            .field("simit_timeout_seconds", &self.simit_timeout_seconds)
++            .field("simit_circuit_breaker_threshold", &self.simit_circuit_breaker_threshold)
++            .field("simit_circuit_breaker_timeout_seconds", &self.simit_circuit_breaker_timeout_seconds)
++            .field("simit_start_delay_minutes", &self.simit_start_delay_minutes)
++            .field("roles_con_informes", &self.roles_con_informes)
++            .field("roles_con_usuarios", &self.roles_con_usuarios)
++            .field("roles_con_eliminar", &self.roles_con_eliminar)
++            .field("roles_usuarios", &self.roles_usuarios)
++            .field("tipos_auto", &self.tipos_auto)
++            .field("tipos_transmision", &self.tipos_transmision)
++            .field("tipos_combustible", &self.tipos_combustible)
++            .field("estados_auto", &self.estados_auto)
++            .field("tipos_adquisicion", &self.tipos_adquisicion)
++            .field("tipos_doc", &self.tipos_doc)
++            .field("estados_cliente", &self.estados_cliente)
++            .field("estados_reserva", &self.estados_reserva)
++            .field("tipos_gasto", &self.tipos_gasto)
++            .field("nivel_tanque", &self.nivel_tanque)
++            .field("tipos_mantenimiento", &self.tipos_mantenimiento)
++            .field("alert_soat_days", &self.alert_soat_days)
++            .field("alert_tecno_mecanica_days", &self.alert_tecno_mecanica_days)
++            .field("alert_extintor_days", &self.alert_extintor_days)
++            .field("km_alert_aceite", &self.km_alert_aceite)
++            .field("impuesto_porcentaje", &self.impuesto_porcentaje)
++            .field("app_name", &self.app_name)
++            .field("app_version", &self.app_version)
++            .field("ui_color_primario", &self.ui_color_primario)
++            .field("ui_color_fondo", &self.ui_color_fondo)
++            .field("backup_directory", &self.backup_directory)
++            .field("backup_max_copies", &self.backup_max_copies)
++            .field("backup_schedule_times", &self.backup_schedule_times)
++            .field("backup_schedule_minutes", &self.backup_schedule_minutes)
++            .field("backup_check_interval_ms", &self.backup_check_interval_ms)
++            .field("backup_encryption_enabled", &self.backup_encryption_enabled)
++            .field("backup_encryption_password", &"<redacted>")
++            .field("config_dir", &self.config_dir)
++            .field("data_dir", &self.data_dir)
++            .field("resource_dir", &self.resource_dir)
++            .finish()
++    }
++}
++
+ impl AppConfig {
+     /// Carga la configuración.
+     ///
+@@ -259,7 +326,7 @@ impl AppConfig {
+ 
+         Self {
+             db_user: get_str(&map, "database", "user", "sysdba"),
+-            db_password: get_str(&map, "database", "password", "masterkey"),
++            db_password: get_str(&map, "database", "password", ""),
+             db_path,
+             fbclient_path,
+             pool_size: get_usize(&map, "database", "pool_size", 10),
+diff --git a/src-tauri/src/repositories/comparendo.rs b/src-tauri/src/repositories/comparendo.rs
+index f2238be..220879b 100644
+--- a/src-tauri/src/repositories/comparendo.rs
++++ b/src-tauri/src/repositories/comparendo.rs
+@@ -4,16 +4,18 @@
+ //! - DECIMAL → CAST a VARCHAR (parseo exacto en el servicio/frontend)
+ //! - DATE/TIME/TIMESTAMP → CAST a VARCHAR
+ //!
+-//! > **TODO (Bloque 4 / TAREA 4.2)**: este repositorio aún define helpers
+-//! > locales (`map_fb_error`, `opt_str`, `params!`, ...) duplicados con
+-//! > `crate::core::repository`. Migración pendiente — ver
+-//! > `src/core/repository.rs` para el módulo centralizado.
++//! Helpers (`map_fb_error`, `opt_str`, `params!`, `parse_fecha`,
++//! `parse_hora`) importados de `crate::core::repository` (Bloque 4 /
++//! TAREA 4.2 — DRY).
+ 
+-use chrono::{NaiveDate, NaiveTime};
+ use rsfbclient::{Execute, IntoParam, ParamsType, Queryable};
+ 
+ use crate::core::error::AppError;
+ use crate::core::PooledConnection;
++// Helpers centralizados (Bloque 4 / TAREA 4.2): antes estaban duplicados
++// localmente en este archivo. La migración los importa de `core::repository`
++// para DRY (igual que cliente/mantenimiento/reserva/renta/usuario/auto/gasto).
++use crate::core::repository::{map_fb_error_fk, opt_str, params, parse_fecha, parse_hora};
+ 
+ use serde::Serialize;
+ 
+@@ -81,15 +83,6 @@ pub struct ComparendoDatos {
+     pub origen: Option<String>,
+ }
+ 
+-/// Construye parámetros posicionales de cualquier longitud (tuplas `IntoParams`
+-/// limitadas a 15 elementos en rsfbclient). Usa `IntoParam` para que las fechas
+-/// viajen como DATE/TIME (el driver no serializa String a esos tipos).
+-macro_rules! params {
+-    ($($e:expr),+ $(,)?) => {
+-        ParamsType::Positional(vec![$($e.into_param()),+])
+-    };
+-}
+-
+ /// SELECT interno del cruce con rentas (columnas con prefijos y alias).
+ /// Mantener alineado con `SELECT_COLS_CRUCE_OUTER` y `ComparendoRow`.
+ pub const SELECT_COLS_CRUCE: &str = "\
+@@ -195,20 +188,16 @@ fn from_row(r: ComparendoRow) -> Comparendo {
+     }
+ }
+ 
+-/// Mapea errores de Firebird a AppError (FK de placa/renta/cliente)
++/// Mapea errores de Firebird a AppError (FK de placa/renta/cliente).
++///
++/// Wrapper que delega en `crate::core::repository::map_fb_error_fk` con el
++/// mensaje específico de comparendos. Antes esto estaba duplicado localmente
++/// (Bloque 4 / TAREA 4.2).
+ fn map_fb_error(e: rsfbclient::FbError) -> AppError {
+-    let msg = e.to_string();
+-    let lower = msg.to_lowercase();
+-    if lower.contains("foreign key")
+-        || lower.contains("not a valid reference")
+-        || lower.contains("referential")
+-    {
+-        AppError::Business(
+-            "La placa, la renta o el cliente seleccionado no existe. Verifica el registro.".into(),
+-        )
+-    } else {
+-        AppError::Database(msg)
+-    }
++    map_fb_error_fk(
++        e,
++        "La placa, la renta o el cliente seleccionado no existe. Verifica el registro.",
++    )
+ }
+ 
+ pub struct ComparendoRepository;
+@@ -536,26 +525,3 @@ impl ComparendoRepository {
+     }
+ }
+ 
+-fn opt_str(v: &Option<String>) -> Option<String> {
+-    v.as_ref()
+-        .map(|s| s.trim().to_string())
+-        .filter(|s| !s.is_empty())
+-}
+-
+-/// Parsea fecha 'AAAA-MM-DD' a NaiveDate (el servicio ya la validó)
+-fn parse_fecha(v: &str) -> Result<NaiveDate, AppError> {
+-    NaiveDate::parse_from_str(v.trim(), "%Y-%m-%d")
+-        .map_err(|_| AppError::Validation("Fecha inválida (formato AAAA-MM-DD).".into()))
+-}
+-
+-/// Parsea hora 'HH:MM[:SS]' a NaiveTime (el servicio ya la validó)
+-fn parse_hora(v: &str) -> Result<NaiveTime, AppError> {
+-    let h = v.trim();
+-    let h = if h.len() == 5 {
+-        format!("{h}:00")
+-    } else {
+-        h.to_string()
+-    };
+-    NaiveTime::parse_from_str(&h, "%H:%M:%S")
+-        .map_err(|_| AppError::Validation("Hora inválida (formato HH:MM).".into()))
+-}
+diff --git a/src-tauri/src/repositories/gasto.rs b/src-tauri/src/repositories/gasto.rs
+index fe34a8a..7ecaca3 100644
+--- a/src-tauri/src/repositories/gasto.rs
++++ b/src-tauri/src/repositories/gasto.rs
+@@ -4,16 +4,17 @@
+ //! - DECIMAL → CAST a VARCHAR (parseo exacto en el servicio/frontend)
+ //! - DATE/TIMESTAMP → CAST a VARCHAR
+ //!
+-//! > **TODO (Bloque 4 / TAREA 4.2)**: este repositorio aún define helpers
+-//! > locales (`map_fb_error`, `opt_str`, `params!`, ...) duplicados con
+-//! > `crate::core::repository`. Migración pendiente — ver
+-//! > `src/core/repository.rs` para el módulo centralizado.
++//! Helpers (`map_fb_error`, `opt_str`, `params!`, `parse_fecha`) importados
++//! de `crate::core::repository` (Bloque 4 / TAREA 4.2 — DRY).
+ 
+-use chrono::NaiveDate;
+ use rsfbclient::{Execute, IntoParam, ParamsType, Queryable};
+ 
+ use crate::core::error::AppError;
+ use crate::core::PooledConnection;
++// Helpers centralizados (Bloque 4 / TAREA 4.2): antes estaban duplicados
++// localmente en este archivo. La migración los importa de `core::repository`
++// para DRY (igual que cliente/mantenimiento/reserva/renta/usuario/auto).
++use crate::core::repository::{map_fb_error_fk, opt_str, params, parse_fecha};
+ 
+ use serde::Serialize;
+ 
+@@ -46,15 +47,6 @@ pub struct GastoDatos {
+     pub comprobante: Option<String>,
+ }
+ 
+-/// Construye parámetros posicionales de cualquier longitud (tuplas `IntoParams`
+-/// limitadas a 15 elementos en rsfbclient). Usa `IntoParam` para que las fechas
+-/// viajen como TIMESTAMP (el driver no serializa String a DATE).
+-macro_rules! params {
+-    ($($e:expr),+ $(,)?) => {
+-        ParamsType::Positional(vec![$($e.into_param()),+])
+-    };
+-}
+-
+ /// Orden de columnas del SELECT de gastos (debe coincidir con `GastoRow`)
+ pub const SELECT_COLS: &str = "\
+     id, placa, CAST(fecha AS VARCHAR(10)), categoria, descripcion, \
+@@ -91,20 +83,16 @@ fn from_row(r: GastoRow) -> Gasto {
+     }
+ }
+ 
+-/// Mapea errores de Firebird a AppError (FK de placa)
++/// Mapea errores de Firebird a AppError (FK de placa).
++///
++/// Wrapper que delega en `crate::core::repository::map_fb_error_fk` con el
++/// mensaje específico de gastos (placa inexistente). Antes esto estaba
++/// duplicado localmente (Bloque 4 / TAREA 4.2).
+ fn map_fb_error(e: rsfbclient::FbError) -> AppError {
+-    let msg = e.to_string();
+-    let lower = msg.to_lowercase();
+-    if lower.contains("foreign key")
+-        || lower.contains("not a valid reference")
+-        || lower.contains("referential")
+-    {
+-        AppError::Business(
+-            "La placa seleccionada no existe. Verifica que el vehículo esté registrado.".into(),
+-        )
+-    } else {
+-        AppError::Database(msg)
+-    }
++    map_fb_error_fk(
++        e,
++        "La placa seleccionada no existe. Verifica que el vehículo esté registrado.",
++    )
+ }
+ 
+ pub struct GastoRepository;
+@@ -328,14 +316,3 @@ impl GastoRepository {
+     }
+ }
+ 
+-fn opt_str(v: &Option<String>) -> Option<String> {
+-    v.as_ref()
+-        .map(|s| s.trim().to_string())
+-        .filter(|s| !s.is_empty())
+-}
+-
+-/// Parsea fecha 'AAAA-MM-DD' a NaiveDate (el servicio ya la validó)
+-fn parse_fecha(v: &str) -> Result<NaiveDate, AppError> {
+-    NaiveDate::parse_from_str(v.trim(), "%Y-%m-%d")
+-        .map_err(|_| AppError::Validation("Fecha inválida (formato AAAA-MM-DD).".into()))
+-}
+diff --git a/src-tauri/src/repositories/renta.rs b/src-tauri/src/repositories/renta.rs
+index 5c51a79..93a3423 100644
+--- a/src-tauri/src/repositories/renta.rs
++++ b/src-tauri/src/repositories/renta.rs
+@@ -847,54 +847,30 @@ impl RentaRepository {
+     /// lógica, sus pagos. Las inspecciones no tienen deleted_at (queda como
+     /// TODO si se requiere trazabilidad total) pero dejan de ser accesibles
+     /// porque la renta no aparece en los SELECTs (filtrados por deleted_at).
++    ///
++    /// ATÓMICO: los dos UPDATEs van en una sola transacción. Sin esto, si el
++    /// segundo UPDATE (cascada de pagos) falla, la renta quedaba marcada como
++    /// borrada pero sus pagos seguían activos — un renta huérfana con pagos
++    /// vivos que el listado de rentas ya no muestra pero el de pagos sí.
+     pub fn eliminar(conn: &mut PooledConnection, id: i64) -> Result<(), AppError> {
+-        conn.execute(
+-            "UPDATE rentas SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?",
+-            (id,),
+-        )
+-        .map_err(map_fb_error)?;
+-        // Soft-delete en cascada de los pagos asociados (la FK original era
+-        // ON DELETE CASCADE; con soft-delete hay que hacerlo a mano).
+-        conn.execute(
+-            "UPDATE pagos SET deleted_at = CURRENT_TIMESTAMP \
+-             WHERE id_renta = ? AND deleted_at IS NULL",
+-            (id,),
+-        )
+-        .map_err(map_fb_error)?;
++        conn.with_transaction(|tx| -> Result<(), rsfbclient::FbError> {
++            tx.execute(
++                "UPDATE rentas SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?",
++                (id,),
++            )?;
++            // Soft-delete en cascada de los pagos asociados (la FK original era
++            // ON DELETE CASCADE; con soft-delete hay que hacerlo a mano).
++            tx.execute(
++                "UPDATE pagos SET deleted_at = CURRENT_TIMESTAMP \
++                 WHERE id_renta = ? AND deleted_at IS NULL",
++                (id,),
++            )?;
++            Ok(())
++        })
++        .map_err(|e| AppError::Database(e.to_string()))?;
+         Ok(())
+     }
+ 
+-    /// Registra un pago contra la renta y actualiza abono/saldo pendiente
+-    pub fn insertar_pago(
+-        conn: &mut PooledConnection,
+-        id_renta: i64,
+-        p: &PagoDatos,
+-        usuario: &str,
+-        abono_nuevo: &str,
+-        saldo_nuevo: &str,
+-    ) -> Result<i64, AppError> {
+-        let (id,): (i64,) = conn
+-            .execute_returnable(
+-                "INSERT INTO pagos (id_renta, monto, metodo_pago, concepto, observaciones, usuario) \
+-                 VALUES (?, CAST(? AS DECIMAL(12,2)), ?, ?, ?, ?) RETURNING id",
+-                params![
+-                    id_renta,
+-                    p.monto.to_string(),
+-                    p.metodo_pago.to_string(),
+-                    p.concepto.to_string(),
+-                    opt_str(&p.observaciones),
+-                    usuario,
+-                ],
+-            )
+-            .map_err(map_fb_error)?;
+-        conn.execute(
+-            "UPDATE rentas SET abono = CAST(? AS DECIMAL(12,2)), saldo_pendiente = CAST(? AS DECIMAL(12,2)) \
+-             WHERE id = ?",
+-            (abono_nuevo.to_string(), saldo_nuevo.to_string(), id_renta),
+-        )?;
+-        Ok(id)
+-    }
+-
+     /// Inserta una inspección (salida/entrada)
+     pub fn insertar_inspeccion(
+         conn: &mut PooledConnection,
+diff --git a/src-tauri/src/services/cliente.rs b/src-tauri/src/services/cliente.rs
+index 6224633..9708bea 100644
+--- a/src-tauri/src/services/cliente.rs
++++ b/src-tauri/src/services/cliente.rs
+@@ -134,7 +134,13 @@ impl ClienteService {
+         cipher: &PiiCipher,
+         limit: i64,
+     ) -> Result<Vec<ClienteConPii>, AppError> {
+-        let raw = ClienteRepository::recientes(conn, limit)?;
++        // Acota el limite igual que MantenimientoService::recientes y
++        // GastoService::recientes: la query usa `FIRST {limit}` interpolado
++        // en SQL (rsfbclient no soporta `?` para FIRST/ROWS), y un limite
++        // <= 0 produce `FIRST 0` (0 filas) o `FIRST -N` (todas menos las
++        // ultimas N, semantica rara de Firebird). max(1) garantiza un minimo
++        // sensato sin cambiar el comportamiento para callers validos.
++        let raw = ClienteRepository::recientes(conn, limit.max(1))?;
+         Ok(raw.into_iter().map(|c| descifrar(cipher, c)).collect())
+     }
+ }
+diff --git a/src-tauri/src/services/dashboard.rs b/src-tauri/src/services/dashboard.rs
+index 43f79bf..77db26e 100644
+--- a/src-tauri/src/services/dashboard.rs
++++ b/src-tauri/src/services/dashboard.rs
+@@ -65,9 +65,13 @@ impl DashboardService {
+             .map(|c| c.cliente)
+             .collect();
+         let alertas = AutoService::alertas_vencimiento(conn, config)?;
+-        // Conteo parcial de rentas activas (repo de rentas llega en Fase 4)
++        // Conteo parcial de rentas activas (repo de rentas llega en Fase 4).
++        // El estado activo se persiste indistintamente como 'Activa' o 'Activo'
++        // (ver `RentaRepository::activas`), asi que el conteo del dashboard debe
++        // incluir ambos: filtrar solo por 'Activo' subreporta el numero real.
+         let rentas_activas: Option<(i64,)> = conn.query_first(
+-            "SELECT COUNT(*) FROM rentas WHERE estado = 'Activo' AND deleted_at IS NULL",
++            "SELECT COUNT(*) FROM rentas \
++             WHERE estado IN ('Activa', 'Activo') AND deleted_at IS NULL",
+             (),
+         )?;
+ 
+diff --git a/src-tauri/src/services/informe.rs b/src-tauri/src/services/informe.rs
+index c275dd0..d029c2a 100644
+--- a/src-tauri/src/services/informe.rs
++++ b/src-tauri/src/services/informe.rs
+@@ -98,6 +98,19 @@ impl InformeService {
+         fecha_inicio: &str,
+         fecha_fin: &str,
+     ) -> Result<InformeMensual, AppError> {
++        // Validacion de entradas: las fechas se interpolan como String en
++        // comparaciones contra columnas DATE de Firebird (>= ? / <= ?). Un
++        // string invalido provocaba un SQLCODE de conversion en la BD en
++        // vez de un mensaje claro de validacion para el usuario. Ademas se
++        // exige inicio <= fin para que el rango sea coherente.
++        let inicio = parse_fecha_informe(fecha_inicio)?;
++        let fin = parse_fecha_informe(fecha_fin)?;
++        if fin < inicio {
++            return Err(AppError::Validation(
++                "La fecha final no puede ser anterior a la fecha inicial.".into(),
++            ));
++        }
++
+         // 1 query (UNION ALL) en vez de 6 round-trips por separado.
+         let totales = InformeRepository::totales_rango(conn, fecha_inicio, fecha_fin)?;
+ 
+@@ -204,7 +217,14 @@ fn utilidad_por_vehiculo(
+         })
+         .collect();
+ 
+-    filas.sort_by(|a, b| b.utilidad.cmp(&a.utilidad));
++    // Orden descendente por utilidad numerica (no lexicografica): comparar
++    // strings haria que "9.00" > "100.00" (porque '9' > '1' como caracter),
++    // dando un orden incorrecto en la tabla del informe.
++    filas.sort_by(|a, b| {
++        let ua = Decimal::from_str(&a.utilidad).unwrap_or(Decimal::ZERO);
++        let ub = Decimal::from_str(&b.utilidad).unwrap_or(Decimal::ZERO);
++        ub.cmp(&ua)
++    });
+     Ok(filas)
+ }
+ 
+@@ -218,3 +238,15 @@ fn sum(vals: &[&str]) -> String {
+         .round_dp(2)
+         .to_string()
+ }
++
++/// Parsea una fecha 'AAAA-MM-DD' para el informe (validacion de entrada).
++/// Se mantiene local (en vez de importar `core::repository::parse_fecha`)
++/// solo para evitar ampliar el `use` del modulo con un helper que no se
++/// usa en ningun otro punto del service.
++fn parse_fecha_informe(v: &str) -> Result<chrono::NaiveDate, AppError> {
++    chrono::NaiveDate::parse_from_str(v.trim(), "%Y-%m-%d").map_err(|_| {
++        AppError::Validation(
++            "La fecha del informe no es valida (formato AAAA-MM-DD).".into(),
++        )
++    })
++}
+diff --git a/src-tauri/src/services/pii.rs b/src-tauri/src/services/pii.rs
+index 224b8e1..980dc01 100644
+--- a/src-tauri/src/services/pii.rs
++++ b/src-tauri/src/services/pii.rs
+@@ -15,6 +15,34 @@ use crate::core::PooledConnection;
+ use crate::repositories::cliente::ClienteRepository;
+ use crate::services::AppState;
+ 
++/// Valida que la clave PII tenga el formato documentado en SECURITY.md §1.2:
++/// base64 estándar de exactamente 32 bytes (256 bits), generado con
++/// `openssl rand -base64 32`. Rechazar claves débiles o con formato
++/// incorrecto evita que un admin persista una clave trivialmente
++/// adivinable que protegería todos los datos PII de los clientes.
++fn validar_clave_pii(clave: &str) -> Result<(), AppError> {
++    use base64::engine::general_purpose::STANDARD as B64;
++    use base64::Engine;
++    let trimmed = clave.trim();
++    if trimmed.is_empty() {
++        return Err(AppError::Validation(
++            "La clave no puede estar vacía. Usa eliminar para quitarla.".into(),
++        ));
++    }
++    let decoded = B64.decode(trimmed).map_err(|_| {
++        AppError::Validation(
++            "La clave PII debe ser base64 válido (generar con: openssl rand -base64 32).".into(),
++        )
++    })?;
++    if decoded.len() != 32 {
++        return Err(AppError::Validation(format!(
++            "La clave PII debe decodificar a 32 bytes (256 bits), no a {} bytes.              Generar con: openssl rand -base64 32.",
++            decoded.len()
++        )));
++    }
++    Ok(())
++}
++
+ /// Conteo de clientes según su estado de descifrado
+ #[derive(Debug, Clone, Default, Serialize)]
+ #[serde(rename_all = "camelCase")]
+@@ -141,12 +169,12 @@ impl PiiService {
+ 
+     /// Persiste la clave en config.ini, actualiza el estado en caliente y
+     /// devuelve el análisis resultante.
++    ///
++    /// Valida el formato antes de persistir: debe ser base64 de 32 bytes
++    /// (ver SECURITY.md §1.2). `probar_clave` sigue aceptando cualquier
++    /// clave para diagnóstico, pero solo se persisten claves bien formadas.
+     pub fn guardar_clave(state: &AppState, clave: &str) -> Result<ClaveGuardada, AppError> {
+-        if clave.trim().is_empty() {
+-            return Err(AppError::Validation(
+-                "La clave no puede estar vacía. Usa eliminar para quitarla.".into(),
+-            ));
+-        }
++        validar_clave_pii(clave)?;
+         state.config.persist_db_encryption_key(clave)?;
+         *state.pii_key.lock().unwrap_or_else(|p| p.into_inner()) = clave.trim().to_string();
+         let mut conn = state.pool.get()?;
+diff --git a/src-tauri/src/services/renta.rs b/src-tauri/src/services/renta.rs
+index 59357f9..f43e546 100644
+--- a/src-tauri/src/services/renta.rs
++++ b/src-tauri/src/services/renta.rs
+@@ -68,7 +68,7 @@ impl RentaService {
+         mut datos: RentaDatos,
+     ) -> Result<Renta, AppError> {
+         normalizar(&mut datos);
+-        completar_cliente(conn, &mut datos);
++        completar_cliente(conn, &mut datos)?;
+         calcular_totales(&mut datos, cfg);
+         // El abono inicial descuenta del saldo: saldo = total − abono
+         datos.saldo_pendiente = (dec(&datos.total, "0.00") - dec(&datos.abono, "0.00"))
+@@ -138,7 +138,7 @@ impl RentaService {
+             ));
+         }
+         normalizar(&mut datos);
+-        completar_cliente(conn, &mut datos);
++        completar_cliente(conn, &mut datos)?;
+         calcular_totales(&mut datos, cfg);
+         // Conservar el abono ya registrado: saldo = total − abono actual
+         datos.saldo_pendiente = (dec(&datos.total, "0.00") - dec_str(&actual.abono))
+@@ -1097,14 +1097,25 @@ fn normalizar_cierre(d: &mut RentaCierreDatos) {
+     }
+ }
+ 
+-/// Autocompleta nombre_cliente y nacionalidad desde la tabla clientes
+-fn completar_cliente(conn: &mut PooledConnection, d: &mut RentaDatos) {
++/// Autocompleta nombre_cliente y nacionalidad desde la tabla clientes.
++///
++/// Propaga los errores de BD en vez de silenciarlos: si la consulta falla
++/// (conexion perdida, FK invalida, etc.) la renta NO debe persistirse con
++/// datos obsoletos del formulario; el caller (crear/actualizar) debe ver el
++/// error y abortar. Antes se hacia `if let Ok(Some(c)) = ...` y un fallo de
++/// BD se tragaba silenciosamente, dejando la renta con el nombre que el
++/// frontend paso (que puede no coincidir con el cliente referenciado).
++fn completar_cliente(
++    conn: &mut PooledConnection,
++    d: &mut RentaDatos,
++) -> Result<(), AppError> {
+     if let Some(idc) = d.id_cliente {
+-        if let Ok(Some(c)) = ClienteRepository::obtener_por_id(conn, idc) {
++        if let Some(c) = ClienteRepository::obtener_por_id(conn, idc)? {
+             d.nombre_cliente = c.nombre_completo;
+             d.nacionalidad = c.nacionalidad;
+         }
+     }
++    Ok(())
+ }
+ 
+ /// Recalcula subtotal/impuestos/total/saldo desde las tarifas y costos
+diff --git a/src-tauri/src/services/reserva.rs b/src-tauri/src/services/reserva.rs
+index 73bbb56..252aba7 100644
+--- a/src-tauri/src/services/reserva.rs
++++ b/src-tauri/src/services/reserva.rs
+@@ -62,7 +62,7 @@ impl ReservaService {
+         mut datos: ReservaDatos,
+     ) -> Result<Reserva, AppError> {
+         normalizar(&mut datos);
+-        completar_cliente(conn, &mut datos);
++        completar_cliente(conn, &mut datos)?;
+         calcular_total(&mut datos);
+         validar(&datos, cfg)?;
+         let id = ReservaRepository::insertar(conn, &datos)?;
+@@ -86,7 +86,7 @@ impl ReservaService {
+     ) -> Result<Reserva, AppError> {
+         Self::obtener(conn, id)?;
+         normalizar(&mut datos);
+-        completar_cliente(conn, &mut datos);
++        completar_cliente(conn, &mut datos)?;
+         calcular_total(&mut datos);
+         validar(&datos, cfg)?;
+         ReservaRepository::actualizar(conn, id, &datos)?;
+@@ -191,14 +191,25 @@ fn normalizar(d: &mut ReservaDatos) {
+     }
+ }
+ 
+-/// Autocompleta nombre_cliente y nacionalidad desde la tabla clientes cuando hay id_cliente
+-fn completar_cliente(conn: &mut PooledConnection, d: &mut ReservaDatos) {
++/// Autocompleta nombre_cliente y nacionalidad desde la tabla clientes cuando hay id_cliente.
++///
++/// Propaga los errores de BD en vez de silenciarlos: si la consulta falla
++/// (conexion perdida, FK invalida, etc.) la reserva NO debe persistirse con
++/// datos obsoletos del formulario; el caller (crear/actualizar) debe ver el
++/// error y abortar. Antes se hacia `if let Ok(Some(c)) = ...` y un fallo de
++/// BD se tragaba silenciosamente, dejando la reserva con el nombre que el
++/// frontend paso (que puede no coincidir con el cliente referenciado).
++fn completar_cliente(
++    conn: &mut PooledConnection,
++    d: &mut ReservaDatos,
++) -> Result<(), AppError> {
+     if let Some(idc) = d.id_cliente {
+-        if let Ok(Some(c)) = ClienteRepository::obtener_por_id(conn, idc) {
++        if let Some(c) = ClienteRepository::obtener_por_id(conn, idc)? {
+             d.nombre_cliente = c.nombre_completo;
+             d.nacionalidad = c.nacionalidad;
+         }
+     }
++    Ok(())
+ }
+ 
+ /// Recalcula el total desde las tarifas (el backend es la fuente de verdad)
+diff --git a/src-tauri/tauri.conf.json b/src-tauri/tauri.conf.json
+index f7e3cf8..5ac13a5 100644
+--- a/src-tauri/tauri.conf.json
++++ b/src-tauri/tauri.conf.json
+@@ -23,7 +23,7 @@
+       }
+     ],
+     "security": {
+-      "csp": "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
++      "csp": "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests"
+     }
+   },
+   "bundle": {
+diff --git a/src/lib/api/base.ts b/src/lib/api/base.ts
+index f55c9f8..5d4bab5 100644
+--- a/src/lib/api/base.ts
++++ b/src/lib/api/base.ts
+@@ -43,8 +43,18 @@ export async function invokeCmd<T>(command: string, args?: Record<string, unknow
+ 				throw new ApiError({ kind: 'generic', message: err });
+ 			}
+ 		}
+-		// Objeto de error estructurado
+-		if (err && typeof err === 'object' && 'kind' in err) {
++		// Objeto de error estructurado: nos aseguramos de que tenga al menos
++		// los campos obligatorios (kind + message) antes de hacer el cast a
++		// ApiErrorPayload. Si solo tiene `kind` (p. ej. un Reject de Tauri
++		// con shape distinto), cae al fallback genérico en vez de leer
++		// `undefined` como message.
++		if (
++			err &&
++			typeof err === 'object' &&
++			'kind' in err &&
++			'message' in err &&
++			typeof (err as { message: unknown }).message === 'string'
++		) {
+ 			throw new ApiError(err as ApiErrorPayload);
+ 		}
+ 		throw new ApiError({ kind: 'generic', message: String(err) });
+diff --git a/src/lib/components/SearchSelect.svelte b/src/lib/components/SearchSelect.svelte
+index 715fe65..6cd12b9 100644
+--- a/src/lib/components/SearchSelect.svelte
++++ b/src/lib/components/SearchSelect.svelte
+@@ -148,7 +148,12 @@
+ 		// Pequeño retardo para que el clic en la lista tenga tiempo de dispararse
+ 		// antes de cerrar (el pointerdown global ya cierra al hacer clic fuera).
+ 		setTimeout(() => {
+-			if (abierto) cerrar();
++			// Si el foco volvió al input (o a un hijo del root) dentro de los
++			// 120 ms (p. ej. el usuario re-enfocó tras un blur intermitente),
++			// NO cerrar: el combo sigue activo y el usuario sigue escribiendo.
++			if (abierto && rootRef && !rootRef.contains(document.activeElement)) {
++				cerrar();
++			}
+ 		}, 120);
+ 	}
+ 
+diff --git a/src/lib/components/Toast.svelte b/src/lib/components/Toast.svelte
+index c73a76f..ff60e5e 100644
+--- a/src/lib/components/Toast.svelte
++++ b/src/lib/components/Toast.svelte
+@@ -46,7 +46,8 @@
+ 			class="pointer-events-auto flex items-start gap-3 rounded-xl border bg-surface shadow-lg px-4 py-3 {styles[
+ 				t.type
+ 			].border}"
+-			role="status"
++			role={t.type === 'error' ? 'alert' : 'status'}
++			aria-live={t.type === 'error' ? 'assertive' : 'polite'}
+ 		>
+ 			<span
+ 				class="w-7 h-7 rounded-full flex items-center justify-center shrink-0 {styles[t.type].icon}"
+diff --git a/src/lib/stores/empresa.svelte.ts b/src/lib/stores/empresa.svelte.ts
+index 704673b..282cb3b 100644
+--- a/src/lib/stores/empresa.svelte.ts
++++ b/src/lib/stores/empresa.svelte.ts
+@@ -113,18 +113,28 @@ class EmpresaStore {
+ 		return FALLBACK_CIUDAD;
+ 	}
+ 
++	// Promesa en vuelo para cargarPublica: evita que dos llamadas concurrentes
++	// (layout + login montando a la vez) disparen dos peticiones idénticas a
++	// `empresaApi.publica()` y compitan por escribir this.nombre / this.logo.
++	private cargandoPublica: Promise<void> | null = null;
++
+ 	/** Carga la vista pública (best-effort: ante error conserva el fallback). */
+ 	async cargarPublica(): Promise<void> {
+ 		if (this.cargado) return;
+-		try {
+-			const cfg = await empresaApi.publica();
+-			this.nombre = cfg.nombre;
+-			this.logo = cfg.logo;
+-		} catch (e) {
+-			console.warn('No se pudo cargar la configuración de la empresa:', e);
+-		} finally {
+-			this.cargado = true;
+-		}
++		if (this.cargandoPublica) return this.cargandoPublica;
++		this.cargandoPublica = (async () => {
++			try {
++				const cfg = await empresaApi.publica();
++				this.nombre = cfg.nombre;
++				this.logo = cfg.logo;
++			} catch (e) {
++				console.warn('No se pudo cargar la configuración de la empresa:', e);
++			} finally {
++				this.cargado = true;
++				this.cargandoPublica = null;
++			}
++		})();
++		return this.cargandoPublica;
+ 	}
+ 
+ 	/** Carga el estado del setup inicial (requiere sesión). `null` → consulta. */
+diff --git a/src/routes/+layout.svelte b/src/routes/+layout.svelte
+index 227814b..458791a 100644
+--- a/src/routes/+layout.svelte
++++ b/src/routes/+layout.svelte
+@@ -437,6 +437,7 @@
+ 							onclick={handleLogout}
+ 							class="text-white/60 hover:text-white transition-colors p-1 rounded"
+ 							title="Cerrar sesión"
++							aria-label="Cerrar sesión"
+ 						>
+ 							<svg
+ 								xmlns="http://www.w3.org/2000/svg"
+@@ -465,6 +466,7 @@
+ 					onclick={() => (sidebarOpen = !sidebarOpen)}
+ 					class="p-2 rounded-lg text-text-secondary hover:bg-alt-row hover:text-text-primary transition-colors"
+ 					title={sidebarOpen ? 'Contraer menú' : 'Expandir menú'}
++					aria-label={sidebarOpen ? 'Contraer menú lateral' : 'Expandir menú lateral'}
+ 				>
+ 					<svg
+ 						xmlns="http://www.w3.org/2000/svg"
+diff --git a/src/routes/alertas/+page.svelte b/src/routes/alertas/+page.svelte
+index 26c4cd9..b3cb5b2 100644
+--- a/src/routes/alertas/+page.svelte
++++ b/src/routes/alertas/+page.svelte
+@@ -26,16 +26,18 @@
+ 	let ultimaActualizacion = $state<Date | null>(null);
+ 	let error = $state('');
+ 
+-	const diasVencimiento = $derived.by(() => {
++	// Devuelve los días que faltan (o pasaron) para una fecha ISO (YYYY-MM-DD).
++	// Se calcula contra "hoy" en cada llamada para no quedar stale si la app
++	// stays abierta pasado la medianoche (antes `hoy` se capturaba una sola vez
++	// en un `$derived.by` sin dependencias reactivas).
++	function diasVencimiento(fecha: string | null): number | null {
++		if (!fecha) return null;
++		const d = new Date(fecha + 'T00:00:00');
++		if (Number.isNaN(d.getTime())) return null;
+ 		const hoy = new Date();
+ 		hoy.setHours(0, 0, 0, 0);
+-		return (fecha: string | null): number | null => {
+-			if (!fecha) return null;
+-			const d = new Date(fecha + 'T00:00:00');
+-			if (Number.isNaN(d.getTime())) return null;
+-			return Math.round((d.getTime() - hoy.getTime()) / 86_400_000);
+-		};
+-	});
++		return Math.round((d.getTime() - hoy.getTime()) / 86_400_000);
++	}
+ 
+ 	// Rentas activas por vencer (retorno dentro de 3 días o ya vencidas)
+ 	const rentasPorVencer = $derived(
+diff --git a/src/routes/autos/+page.svelte b/src/routes/autos/+page.svelte
+index 518fc56..03f60ab 100644
+--- a/src/routes/autos/+page.svelte
++++ b/src/routes/autos/+page.svelte
+@@ -429,6 +429,7 @@
+ 						<button
+ 							class="p-2 rounded-lg text-text-secondary hover:text-primary hover:bg-primary/10 transition-colors"
+ 							title="Editar"
++							aria-label="Editar vehículo {a.placa}"
+ 							onclick={() => abrirEditar(a)}
+ 						>
+ 							<svg
+@@ -449,6 +450,7 @@
+ 							<button
+ 								class="p-2 rounded-lg text-text-secondary hover:text-peligro hover:bg-peligro/10 transition-colors"
+ 								title="Eliminar"
++								aria-label="Eliminar vehículo {a.placa}"
+ 								onclick={() => (eliminarPlaca = a.placa)}
+ 							>
+ 								<svg
+diff --git a/src/routes/calendario/+page.svelte b/src/routes/calendario/+page.svelte
+index f7cc94a..7ac04ff 100644
+--- a/src/routes/calendario/+page.svelte
++++ b/src/routes/calendario/+page.svelte
+@@ -62,8 +62,14 @@
+ 		return d.toISOString().slice(0, 10);
+ 	}
+ 
++	// Token de carga: descarta respuestas de cargas anteriores (p. ej. cuando
++	// el usuario navega meses rápido y la 1ª petición responde después de la
++	// 2ª). Sin esto, los datos del mes anterior sobreescribirían los del mes
++	// actual que el usuario ya está viendo.
++	let cargaId = 0;
+ 	async function cargar() {
+ 		if (!guardSesion()) return;
++		const myId = ++cargaId;
+ 		loading = true;
+ 		try {
+ 			const limiteInf = limiteInferiorIso();
+@@ -72,12 +78,14 @@
+ 				rentaApi.listar(sid(), undefined, undefined, undefined, limiteInf, limiteSup),
+ 				reservaApi.listar(sid(), undefined, undefined, limiteInf, limiteSup)
+ 			]);
++			if (myId !== cargaId) return; // stale: otra carga más reciente ya está en vuelo
+ 			rentas = r;
+ 			reservas = rs;
+ 		} catch {
++			if (myId !== cargaId) return; // stale: no mostrar error de una carga obsoleta
+ 			toast.error('No se pudieron cargar los datos del calendario.');
+ 		} finally {
+-			loading = false;
++			if (myId === cargaId) loading = false;
+ 		}
+ 	}
+ 
+diff --git a/src/routes/clientes/+page.svelte b/src/routes/clientes/+page.svelte
+index 31bd9da..45e478e 100644
+--- a/src/routes/clientes/+page.svelte
++++ b/src/routes/clientes/+page.svelte
+@@ -299,6 +299,7 @@
+ 						<button
+ 							class="p-2 rounded-lg text-text-secondary hover:text-primary hover:bg-primary/10 transition-colors"
+ 							title="Editar"
++							aria-label="Editar cliente {c.nombreCompleto}"
+ 							onclick={() => abrirEditar(c)}
+ 						>
+ 							<svg
+@@ -319,6 +320,7 @@
+ 							<button
+ 								class="p-2 rounded-lg text-text-secondary hover:text-peligro hover:bg-peligro/10 transition-colors"
+ 								title="Eliminar"
++								aria-label="Eliminar cliente {c.nombreCompleto}"
+ 								onclick={() => {
+ 									eliminarId = c.id;
+ 									eliminarNombre = c.nombreCompleto;
+diff --git a/src/routes/usuarios/+page.svelte b/src/routes/usuarios/+page.svelte
+index 0179150..fdff128 100644
+--- a/src/routes/usuarios/+page.svelte
++++ b/src/routes/usuarios/+page.svelte
+@@ -530,6 +530,7 @@
+ 		: 'Crea una cuenta con contraseña inicial y rol.'}
+ 	onClose={() => (modalOpen = false)}
+ 	width="max-w-xl"
++	dismissible={!guardando}
+ >
+ 	{#snippet children()}
+ 		{#if formError}
+@@ -701,6 +702,7 @@
+ 	subtitle="El usuario deberá cambiar esta contraseña en su próximo ingreso."
+ 	onClose={() => (forzarUsuario = null)}
+ 	width="max-w-md"
++	dismissible={!forcando}
+ >
+ 	{#snippet children()}
+ 		{#if forzarError}
+diff --git a/vite.config.ts b/vite.config.ts
+index 75cb399..7a1d9ee 100644
+--- a/vite.config.ts
++++ b/vite.config.ts
+@@ -6,6 +6,13 @@ import tailwindcss from '@tailwindcss/vite';
+ export default defineConfig({
+ 	plugins: [tailwindcss(), sveltekit()],
+ 	clearScreen: false,
++	// Defense-in-depth: never emit source maps in any build (dev or prod).
++	// Vite defaults to false in prod, but setting it explicitly prevents a
++	// future config change or plugin from accidentally shipping source maps
++	// to end users (which would expose the original TS/Svelte source).
++	build: {
++		sourcemap: false
++	},
+ 	server: {
+ 		port: 5173,
+ 		strictPort: true,
+-- 
+2.47.3
+

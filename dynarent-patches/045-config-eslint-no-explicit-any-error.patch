@@ -1,0 +1,32 @@
+From 5484c951fae4a6dce3bdc4ea22e833a3d9a1e13d Mon Sep 17 00:00:00 2001
+From: Z User <z@container>
+Date: Fri, 28 Aug 2026 14:54:11 +0000
+Subject: [PATCH] config: escalate @typescript-eslint/no-explicit-any from warn
+ to error
+
+The rule was set to 'warn' to avoid breaking the build when it was
+introduced. The codebase now has zero explicit `any` types in
+production code (only 4 in src/test/, which are exempt via the test
+override). Escalating to 'error' prevents regressions: any future PR
+that introduces an `any` in production code will fail CI instead of
+just printing a warning that is easy to miss in the log output.
+---
+ eslint.config.js | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/eslint.config.js b/eslint.config.js
+index ae3a2b4..52ffe5b 100644
+--- a/eslint.config.js
++++ b/eslint.config.js
+@@ -112,7 +112,7 @@ export default [
+ 			'no-undef': 'off',
+ 			// Sin `any` sin justificación. Si necesitas uno, usa `eslint-disable-next-line`
+ 			// con un comentario explicando por qué. No es error para no romper el build.
+-			'@typescript-eslint/no-explicit-any': 'warn',
++			'@typescript-eslint/no-explicit-any': 'error',
+ 			// Sin @ts-ignore (usar @ts-expect-error con razón, o arreglar el tipo).
+ 			// En este repo NO hay ninguno hoy; la regla evita que se introduzcan.
+ 			'@typescript-eslint/ban-ts-comment': 'error',
+-- 
+2.47.3
+

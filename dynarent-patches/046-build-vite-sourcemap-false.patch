@@ -1,0 +1,39 @@
+From 56a9f1dc01e15afa2b98cdaeb1f90f6c33f48e33 Mon Sep 17 00:00:00 2001
+From: Z User <z@container>
+Date: Fri, 28 Aug 2026 14:50:47 +0000
+Subject: [PATCH] build: explicitly disable source maps in vite production
+ build
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Vite defaults to build.sourcemap: false, but this is an implicit default
+that could change if a plugin or future config tweak overrides it. Set
+it explicitly to false so source maps are never shipped to end users in
+the Tauri bundle — the production webview should only contain minified,
+hashed JS/CSS, not the original TypeScript/Svelte source.
+---
+ vite.config.ts | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/vite.config.ts b/vite.config.ts
+index 75cb399..7a1d9ee 100644
+--- a/vite.config.ts
++++ b/vite.config.ts
+@@ -6,6 +6,13 @@ import tailwindcss from '@tailwindcss/vite';
+ export default defineConfig({
+ 	plugins: [tailwindcss(), sveltekit()],
+ 	clearScreen: false,
++	// Defense-in-depth: never emit source maps in any build (dev or prod).
++	// Vite defaults to false in prod, but setting it explicitly prevents a
++	// future config change or plugin from accidentally shipping source maps
++	// to end users (which would expose the original TS/Svelte source).
++	build: {
++		sourcemap: false
++	},
+ 	server: {
+ 		port: 5173,
+ 		strictPort: true,
+-- 
+2.47.3
+

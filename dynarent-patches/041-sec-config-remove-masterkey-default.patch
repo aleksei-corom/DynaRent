@@ -1,0 +1,47 @@
+From 24e997b5b3850527ebab3be952fe7a145d1a231f Mon Sep 17 00:00:00 2001
+From: Z User <z@container>
+Date: Fri, 28 Aug 2026 14:41:58 +0000
+Subject: [PATCH] security: remove hardcoded 'masterkey' default DB password
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The DEFAULTS table and the load() fallback both baked in 'masterkey' —
+the well-known Firebird default credential. In embedded mode the password
+is never sent to the engine (builder_embedded sets only user+db_name),
+so an empty default is functionally equivalent and avoids writing a
+known-weak credential into the auto-generated config.ini on first run.
+
+If a deployment later switches to Firebird server mode, an empty password
+will fail loudly (connection refused) instead of silently authenticating
+with the default 'masterkey' — forcing the operator to set a real
+password in config.ini.
+---
+ src-tauri/src/core/config.rs | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src-tauri/src/core/config.rs b/src-tauri/src/core/config.rs
+index 693cddb..4fb8b2c 100644
+--- a/src-tauri/src/core/config.rs
++++ b/src-tauri/src/core/config.rs
+@@ -18,7 +18,7 @@ const DEFAULTS: &[(&str, &str, &str)] = &[
+     ("database", "host", "localhost"),
+     ("database", "port", "3050"),
+     ("database", "user", "sysdba"),
+-    ("database", "password", "masterkey"),
++    ("database", "password", ""),
+     ("database", "database", "dynarent"),
+     ("database", "path", "dynarent_v3.fdb"),
+     ("database", "timeout", "10"),
+@@ -259,7 +259,7 @@ impl AppConfig {
+ 
+         Self {
+             db_user: get_str(&map, "database", "user", "sysdba"),
+-            db_password: get_str(&map, "database", "password", "masterkey"),
++            db_password: get_str(&map, "database", "password", ""),
+             db_path,
+             fbclient_path,
+             pool_size: get_usize(&map, "database", "pool_size", 10),
+-- 
+2.47.3
+

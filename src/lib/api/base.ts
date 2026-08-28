@@ -43,8 +43,18 @@ export async function invokeCmd<T>(command: string, args?: Record<string, unknow
 				throw new ApiError({ kind: 'generic', message: err });
 			}
 		}
-		// Objeto de error estructurado
-		if (err && typeof err === 'object' && 'kind' in err) {
+		// Objeto de error estructurado: nos aseguramos de que tenga al menos
+		// los campos obligatorios (kind + message) antes de hacer el cast a
+		// ApiErrorPayload. Si solo tiene `kind` (p. ej. un Reject de Tauri
+		// con shape distinto), cae al fallback genérico en vez de leer
+		// `undefined` como message.
+		if (
+			err &&
+			typeof err === 'object' &&
+			'kind' in err &&
+			'message' in err &&
+			typeof (err as { message: unknown }).message === 'string'
+		) {
 			throw new ApiError(err as ApiErrorPayload);
 		}
 		throw new ApiError({ kind: 'generic', message: String(err) });

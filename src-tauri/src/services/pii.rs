@@ -15,6 +15,34 @@ use crate::core::PooledConnection;
 use crate::repositories::cliente::ClienteRepository;
 use crate::services::AppState;
 
+/// Valida que la clave PII tenga el formato documentado en SECURITY.md §1.2:
+/// base64 estándar de exactamente 32 bytes (256 bits), generado con
+/// `openssl rand -base64 32`. Rechazar claves débiles o con formato
+/// incorrecto evita que un admin persista una clave trivialmente
+/// adivinable que protegería todos los datos PII de los clientes.
+fn validar_clave_pii(clave: &str) -> Result<(), AppError> {
+    use base64::engine::general_purpose::STANDARD as B64;
+    use base64::Engine;
+    let trimmed = clave.trim();
+    if trimmed.is_empty() {
+        return Err(AppError::Validation(
+            "La clave no puede estar vacía. Usa eliminar para quitarla.".into(),
+        ));
+    }
+    let decoded = B64.decode(trimmed).map_err(|_| {
+        AppError::Validation(
+            "La clave PII debe ser base64 válido (generar con: openssl rand -base64 32).".into(),
+        )
+    })?;
+    if decoded.len() != 32 {
+        return Err(AppError::Validation(format!(
+            "La clave PII debe decodificar a 32 bytes (256 bits), no a {} bytes.              Generar con: openssl rand -base64 32.",
+            decoded.len()
+        )));
+    }
+    Ok(())
+}
+
 /// Conteo de clientes según su estado de descifrado
 #[derive(Debug, Clone, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -141,12 +169,12 @@ impl PiiService {
 
     /// Persiste la clave en config.ini, actualiza el estado en caliente y
     /// devuelve el análisis resultante.
+    ///
+    /// Valida el formato antes de persistir: debe ser base64 de 32 bytes
+    /// (ver SECURITY.md §1.2). `probar_clave` sigue aceptando cualquier
+    /// clave para diagnóstico, pero solo se persisten claves bien formadas.
     pub fn guardar_clave(state: &AppState, clave: &str) -> Result<ClaveGuardada, AppError> {
-        if clave.trim().is_empty() {
-            return Err(AppError::Validation(
-                "La clave no puede estar vacía. Usa eliminar para quitarla.".into(),
-            ));
-        }
+        validar_clave_pii(clave)?;
         state.config.persist_db_encryption_key(clave)?;
         *state.pii_key.lock().unwrap_or_else(|p| p.into_inner()) = clave.trim().to_string();
         let mut conn = state.pool.get()?;

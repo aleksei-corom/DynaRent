@@ -1,0 +1,63 @@
+From ae57bda0354a31964af7b22f8f4cd5fc3ca19157 Mon Sep 17 00:00:00 2001
+From: Z User <z@container>
+Date: Fri, 28 Aug 2026 15:14:34 +0000
+Subject: [PATCH] quality(rust): remove dead code
+ RentaRepository::insertar_pago
+
+RentaRepository::insertar_pago has no callers: the service
+(RentaService::registrar_pago) implements its own version inside a
+with_transaction closure that also writes the auditoria entry, so the
+repository method was both dead and misleading (it did two SQL
+operations without a transaction wrapper, suggesting it could be used
+standalone when in fact using it would lose the atomicity guarantee).
+
+Remove it. Behavior is unchanged for users of the public API.
+---
+ src-tauri/src/repositories/renta.rs | 31 -----------------------------
+ 1 file changed, 31 deletions(-)
+
+diff --git a/src-tauri/src/repositories/renta.rs b/src-tauri/src/repositories/renta.rs
+index 5c51a79..174e475 100644
+--- a/src-tauri/src/repositories/renta.rs
++++ b/src-tauri/src/repositories/renta.rs
+@@ -864,37 +864,6 @@ impl RentaRepository {
+         Ok(())
+     }
+ 
+-    /// Registra un pago contra la renta y actualiza abono/saldo pendiente
+-    pub fn insertar_pago(
+-        conn: &mut PooledConnection,
+-        id_renta: i64,
+-        p: &PagoDatos,
+-        usuario: &str,
+-        abono_nuevo: &str,
+-        saldo_nuevo: &str,
+-    ) -> Result<i64, AppError> {
+-        let (id,): (i64,) = conn
+-            .execute_returnable(
+-                "INSERT INTO pagos (id_renta, monto, metodo_pago, concepto, observaciones, usuario) \
+-                 VALUES (?, CAST(? AS DECIMAL(12,2)), ?, ?, ?, ?) RETURNING id",
+-                params![
+-                    id_renta,
+-                    p.monto.to_string(),
+-                    p.metodo_pago.to_string(),
+-                    p.concepto.to_string(),
+-                    opt_str(&p.observaciones),
+-                    usuario,
+-                ],
+-            )
+-            .map_err(map_fb_error)?;
+-        conn.execute(
+-            "UPDATE rentas SET abono = CAST(? AS DECIMAL(12,2)), saldo_pendiente = CAST(? AS DECIMAL(12,2)) \
+-             WHERE id = ?",
+-            (abono_nuevo.to_string(), saldo_nuevo.to_string(), id_renta),
+-        )?;
+-        Ok(id)
+-    }
+-
+     /// Inserta una inspección (salida/entrada)
+     pub fn insertar_inspeccion(
+         conn: &mut PooledConnection,
+-- 
+2.47.3
+

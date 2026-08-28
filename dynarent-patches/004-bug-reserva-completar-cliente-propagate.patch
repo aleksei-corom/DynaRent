@@ -1,0 +1,72 @@
+From ed5097f8de4fdcd1e18a825af9e33e5a49889fb3 Mon Sep 17 00:00:00 2001
+From: Z User <z@container>
+Date: Fri, 28 Aug 2026 15:12:54 +0000
+Subject: [PATCH] fix(rust): propagate DB errors in reserva completar_cliente
+
+Same bug as in renta.rs: completar_cliente used
+`if let Ok(Some(c)) = ClienteRepository::obtener_por_id(...)` which
+silently swallowed any database error. When that happened the reserva was
+still persisted with whatever nombre_cliente/nacionalidad the frontend
+sent, diverging from the client referenced by id_cliente.
+
+Change the helper to return Result<(), AppError> and propagate the error.
+The two callers (crear and actualizar) now use `?` so a DB failure
+aborts the operation cleanly with the real error message.
+---
+ src-tauri/src/services/reserva.rs | 21 ++++++++++++++++-----
+ 1 file changed, 16 insertions(+), 5 deletions(-)
+
+diff --git a/src-tauri/src/services/reserva.rs b/src-tauri/src/services/reserva.rs
+index 73bbb56..252aba7 100644
+--- a/src-tauri/src/services/reserva.rs
++++ b/src-tauri/src/services/reserva.rs
+@@ -62,7 +62,7 @@ impl ReservaService {
+         mut datos: ReservaDatos,
+     ) -> Result<Reserva, AppError> {
+         normalizar(&mut datos);
+-        completar_cliente(conn, &mut datos);
++        completar_cliente(conn, &mut datos)?;
+         calcular_total(&mut datos);
+         validar(&datos, cfg)?;
+         let id = ReservaRepository::insertar(conn, &datos)?;
+@@ -86,7 +86,7 @@ impl ReservaService {
+     ) -> Result<Reserva, AppError> {
+         Self::obtener(conn, id)?;
+         normalizar(&mut datos);
+-        completar_cliente(conn, &mut datos);
++        completar_cliente(conn, &mut datos)?;
+         calcular_total(&mut datos);
+         validar(&datos, cfg)?;
+         ReservaRepository::actualizar(conn, id, &datos)?;
+@@ -191,14 +191,25 @@ fn normalizar(d: &mut ReservaDatos) {
+     }
+ }
+ 
+-/// Autocompleta nombre_cliente y nacionalidad desde la tabla clientes cuando hay id_cliente
+-fn completar_cliente(conn: &mut PooledConnection, d: &mut ReservaDatos) {
++/// Autocompleta nombre_cliente y nacionalidad desde la tabla clientes cuando hay id_cliente.
++///
++/// Propaga los errores de BD en vez de silenciarlos: si la consulta falla
++/// (conexion perdida, FK invalida, etc.) la reserva NO debe persistirse con
++/// datos obsoletos del formulario; el caller (crear/actualizar) debe ver el
++/// error y abortar. Antes se hacia `if let Ok(Some(c)) = ...` y un fallo de
++/// BD se tragaba silenciosamente, dejando la reserva con el nombre que el
++/// frontend paso (que puede no coincidir con el cliente referenciado).
++fn completar_cliente(
++    conn: &mut PooledConnection,
++    d: &mut ReservaDatos,
++) -> Result<(), AppError> {
+     if let Some(idc) = d.id_cliente {
+-        if let Ok(Some(c)) = ClienteRepository::obtener_por_id(conn, idc) {
++        if let Some(c) = ClienteRepository::obtener_por_id(conn, idc)? {
+             d.nombre_cliente = c.nombre_completo;
+             d.nacionalidad = c.nacionalidad;
+         }
+     }
++    Ok(())
+ }
+ 
+ /// Recalcula el total desde las tarifas (el backend es la fuente de verdad)
+-- 
+2.47.3
+

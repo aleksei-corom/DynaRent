@@ -1,0 +1,27 @@
+From 430549af183137bc901f894037b8692feb697dca Mon Sep 17 00:00:00 2001
+From: Z User <z@container>
+Date: Fri, 28 Aug 2026 14:50:57 +0000
+Subject: [PATCH] config: enable save-exact in .npmrc to pin new dependencies
+
+When a developer runs 'npm install pkg' or 'bun add pkg', the default
+behavior saves a semver range (^x.y.z) in package.json. This opens the
+door to silent minor/patch upgrades that can introduce supply-chain
+risk or behavioral drift between installs.
+
+save-exact=true pins new deps to the exact installed version
+("pkg": "1.2.3"), making every install reproducible and forcing
+version bumps to be intentional. Both npm and bun respect this setting.
+---
+ .npmrc | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/.npmrc b/.npmrc
+index b6f27f1..d9ca886 100644
+--- a/.npmrc
++++ b/.npmrc
+@@ -1 +1,2 @@
+ engine-strict=true
++save-exact=true
+-- 
+2.47.3
+

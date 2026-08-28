@@ -134,7 +134,13 @@ impl ClienteService {
         cipher: &PiiCipher,
         limit: i64,
     ) -> Result<Vec<ClienteConPii>, AppError> {
-        let raw = ClienteRepository::recientes(conn, limit)?;
+        // Acota el limite igual que MantenimientoService::recientes y
+        // GastoService::recientes: la query usa `FIRST {limit}` interpolado
+        // en SQL (rsfbclient no soporta `?` para FIRST/ROWS), y un limite
+        // <= 0 produce `FIRST 0` (0 filas) o `FIRST -N` (todas menos las
+        // ultimas N, semantica rara de Firebird). max(1) garantiza un minimo
+        // sensato sin cambiar el comportamiento para callers validos.
+        let raw = ClienteRepository::recientes(conn, limit.max(1))?;
         Ok(raw.into_iter().map(|c| descifrar(cipher, c)).collect())
     }
 }

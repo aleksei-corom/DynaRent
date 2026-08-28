@@ -1,0 +1,46 @@
+From e32061647a024c6a283f166e7132206bec5ed8e0 Mon Sep 17 00:00:00 2001
+From: Z User <z@container>
+Date: Fri, 28 Aug 2026 14:49:08 +0000
+Subject: [PATCH] fix(ui): prevent closing usuarios modal mid-save
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Both the create/edit user modal and the force-password-reset modal use the
+Modal default `dismissible=true`, so a user can click the backdrop or press
+Esc while a guardar()/confirmarForzar() request is in flight. The modal
+closes, `guardando` stays true forever (the finally{} still runs but the UI
+is gone), and on the next open the form may show stale state because the
+$effect that resets it on `open` sees open=true again only after the user
+manually re-opens.
+
+Pass `dismissible={!guardando}` / `!forcando` so the modal stays put until
+the backend responds — same pattern already used in ClienteFormModal and
+ConfirmDialog.
+---
+ src/routes/usuarios/+page.svelte | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/src/routes/usuarios/+page.svelte b/src/routes/usuarios/+page.svelte
+index 0179150..fdff128 100644
+--- a/src/routes/usuarios/+page.svelte
++++ b/src/routes/usuarios/+page.svelte
+@@ -530,6 +530,7 @@
+ 		: 'Crea una cuenta con contraseña inicial y rol.'}
+ 	onClose={() => (modalOpen = false)}
+ 	width="max-w-xl"
++	dismissible={!guardando}
+ >
+ 	{#snippet children()}
+ 		{#if formError}
+@@ -701,6 +702,7 @@
+ 	subtitle="El usuario deberá cambiar esta contraseña en su próximo ingreso."
+ 	onClose={() => (forzarUsuario = null)}
+ 	width="max-w-md"
++	dismissible={!forcando}
+ >
+ 	{#snippet children()}
+ 		{#if forzarError}
+-- 
+2.47.3
+

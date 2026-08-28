@@ -26,16 +26,18 @@
 	let ultimaActualizacion = $state<Date | null>(null);
 	let error = $state('');
 
-	const diasVencimiento = $derived.by(() => {
+	// Devuelve los días que faltan (o pasaron) para una fecha ISO (YYYY-MM-DD).
+	// Se calcula contra "hoy" en cada llamada para no quedar stale si la app
+	// stays abierta pasado la medianoche (antes `hoy` se capturaba una sola vez
+	// en un `$derived.by` sin dependencias reactivas).
+	function diasVencimiento(fecha: string | null): number | null {
+		if (!fecha) return null;
+		const d = new Date(fecha + 'T00:00:00');
+		if (Number.isNaN(d.getTime())) return null;
 		const hoy = new Date();
 		hoy.setHours(0, 0, 0, 0);
-		return (fecha: string | null): number | null => {
-			if (!fecha) return null;
-			const d = new Date(fecha + 'T00:00:00');
-			if (Number.isNaN(d.getTime())) return null;
-			return Math.round((d.getTime() - hoy.getTime()) / 86_400_000);
-		};
-	});
+		return Math.round((d.getTime() - hoy.getTime()) / 86_400_000);
+	}
 
 	// Rentas activas por vencer (retorno dentro de 3 días o ya vencidas)
 	const rentasPorVencer = $derived(

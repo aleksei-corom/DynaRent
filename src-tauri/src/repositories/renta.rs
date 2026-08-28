@@ -847,52 +847,28 @@ impl RentaRepository {
     /// lógica, sus pagos. Las inspecciones no tienen deleted_at (queda como
     /// TODO si se requiere trazabilidad total) pero dejan de ser accesibles
     /// porque la renta no aparece en los SELECTs (filtrados por deleted_at).
+    ///
+    /// ATÓMICO: los dos UPDATEs van en una sola transacción. Sin esto, si el
+    /// segundo UPDATE (cascada de pagos) falla, la renta quedaba marcada como
+    /// borrada pero sus pagos seguían activos — un renta huérfana con pagos
+    /// vivos que el listado de rentas ya no muestra pero el de pagos sí.
     pub fn eliminar(conn: &mut PooledConnection, id: i64) -> Result<(), AppError> {
-        conn.execute(
-            "UPDATE rentas SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?",
-            (id,),
-        )
-        .map_err(map_fb_error)?;
-        // Soft-delete en cascada de los pagos asociados (la FK original era
-        // ON DELETE CASCADE; con soft-delete hay que hacerlo a mano).
-        conn.execute(
-            "UPDATE pagos SET deleted_at = CURRENT_TIMESTAMP \
-             WHERE id_renta = ? AND deleted_at IS NULL",
-            (id,),
-        )
-        .map_err(map_fb_error)?;
+        conn.with_transaction(|tx| -> Result<(), rsfbclient::FbError> {
+            tx.execute(
+                "UPDATE rentas SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (id,),
+            )?;
+            // Soft-delete en cascada de los pagos asociados (la FK original era
+            // ON DELETE CASCADE; con soft-delete hay que hacerlo a mano).
+            tx.execute(
+                "UPDATE pagos SET deleted_at = CURRENT_TIMESTAMP \
+                 WHERE id_renta = ? AND deleted_at IS NULL",
+                (id,),
+            )?;
+            Ok(())
+        })
+        .map_err(|e| AppError::Database(e.to_string()))?;
         Ok(())
-    }
-
-    /// Registra un pago contra la renta y actualiza abono/saldo pendiente
-    pub fn insertar_pago(
-        conn: &mut PooledConnection,
-        id_renta: i64,
-        p: &PagoDatos,
-        usuario: &str,
-        abono_nuevo: &str,
-        saldo_nuevo: &str,
-    ) -> Result<i64, AppError> {
-        let (id,): (i64,) = conn
-            .execute_returnable(
-                "INSERT INTO pagos (id_renta, monto, metodo_pago, concepto, observaciones, usuario) \
-                 VALUES (?, CAST(? AS DECIMAL(12,2)), ?, ?, ?, ?) RETURNING id",
-                params![
-                    id_renta,
-                    p.monto.to_string(),
-                    p.metodo_pago.to_string(),
-                    p.concepto.to_string(),
-                    opt_str(&p.observaciones),
-                    usuario,
-                ],
-            )
-            .map_err(map_fb_error)?;
-        conn.execute(
-            "UPDATE rentas SET abono = CAST(? AS DECIMAL(12,2)), saldo_pendiente = CAST(? AS DECIMAL(12,2)) \
-             WHERE id = ?",
-            (abono_nuevo.to_string(), saldo_nuevo.to_string(), id_renta),
-        )?;
-        Ok(id)
     }
 
     /// Inserta una inspección (salida/entrada)

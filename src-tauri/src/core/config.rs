@@ -18,7 +18,7 @@ const DEFAULTS: &[(&str, &str, &str)] = &[
     ("database", "host", "localhost"),
     ("database", "port", "3050"),
     ("database", "user", "sysdba"),
-    ("database", "password", "masterkey"),
+    ("database", "password", ""),
     ("database", "database", "dynarent"),
     ("database", "path", "dynarent_v3.fdb"),
     ("database", "timeout", "10"),
@@ -142,7 +142,7 @@ fn serialize_ini(map: &IniMap) -> String {
     out
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct AppConfig {
     // ── Database ──
     pub db_user: String,
@@ -217,6 +217,82 @@ pub struct AppConfig {
     pub resource_dir: PathBuf,
 }
 
+// ── Debug manual: redacta secretos para evitar que terminen en logs ──
+// AppConfig contiene db_password, db_encryption_key y backup_encryption_password.
+// Si se usara el Debug derivado, un log::debug!("{:?}", config) o un dbg!(&config)
+// volcaría esos secretos en claro al archivo de logs. Esta impl los reemplaza
+// por "<redacted>" para que el resto de los campos sigan siendo útiles al depurar.
+impl std::fmt::Debug for AppConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AppConfig")
+            .field("db_user", &self.db_user)
+            .field("db_password", &"<redacted>")
+            .field("db_path", &self.db_path)
+            .field("fbclient_path", &self.fbclient_path)
+            .field("pool_size", &self.pool_size)
+            .field("session_timeout", &self.session_timeout)
+            .field("max_login_attempts", &self.max_login_attempts)
+            .field("account_lockout_duration", &self.account_lockout_duration)
+            .field("login_rate_limit_window", &self.login_rate_limit_window)
+            .field(
+                "max_login_attempts_in_window",
+                &self.max_login_attempts_in_window,
+            )
+            .field("db_encryption_key", &"<redacted>")
+            .field("simit_enabled", &self.simit_enabled)
+            .field("simit_interval_hours", &self.simit_interval_hours)
+            .field("simit_polite_delay_ms", &self.simit_polite_delay_ms)
+            .field("simit_report_dir", &self.simit_report_dir)
+            .field("simit_max_retries", &self.simit_max_retries)
+            .field("simit_retry_base_delay_ms", &self.simit_retry_base_delay_ms)
+            .field("simit_timeout_seconds", &self.simit_timeout_seconds)
+            .field(
+                "simit_circuit_breaker_threshold",
+                &self.simit_circuit_breaker_threshold,
+            )
+            .field(
+                "simit_circuit_breaker_timeout_seconds",
+                &self.simit_circuit_breaker_timeout_seconds,
+            )
+            .field("simit_start_delay_minutes", &self.simit_start_delay_minutes)
+            .field("roles_con_informes", &self.roles_con_informes)
+            .field("roles_con_usuarios", &self.roles_con_usuarios)
+            .field("roles_con_eliminar", &self.roles_con_eliminar)
+            .field("roles_usuarios", &self.roles_usuarios)
+            .field("tipos_auto", &self.tipos_auto)
+            .field("tipos_transmision", &self.tipos_transmision)
+            .field("tipos_combustible", &self.tipos_combustible)
+            .field("estados_auto", &self.estados_auto)
+            .field("tipos_adquisicion", &self.tipos_adquisicion)
+            .field("tipos_doc", &self.tipos_doc)
+            .field("estados_cliente", &self.estados_cliente)
+            .field("estados_reserva", &self.estados_reserva)
+            .field("tipos_gasto", &self.tipos_gasto)
+            .field("nivel_tanque", &self.nivel_tanque)
+            .field("tipos_mantenimiento", &self.tipos_mantenimiento)
+            .field("alert_soat_days", &self.alert_soat_days)
+            .field("alert_tecno_mecanica_days", &self.alert_tecno_mecanica_days)
+            .field("alert_extintor_days", &self.alert_extintor_days)
+            .field("km_alert_aceite", &self.km_alert_aceite)
+            .field("impuesto_porcentaje", &self.impuesto_porcentaje)
+            .field("app_name", &self.app_name)
+            .field("app_version", &self.app_version)
+            .field("ui_color_primario", &self.ui_color_primario)
+            .field("ui_color_fondo", &self.ui_color_fondo)
+            .field("backup_directory", &self.backup_directory)
+            .field("backup_max_copies", &self.backup_max_copies)
+            .field("backup_schedule_times", &self.backup_schedule_times)
+            .field("backup_schedule_minutes", &self.backup_schedule_minutes)
+            .field("backup_check_interval_ms", &self.backup_check_interval_ms)
+            .field("backup_encryption_enabled", &self.backup_encryption_enabled)
+            .field("backup_encryption_password", &"<redacted>")
+            .field("config_dir", &self.config_dir)
+            .field("data_dir", &self.data_dir)
+            .field("resource_dir", &self.resource_dir)
+            .finish()
+    }
+}
+
 impl AppConfig {
     /// Carga la configuración.
     ///
@@ -259,7 +335,7 @@ impl AppConfig {
 
         Self {
             db_user: get_str(&map, "database", "user", "sysdba"),
-            db_password: get_str(&map, "database", "password", "masterkey"),
+            db_password: get_str(&map, "database", "password", ""),
             db_path,
             fbclient_path,
             pool_size: get_usize(&map, "database", "pool_size", 10),

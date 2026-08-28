@@ -1,0 +1,42 @@
+From 0cea91a83265c2f13aca34a75874a29d03ad4b5c Mon Sep 17 00:00:00 2001
+From: Z User <z@container>
+Date: Fri, 28 Aug 2026 15:11:47 +0000
+Subject: [PATCH] fix(rust): sort informe utilidad by numeric value, not
+ lexicographically
+
+The utilidad_por_vehiculo table was sorted with b.utilidad.cmp(&a.utilidad)
+on the string representation of the decimal. That compares character by
+character, so "9.00" sorts above "100.00" (because '9' > '1'), giving a
+wrong order in the report: a vehicle with $9 of profit appears above one
+with $100.
+
+Parse the strings back to Decimal and compare numerically. The FromStr
+trait is already in scope (rust_decimal::prelude::FromStr as _), and dec()
+in the same file already relies on the same parsing.
+---
+ src-tauri/src/services/informe.rs | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/src-tauri/src/services/informe.rs b/src-tauri/src/services/informe.rs
+index c275dd0..6169c08 100644
+--- a/src-tauri/src/services/informe.rs
++++ b/src-tauri/src/services/informe.rs
+@@ -204,7 +204,14 @@ fn utilidad_por_vehiculo(
+         })
+         .collect();
+ 
+-    filas.sort_by(|a, b| b.utilidad.cmp(&a.utilidad));
++    // Orden descendente por utilidad numerica (no lexicografica): comparar
++    // strings haria que "9.00" > "100.00" (porque '9' > '1' como caracter),
++    // dando un orden incorrecto en la tabla del informe.
++    filas.sort_by(|a, b| {
++        let ua = Decimal::from_str(&a.utilidad).unwrap_or(Decimal::ZERO);
++        let ub = Decimal::from_str(&b.utilidad).unwrap_or(Decimal::ZERO);
++        ub.cmp(&ua)
++    });
+     Ok(filas)
+ }
+ 
+-- 
+2.47.3
+

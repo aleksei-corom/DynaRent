@@ -65,9 +65,13 @@ impl DashboardService {
             .map(|c| c.cliente)
             .collect();
         let alertas = AutoService::alertas_vencimiento(conn, config)?;
-        // Conteo parcial de rentas activas (repo de rentas llega en Fase 4)
+        // Conteo parcial de rentas activas (repo de rentas llega en Fase 4).
+        // El estado activo se persiste indistintamente como 'Activa' o 'Activo'
+        // (ver `RentaRepository::activas`), asi que el conteo del dashboard debe
+        // incluir ambos: filtrar solo por 'Activo' subreporta el numero real.
         let rentas_activas: Option<(i64,)> = conn.query_first(
-            "SELECT COUNT(*) FROM rentas WHERE estado = 'Activo' AND deleted_at IS NULL",
+            "SELECT COUNT(*) FROM rentas \
+             WHERE estado IN ('Activa', 'Activo') AND deleted_at IS NULL",
             (),
         )?;
 

@@ -1,0 +1,39 @@
+From c26a1ad683c7cb288e18fe597499ddf90f59d051 Mon Sep 17 00:00:00 2001
+From: Z User <z@container>
+Date: Fri, 28 Aug 2026 14:47:56 +0000
+Subject: [PATCH] ci: add npm audit step for frontend dependency CVE scanning
+
+Adds an 'npm audit' step to the validate job that checks
+package-lock.json against the npm advisory database. Fails the build
+on high or critical vulnerabilities in production dependencies
+(--omit=dev, --audit-level=high).
+
+This complements the cargo-audit job for the Rust backend and closes
+the npm supply-chain gap: today CI lints, type-checks, tests and builds
+but never checks whether any npm dependency has a known CVE.
+---
+ .github/workflows/ci.yml | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 4f7e9b6..0432126 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -58,6 +58,14 @@ jobs:
+       - name: Format check (prettier)
+         run: bun run format:check
+ 
++      # ── Security audit: CVEs conocidos en dependencias npm ──
++      # npm audit consulta la base de datos del npm registry y falla si hay
++      # vulnerabilidades de nivel high o critical. Usa package-lock.json (los
++      # deps son los mismos que en bun.lock). --audit-level=high para no
++      # bloquear el CI por low/moderate que suelen tener workaround.
++      - name: npm audit (high+critical)
++        run: npx npm audit --audit-level=high --omit=dev
++
+       - name: Svelte check
+         run: bunx svelte-kit sync && bunx svelte-check --tsconfig ./tsconfig.json
+ 
+-- 
+2.47.3
+

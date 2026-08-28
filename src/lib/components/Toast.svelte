@@ -46,7 +46,8 @@
 			class="pointer-events-auto flex items-start gap-3 rounded-xl border bg-surface shadow-lg px-4 py-3 {styles[
 				t.type
 			].border}"
-			role="status"
+			role={t.type === 'error' ? 'alert' : 'status'}
+			aria-live={t.type === 'error' ? 'assertive' : 'polite'}
 		>
 			<span
 				class="w-7 h-7 rounded-full flex items-center justify-center shrink-0 {styles[t.type].icon}"

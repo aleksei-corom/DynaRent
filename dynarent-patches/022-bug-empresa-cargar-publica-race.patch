@@ -1,0 +1,67 @@
+From 8e0efe2fa50c3d084f8e566e98773110e611f384 Mon Sep 17 00:00:00 2001
+From: Z User <z@container>
+Date: Fri, 28 Aug 2026 14:47:28 +0000
+Subject: [PATCH] fix(ui): dedupe concurrent EmpresaStore.cargarPublica calls
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+cargarPublica() guards with `if (this.cargado) return`, but `cargado` is
+only set in the finally{} block — AFTER the await. When the layout and the
+login page mount in the same tick (e.g. the app boots straight into
+/login), both call cargarPublica(), both pass the guard, and two parallel
+empresaApi.publica() requests fire. The second to resolve wins, which is
+usually fine but wastes a round-trip and can briefly show the fallback
+logo before flipping to the real one.
+
+Cache the in-flight promise (same pattern BusinessListsStore.ensure uses)
+so concurrent callers share a single request.
+---
+ src/lib/stores/empresa.svelte.ts | 28 +++++++++++++++++++---------
+ 1 file changed, 19 insertions(+), 9 deletions(-)
+
+diff --git a/src/lib/stores/empresa.svelte.ts b/src/lib/stores/empresa.svelte.ts
+index 704673b..282cb3b 100644
+--- a/src/lib/stores/empresa.svelte.ts
++++ b/src/lib/stores/empresa.svelte.ts
+@@ -113,18 +113,28 @@ class EmpresaStore {
+ 		return FALLBACK_CIUDAD;
+ 	}
+ 
++	// Promesa en vuelo para cargarPublica: evita que dos llamadas concurrentes
++	// (layout + login montando a la vez) disparen dos peticiones idénticas a
++	// `empresaApi.publica()` y compitan por escribir this.nombre / this.logo.
++	private cargandoPublica: Promise<void> | null = null;
++
+ 	/** Carga la vista pública (best-effort: ante error conserva el fallback). */
+ 	async cargarPublica(): Promise<void> {
+ 		if (this.cargado) return;
+-		try {
+-			const cfg = await empresaApi.publica();
+-			this.nombre = cfg.nombre;
+-			this.logo = cfg.logo;
+-		} catch (e) {
+-			console.warn('No se pudo cargar la configuración de la empresa:', e);
+-		} finally {
+-			this.cargado = true;
+-		}
++		if (this.cargandoPublica) return this.cargandoPublica;
++		this.cargandoPublica = (async () => {
++			try {
++				const cfg = await empresaApi.publica();
++				this.nombre = cfg.nombre;
++				this.logo = cfg.logo;
++			} catch (e) {
++				console.warn('No se pudo cargar la configuración de la empresa:', e);
++			} finally {
++				this.cargado = true;
++				this.cargandoPublica = null;
++			}
++		})();
++		return this.cargandoPublica;
+ 	}
+ 
+ 	/** Carga el estado del setup inicial (requiere sesión). `null` → consulta. */
+-- 
+2.47.3
+

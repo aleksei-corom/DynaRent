@@ -1,0 +1,41 @@
+From 8e0320baa7361fe0e7fdf353c544246c4c5e9c59 Mon Sep 17 00:00:00 2001
+From: Z User <z@container>
+Date: Fri, 28 Aug 2026 15:11:07 +0000
+Subject: [PATCH] fix(rust): dashboard count active rentas with both 'Activa'
+ and 'Activo' states
+
+The dashboard's  count filtered only by estado = 'Activo',
+but the codebase persists active rentals as either 'Activa' or 'Activo'
+(see RentaRepository::activas which uses WHERE r.estado = 'Activa' OR
+r.estado = 'Activo'). As a result the dashboard under-reported the real
+number of active rentals whenever some had estado = 'Activa'.
+
+Fix: use estado IN ('Activa', 'Activo') so the dashboard matches the
+repository's definition of an active rental.
+---
+ src-tauri/src/services/dashboard.rs | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/src-tauri/src/services/dashboard.rs b/src-tauri/src/services/dashboard.rs
+index 43f79bf..77db26e 100644
+--- a/src-tauri/src/services/dashboard.rs
++++ b/src-tauri/src/services/dashboard.rs
+@@ -65,9 +65,13 @@ impl DashboardService {
+             .map(|c| c.cliente)
+             .collect();
+         let alertas = AutoService::alertas_vencimiento(conn, config)?;
+-        // Conteo parcial de rentas activas (repo de rentas llega en Fase 4)
++        // Conteo parcial de rentas activas (repo de rentas llega en Fase 4).
++        // El estado activo se persiste indistintamente como 'Activa' o 'Activo'
++        // (ver `RentaRepository::activas`), asi que el conteo del dashboard debe
++        // incluir ambos: filtrar solo por 'Activo' subreporta el numero real.
+         let rentas_activas: Option<(i64,)> = conn.query_first(
+-            "SELECT COUNT(*) FROM rentas WHERE estado = 'Activo' AND deleted_at IS NULL",
++            "SELECT COUNT(*) FROM rentas \
++             WHERE estado IN ('Activa', 'Activo') AND deleted_at IS NULL",
+             (),
+         )?;
+ 
+-- 
+2.47.3
+

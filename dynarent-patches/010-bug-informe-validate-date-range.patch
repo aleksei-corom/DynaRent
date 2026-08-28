@@ -1,0 +1,64 @@
+From 06daf62b9c19c9e6d9dcbe4dba70be3bbd81fc34 Mon Sep 17 00:00:00 2001
+From: Z User <z@container>
+Date: Fri, 28 Aug 2026 15:17:38 +0000
+Subject: [PATCH] fix(rust): validate informe_mensual date inputs before
+ hitting the DB
+
+informe_mensual accepted fecha_inicio/fecha_fin as raw strings and
+forwarded them to Firebird queries that compare against DATE columns
+(`fecha >= ? AND fecha <= ?`). An invalid date string (typos, empty,
+non-ISO format) produced a Firebird SQLCODE conversion error surfaced
+to the user as the generic 'Error al acceder a la base de datos.'
+instead of a clear validation message.
+
+Parse both dates with chrono::NaiveDate up front and enforce
+inicio <= fin, returning AppError::Validation with a specific message
+on failure. Matches the validation pattern already used by
+services/auditoria.rs and services/reserva.rs.
+---
+ src-tauri/src/services/informe.rs | 25 +++++++++++++++++++++++++
+ 1 file changed, 25 insertions(+)
+
+diff --git a/src-tauri/src/services/informe.rs b/src-tauri/src/services/informe.rs
+index c275dd0..54d66e0 100644
+--- a/src-tauri/src/services/informe.rs
++++ b/src-tauri/src/services/informe.rs
+@@ -98,6 +98,19 @@ impl InformeService {
+         fecha_inicio: &str,
+         fecha_fin: &str,
+     ) -> Result<InformeMensual, AppError> {
++        // Validacion de entradas: las fechas se interpolan como String en
++        // comparaciones contra columnas DATE de Firebird (>= ? / <= ?). Un
++        // string invalido provocaba un SQLCODE de conversion en la BD en
++        // vez de un mensaje claro de validacion para el usuario. Ademas se
++        // exige inicio <= fin para que el rango sea coherente.
++        let inicio = parse_fecha_informe(fecha_inicio)?;
++        let fin = parse_fecha_informe(fecha_fin)?;
++        if fin < inicio {
++            return Err(AppError::Validation(
++                "La fecha final no puede ser anterior a la fecha inicial.".into(),
++            ));
++        }
++
+         // 1 query (UNION ALL) en vez de 6 round-trips por separado.
+         let totales = InformeRepository::totales_rango(conn, fecha_inicio, fecha_fin)?;
+ 
+@@ -218,3 +231,15 @@ fn sum(vals: &[&str]) -> String {
+         .round_dp(2)
+         .to_string()
+ }
++
++/// Parsea una fecha 'AAAA-MM-DD' para el informe (validacion de entrada).
++/// Se mantiene local (en vez de importar `core::repository::parse_fecha`)
++/// solo para evitar ampliar el `use` del modulo con un helper que no se
++/// usa en ningun otro punto del service.
++fn parse_fecha_informe(v: &str) -> Result<chrono::NaiveDate, AppError> {
++    chrono::NaiveDate::parse_from_str(v.trim(), "%Y-%m-%d").map_err(|_| {
++        AppError::Validation(
++            "La fecha del informe no es valida (formato AAAA-MM-DD).".into(),
++        )
++    })
++}
+-- 
+2.47.3
+

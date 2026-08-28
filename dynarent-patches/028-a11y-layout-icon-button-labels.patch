@@ -1,0 +1,46 @@
+From 9cc0dc30814e65c537ac0153e302a2c32a5d0ffe Mon Sep 17 00:00:00 2001
+From: Z User <z@container>
+Date: Fri, 28 Aug 2026 14:56:38 +0000
+Subject: [PATCH] a11y(ui): label sidebar toggle and logout icon buttons in
+ layout
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The sidebar collapse/expand toggle and the logout button in the user
+footer contain only an SVG icon; their accessible name came solely from
+the `title` attribute, which screen readers are inconsistent about
+announcing. Without an `aria-label`, VoiceOver/NVDA announce them as
+just "button".
+
+Add `aria-label` to both (the toggle label flips with state so the user
+knows whether clicking will expand or collapse). The other icon buttons
+in the header (Ayuda, Buscar página, Buscar actualización, Acerca de,
+Cambiar tema) already had aria-labels.
+---
+ src/routes/+layout.svelte | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/src/routes/+layout.svelte b/src/routes/+layout.svelte
+index 227814b..458791a 100644
+--- a/src/routes/+layout.svelte
++++ b/src/routes/+layout.svelte
+@@ -437,6 +437,7 @@
+ 							onclick={handleLogout}
+ 							class="text-white/60 hover:text-white transition-colors p-1 rounded"
+ 							title="Cerrar sesión"
++							aria-label="Cerrar sesión"
+ 						>
+ 							<svg
+ 								xmlns="http://www.w3.org/2000/svg"
+@@ -465,6 +466,7 @@
+ 					onclick={() => (sidebarOpen = !sidebarOpen)}
+ 					class="p-2 rounded-lg text-text-secondary hover:bg-alt-row hover:text-text-primary transition-colors"
+ 					title={sidebarOpen ? 'Contraer menú' : 'Expandir menú'}
++					aria-label={sidebarOpen ? 'Contraer menú lateral' : 'Expandir menú lateral'}
+ 				>
+ 					<svg
+ 						xmlns="http://www.w3.org/2000/svg"
+-- 
+2.47.3
+

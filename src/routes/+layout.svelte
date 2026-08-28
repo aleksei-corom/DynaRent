@@ -437,6 +437,7 @@
 							onclick={handleLogout}
 							class="text-white/60 hover:text-white transition-colors p-1 rounded"
 							title="Cerrar sesión"
+							aria-label="Cerrar sesión"
 						>
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
@@ -465,6 +466,7 @@
 					onclick={() => (sidebarOpen = !sidebarOpen)}
 					class="p-2 rounded-lg text-text-secondary hover:bg-alt-row hover:text-text-primary transition-colors"
 					title={sidebarOpen ? 'Contraer menú' : 'Expandir menú'}
+					aria-label={sidebarOpen ? 'Contraer menú lateral' : 'Expandir menú lateral'}
 				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"

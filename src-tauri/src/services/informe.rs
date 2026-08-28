@@ -98,6 +98,19 @@ impl InformeService {
         fecha_inicio: &str,
         fecha_fin: &str,
     ) -> Result<InformeMensual, AppError> {
+        // Validacion de entradas: las fechas se interpolan como String en
+        // comparaciones contra columnas DATE de Firebird (>= ? / <= ?). Un
+        // string invalido provocaba un SQLCODE de conversion en la BD en
+        // vez de un mensaje claro de validacion para el usuario. Ademas se
+        // exige inicio <= fin para que el rango sea coherente.
+        let inicio = parse_fecha_informe(fecha_inicio)?;
+        let fin = parse_fecha_informe(fecha_fin)?;
+        if fin < inicio {
+            return Err(AppError::Validation(
+                "La fecha final no puede ser anterior a la fecha inicial.".into(),
+            ));
+        }
+
         // 1 query (UNION ALL) en vez de 6 round-trips por separado.
         let totales = InformeRepository::totales_rango(conn, fecha_inicio, fecha_fin)?;
 
@@ -204,7 +217,14 @@ fn utilidad_por_vehiculo(
         })
         .collect();
 
-    filas.sort_by(|a, b| b.utilidad.cmp(&a.utilidad));
+    // Orden descendente por utilidad numerica (no lexicografica): comparar
+    // strings haria que "9.00" > "100.00" (porque '9' > '1' como caracter),
+    // dando un orden incorrecto en la tabla del informe.
+    filas.sort_by(|a, b| {
+        let ua = Decimal::from_str(&a.utilidad).unwrap_or(Decimal::ZERO);
+        let ub = Decimal::from_str(&b.utilidad).unwrap_or(Decimal::ZERO);
+        ub.cmp(&ua)
+    });
     Ok(filas)
 }
 
@@ -217,4 +237,14 @@ fn sum(vals: &[&str]) -> String {
         .fold(Decimal::ZERO, |acc, v| acc + dec(v))
         .round_dp(2)
         .to_string()
+}
+
+/// Parsea una fecha 'AAAA-MM-DD' para el informe (validacion de entrada).
+/// Se mantiene local (en vez de importar `core::repository::parse_fecha`)
+/// solo para evitar ampliar el `use` del modulo con un helper que no se
+/// usa en ningun otro punto del service.
+fn parse_fecha_informe(v: &str) -> Result<chrono::NaiveDate, AppError> {
+    chrono::NaiveDate::parse_from_str(v.trim(), "%Y-%m-%d").map_err(|_| {
+        AppError::Validation("La fecha del informe no es valida (formato AAAA-MM-DD).".into())
+    })
 }

@@ -1,0 +1,44 @@
+From b14f3c2dbe72a30a5cfba13239e0d8d617807d50 Mon Sep 17 00:00:00 2001
+From: Z User <z@container>
+Date: Fri, 28 Aug 2026 14:53:31 +0000
+Subject: [PATCH] fix(ui): don't close SearchSelect when focus returns to it
+ within blur delay
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+onBlurInput schedules a 120 ms setTimeout to close the dropdown, giving
+the click on a <li> option time to fire first. But the timer only checks
+`abierto`, not whether the focus actually left the component. If the user
+blurs and re-focuses the input within 120 ms (e.g. a momentary focus shift
+to a sibling element that immediately returns, or Alt+Tab and back), the
+timer still fires, reads `abierto=true`, and calls cerrar() — snapping
+the dropdown shut while the user is actively typing.
+
+Guard the close with `rootRef.contains(document.activeElement)`: only
+close if focus truly moved outside the SearchSelect root.
+---
+ src/lib/components/SearchSelect.svelte | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/src/lib/components/SearchSelect.svelte b/src/lib/components/SearchSelect.svelte
+index 715fe65..6cd12b9 100644
+--- a/src/lib/components/SearchSelect.svelte
++++ b/src/lib/components/SearchSelect.svelte
+@@ -148,7 +148,12 @@
+ 		// Pequeño retardo para que el clic en la lista tenga tiempo de dispararse
+ 		// antes de cerrar (el pointerdown global ya cierra al hacer clic fuera).
+ 		setTimeout(() => {
+-			if (abierto) cerrar();
++			// Si el foco volvió al input (o a un hijo del root) dentro de los
++			// 120 ms (p. ej. el usuario re-enfocó tras un blur intermitente),
++			// NO cerrar: el combo sigue activo y el usuario sigue escribiendo.
++			if (abierto && rootRef && !rootRef.contains(document.activeElement)) {
++				cerrar();
++			}
+ 		}, 120);
+ 	}
+ 
+-- 
+2.47.3
+

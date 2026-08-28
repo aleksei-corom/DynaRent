@@ -1,0 +1,62 @@
+From c0341245a4163969cd8d560fb36b179a19a8049e Mon Sep 17 00:00:00 2001
+From: Z User <z@container>
+Date: Fri, 28 Aug 2026 14:46:13 +0000
+Subject: [PATCH] fix(ui): discard stale calendario loads on rapid month
+ navigation
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+cargar() is triggered both by onMount and by a $effect that watches
+mesActual. When the user clicks «mes siguiente» / «mes anterior» in quick
+succession, two cargar() calls race: if the older Promise resolves after
+the newer one, the previous month's rentas/reservas overwrite the current
+month's data on screen, and the spinner gets stuck because the newer
+finally{} already ran.
+
+Add a monotonic cargaId token: each call captures its own id and bails
+out (on success, error and finally) if a newer call has started. Only the
+most recent call is allowed to mutate rentas/reservas/loading, so the UI
+always reflects the month the user is looking at.
+---
+ src/routes/calendario/+page.svelte | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/src/routes/calendario/+page.svelte b/src/routes/calendario/+page.svelte
+index f7cc94a..7ac04ff 100644
+--- a/src/routes/calendario/+page.svelte
++++ b/src/routes/calendario/+page.svelte
+@@ -62,8 +62,14 @@
+ 		return d.toISOString().slice(0, 10);
+ 	}
+ 
++	// Token de carga: descarta respuestas de cargas anteriores (p. ej. cuando
++	// el usuario navega meses rápido y la 1ª petición responde después de la
++	// 2ª). Sin esto, los datos del mes anterior sobreescribirían los del mes
++	// actual que el usuario ya está viendo.
++	let cargaId = 0;
+ 	async function cargar() {
+ 		if (!guardSesion()) return;
++		const myId = ++cargaId;
+ 		loading = true;
+ 		try {
+ 			const limiteInf = limiteInferiorIso();
+@@ -72,12 +78,14 @@
+ 				rentaApi.listar(sid(), undefined, undefined, undefined, limiteInf, limiteSup),
+ 				reservaApi.listar(sid(), undefined, undefined, limiteInf, limiteSup)
+ 			]);
++			if (myId !== cargaId) return; // stale: otra carga más reciente ya está en vuelo
+ 			rentas = r;
+ 			reservas = rs;
+ 		} catch {
++			if (myId !== cargaId) return; // stale: no mostrar error de una carga obsoleta
+ 			toast.error('No se pudieron cargar los datos del calendario.');
+ 		} finally {
+-			loading = false;
++			if (myId === cargaId) loading = false;
+ 		}
+ 	}
+ 
+-- 
+2.47.3
+

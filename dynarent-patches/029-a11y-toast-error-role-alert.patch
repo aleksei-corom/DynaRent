@@ -1,0 +1,40 @@
+From c20af2ab0114cb561dba9c86b5cd34c2805a65bc Mon Sep 17 00:00:00 2001
+From: Z User <z@container>
+Date: Fri, 28 Aug 2026 14:57:29 +0000
+Subject: [PATCH] a11y(ui): announce error toasts with role=alert and assertive
+ live region
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+All toasts previously used role="status" inside an aria-live="polite"
+container. Polite live regions let screen readers finish whatever they're
+saying before announcing the new content — fine for success/info toasts,
+but error notifications ("No se pudo guardar…", "Sesión expirada", etc.)
+should interrupt the user immediately so they know something went wrong.
+
+Use role="alert" + aria-live="assertive" for error toasts; keep
+role="status" + polite for the rest. The container's aria-live is kept
+as a fallback; the per-toast role+aria-live takes precedence per the
+ARIA spec.
+---
+ src/lib/components/Toast.svelte | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/src/lib/components/Toast.svelte b/src/lib/components/Toast.svelte
+index c73a76f..ff60e5e 100644
+--- a/src/lib/components/Toast.svelte
++++ b/src/lib/components/Toast.svelte
+@@ -46,7 +46,8 @@
+ 			class="pointer-events-auto flex items-start gap-3 rounded-xl border bg-surface shadow-lg px-4 py-3 {styles[
+ 				t.type
+ 			].border}"
+-			role="status"
++			role={t.type === 'error' ? 'alert' : 'status'}
++			aria-live={t.type === 'error' ? 'assertive' : 'polite'}
+ 		>
+ 			<span
+ 				class="w-7 h-7 rounded-full flex items-center justify-center shrink-0 {styles[t.type].icon}"
+-- 
+2.47.3
+

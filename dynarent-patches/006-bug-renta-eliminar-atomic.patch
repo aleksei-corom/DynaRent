@@ -1,0 +1,71 @@
+From 1f5391e11a3b0146658c00aad658051d0a9ca30d Mon Sep 17 00:00:00 2001
+From: Z User <z@container>
+Date: Fri, 28 Aug 2026 15:14:04 +0000
+Subject: [PATCH] fix(rust): make RentaRepository::eliminar atomic with
+ transaction
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The soft-delete of a rental did two UPDATEs (rentas + cascada de pagos)
+without a transaction wrapper. If the second UPDATE failed (lock
+conflict, connection drop, etc.) the rental stayed marked as deleted
+while its pagos remained active — an orphan state where the rental
+disappears from listings but its payments still show up and affect
+totals.
+
+Wrap both UPDATEs in conn.with_transaction so either both land or
+neither does, matching the atomicity guarantees the service layer
+already enforces for crear/cerrar/registrar_pago.
+---
+ src-tauri/src/repositories/renta.rs | 33 +++++++++++++++++------------
+ 1 file changed, 20 insertions(+), 13 deletions(-)
+
+diff --git a/src-tauri/src/repositories/renta.rs b/src-tauri/src/repositories/renta.rs
+index 5c51a79..925acc9 100644
+--- a/src-tauri/src/repositories/renta.rs
++++ b/src-tauri/src/repositories/renta.rs
+@@ -847,20 +847,27 @@ impl RentaRepository {
+     /// lógica, sus pagos. Las inspecciones no tienen deleted_at (queda como
+     /// TODO si se requiere trazabilidad total) pero dejan de ser accesibles
+     /// porque la renta no aparece en los SELECTs (filtrados por deleted_at).
++    ///
++    /// ATÓMICO: los dos UPDATEs van en una sola transacción. Sin esto, si el
++    /// segundo UPDATE (cascada de pagos) falla, la renta quedaba marcada como
++    /// borrada pero sus pagos seguían activos — un renta huérfana con pagos
++    /// vivos que el listado de rentas ya no muestra pero el de pagos sí.
+     pub fn eliminar(conn: &mut PooledConnection, id: i64) -> Result<(), AppError> {
+-        conn.execute(
+-            "UPDATE rentas SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?",
+-            (id,),
+-        )
+-        .map_err(map_fb_error)?;
+-        // Soft-delete en cascada de los pagos asociados (la FK original era
+-        // ON DELETE CASCADE; con soft-delete hay que hacerlo a mano).
+-        conn.execute(
+-            "UPDATE pagos SET deleted_at = CURRENT_TIMESTAMP \
+-             WHERE id_renta = ? AND deleted_at IS NULL",
+-            (id,),
+-        )
+-        .map_err(map_fb_error)?;
++        conn.with_transaction(|tx| -> Result<(), rsfbclient::FbError> {
++            tx.execute(
++                "UPDATE rentas SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?",
++                (id,),
++            )?;
++            // Soft-delete en cascada de los pagos asociados (la FK original era
++            // ON DELETE CASCADE; con soft-delete hay que hacerlo a mano).
++            tx.execute(
++                "UPDATE pagos SET deleted_at = CURRENT_TIMESTAMP \
++                 WHERE id_renta = ? AND deleted_at IS NULL",
++                (id,),
++            )?;
++            Ok(())
++        })
++        .map_err(|e| AppError::Database(e.to_string()))?;
+         Ok(())
+     }
+ 
+-- 
+2.47.3
+

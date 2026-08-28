@@ -113,18 +113,28 @@ class EmpresaStore {
 		return FALLBACK_CIUDAD;
 	}
 
+	// Promesa en vuelo para cargarPublica: evita que dos llamadas concurrentes
+	// (layout + login montando a la vez) disparen dos peticiones idénticas a
+	// `empresaApi.publica()` y compitan por escribir this.nombre / this.logo.
+	private cargandoPublica: Promise<void> | null = null;
+
 	/** Carga la vista pública (best-effort: ante error conserva el fallback). */
 	async cargarPublica(): Promise<void> {
 		if (this.cargado) return;
-		try {
-			const cfg = await empresaApi.publica();
-			this.nombre = cfg.nombre;
-			this.logo = cfg.logo;
-		} catch (e) {
-			console.warn('No se pudo cargar la configuración de la empresa:', e);
-		} finally {
-			this.cargado = true;
-		}
+		if (this.cargandoPublica) return this.cargandoPublica;
+		this.cargandoPublica = (async () => {
+			try {
+				const cfg = await empresaApi.publica();
+				this.nombre = cfg.nombre;
+				this.logo = cfg.logo;
+			} catch (e) {
+				console.warn('No se pudo cargar la configuración de la empresa:', e);
+			} finally {
+				this.cargado = true;
+				this.cargandoPublica = null;
+			}
+		})();
+		return this.cargandoPublica;
 	}
 
 	/** Carga el estado del setup inicial (requiere sesión). `null` → consulta. */
