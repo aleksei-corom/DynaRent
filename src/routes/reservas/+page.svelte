@@ -92,6 +92,7 @@
 			valorHoraAdic: '',
 			abono: '',
 			total: '',
+			costoLavado: '',
 			observaciones: '',
 			estado: 'Confirmada'
 		};
@@ -253,6 +254,7 @@
 			valorHoraAdic: r.valorHoraAdic,
 			abono: r.abono,
 			total: r.total,
+			costoLavado: r.costoLavado ?? '',
 			observaciones: r.observaciones ?? '',
 			estado: r.estado
 		};
