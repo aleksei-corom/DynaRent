@@ -561,7 +561,7 @@ pub fn consultar_placa_con_reintentos(
                 CIRCUIT_BREAKER.record_success();
                 metricas.tiempo_captcha_ms += tiempo_captcha;
                 metricas.tiempo_consulta_ms += tiempo_consulta;
-                metricas.reintentos = intento as u32;
+                metricas.reintentos = intento;
                 log::debug!(
                     "Placa {placa} consultada OK: {} registros (intento {}/{}, {}ms)",
                     registros.len(),
@@ -573,7 +573,7 @@ pub fn consultar_placa_con_reintentos(
             }
             Err(e) => {
                 CIRCUIT_BREAKER.record_failure();
-                metricas.reintentos = intento as u32;
+                metricas.reintentos = intento;
                 ultimo_error = Some(e);
                 
                 if intento < max_retries {

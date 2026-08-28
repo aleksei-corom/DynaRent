@@ -17,11 +17,19 @@ pub fn listar_reservas(
     session_id: String,
     busqueda: Option<String>,
     estado: Option<String>,
+    fecha_desde: Option<String>,
+    fecha_hasta: Option<String>,
 ) -> Cmd<Vec<Reserva>> {
     require_session(&state, &session_id)?;
     let mut c = conn(&state)?;
-    ReservaService::listar(&mut c, busqueda.as_deref(), estado.as_deref())
-        .map_err(|e| e.to_payload())
+    ReservaService::listar(
+        &mut c,
+        busqueda.as_deref(),
+        estado.as_deref(),
+        fecha_desde.as_deref(),
+        fecha_hasta.as_deref(),
+    )
+    .map_err(|e| e.to_payload())
 }
 
 /// Próximas reservas (recogida hoy o en el futuro, no canceladas)

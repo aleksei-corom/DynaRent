@@ -1,7 +1,7 @@
 {
 	"name": "dynarent-tauri",
 	"private": true,
-	"version": "1.0.21",
+	"version": "1.0.26",
 	"type": "module",
 	"engines": {
 		"node": ">=22.4"

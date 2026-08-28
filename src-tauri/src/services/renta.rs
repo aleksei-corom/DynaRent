@@ -48,19 +48,10 @@ impl RentaService {
         busqueda: Option<&str>,
         estado: Option<&str>,
         placa: Option<&str>,
+        fecha_desde: Option<&str>,
+        fecha_hasta: Option<&str>,
     ) -> Result<Vec<Renta>, AppError> {
-        let term = busqueda.unwrap_or("").trim();
-        let est = estado.unwrap_or("").trim();
-        let plac = placa.unwrap_or("").trim();
-        if !term.is_empty() {
-            RentaRepository::buscar(conn, term)
-        } else if !est.is_empty() && est != "Todos" {
-            RentaRepository::obtener_por_estado(conn, est)
-        } else if !plac.is_empty() {
-            RentaRepository::obtener_por_placa(conn, plac)
-        } else {
-            RentaRepository::obtener_todos(conn)
-        }
+        RentaRepository::listar_con_filtros(conn, busqueda, estado, placa, fecha_desde, fecha_hasta)
     }
 
     /// Obtiene una renta por id (con pagos e inspecciones)
@@ -313,6 +304,7 @@ impl RentaService {
         let fecha_dev = parse_fecha_opt(&datos.fecha_devolucion_real)?;
         let hora_dev = parse_hora(&datos.hora_devolucion_real)?;
         let km_final = opt_str(&datos.km_final);
+        let km_final_f64 = km_final.as_ref().and_then(|s| s.parse::<f64>().ok());
         let tanque_final = opt_str(&datos.tanque_final);
         let valor_dia = datos.valor_dia.as_deref().map(|s| s.trim().replace(',', "."));
         let valor_hora_extra = datos.valor_hora_extra.as_deref().map(|s| s.trim().replace(',', "."));
@@ -367,13 +359,22 @@ impl RentaService {
                     id,
                 ],
             )?;
-            // Liberar el vehículo (sólo si la renta tenía placa asignada)
+                        // Liberar el vehículo y actualizar kilometraje (sólo si la renta tenía placa asignada)
             if let Some(placa) = placa_auto.as_ref() {
-                tx.execute(
-                    "UPDATE autos SET estado = 'Disponible', updated_at = CURRENT_TIMESTAMP \
-                     WHERE placa = ?",
-                    (placa.clone(),),
-                )?;
+                // Si se proporcionó km final, actualizar también el kilometraje del auto
+                if let Some(km) = km_final_f64 {
+                    tx.execute(
+                        "UPDATE autos SET estado = 'Disponible', kilometraje = ?, \r
+                         updated_at = CURRENT_TIMESTAMP WHERE placa = ?",
+                        (km, placa.clone()),
+                    )?;
+                } else {
+                    tx.execute(
+                        "UPDATE autos SET estado = 'Disponible', updated_at = CURRENT_TIMESTAMP \r
+                         WHERE placa = ?",
+                        (placa.clone(),),
+                    )?;
+                }
             }
             // Auditoría del cierre
             tx.execute(

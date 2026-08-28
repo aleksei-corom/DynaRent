@@ -840,8 +840,9 @@ fn proxima_corrida_desde(ahora: NaiveDateTime, minutos: &[u32]) -> Option<NaiveD
 }
 
 /// Decide si el scheduler debe ejecutar un backup en `ahora`:
-/// - el minuto actual está en `schedule_minutes`, y
-/// - ese (fecha, minuto) aún no se ejecutó (marca `ultimo`).
+///   - el minuto actual está en `schedule_minutes`, y
+///   - ese (fecha, minuto) aún no se ejecutó (marca `ultimo`).
+///
 /// Evita duplicar la corrida si `check_interval_ms` < 60 s y permite volver a
 /// ejecutar el horario al día siguiente.
 fn debe_ejecutar(

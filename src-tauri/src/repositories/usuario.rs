@@ -2,15 +2,12 @@
 //!
 //! Queries explícitas en dialecto Firebird, estilo rsfbclient (FromRow).
 //!
-//! > **TODO (Bloque 4 / TAREA 4.2)**: este repositorio aún define helpers
-//! > locales (`map_fb_error`, `opt_str`, `params!`, ...) duplicados con
-//! > `crate::core::repository`. Migración pendiente — ver
-//! > `src/core/repository.rs` para el módulo centralizado.
 
 use rsfbclient::{Execute, Queryable};
 
 use crate::core::error::AppError;
 use crate::core::PooledConnection;
+use crate::core::repository::map_fb_error_dup;
 
 use serde::Serialize;
 
@@ -393,11 +390,5 @@ impl UsuarioRepository {
 
 /// Mapea errores de Firebird a AppError (unicidad de username)
 fn map_fb_error(e: rsfbclient::FbError) -> AppError {
-    let msg = e.to_string();
-    let lower = msg.to_lowercase();
-    if lower.contains("duplicate") || lower.contains("unique") {
-        AppError::Duplicate("Ya existe un usuario con ese nombre de usuario.".into())
-    } else {
-        AppError::Database(msg)
-    }
+    map_fb_error_dup(e, "Ya existe un usuario con ese nombre de usuario.")
 }

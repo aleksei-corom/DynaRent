@@ -110,14 +110,12 @@ impl EmpresaService {
             }
             for ent in std::fs::read_dir(&dir).map_err(|e| {
                 AppError::Generic(format!("No se pudo leer la carpeta de logos: {e}"))
-            })? {
-                if let Ok(ent) = ent {
+            })?.flatten() {
                     let nombre_archivo = ent.file_name().to_string_lossy().to_string();
                     if nombre_archivo.starts_with("empresa.") {
                         let _ = std::fs::remove_file(ent.path());
                     }
                 }
-            }
             Ok(())
         };
 

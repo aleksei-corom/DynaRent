@@ -240,10 +240,10 @@ pub fn limpiar_logs(
 
         for entry in entries {
             let path = entry.path();
-            if path.extension().map(|e| e == "log").unwrap_or(false) {
-                if fs::File::create(&path).is_ok() {
-                    eliminados += 1;
-                }
+            if path.extension().map(|e| e == "log").unwrap_or(false)
+                && fs::File::create(&path).is_ok()
+            {
+                eliminados += 1;
             }
         }
     }

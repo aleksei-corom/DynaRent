@@ -104,11 +104,13 @@ pub const MIGRACIONES_EMBEDIDAS: &[(&str, &str)] = &[
     ("0019_renta_cobra_iva.sql", include_str!("../../migrations/0019_renta_cobra_iva.sql")),
     ("0020_renta_valor_gasolina.sql", include_str!("../../migrations/0020_renta_valor_gasolina.sql")),
     ("0021_comparendo_origen_simit.sql", include_str!("../../migrations/0021_comparendo_origen_simit.sql")),
+    ("0021_empresa_pais.sql", include_str!("../../migrations/0021_empresa_pais.sql")),
     ("0022_agente_simit_ultimo_resultado.sql", include_str!("../../migrations/0022_agente_simit_ultimo_resultado.sql")),
     ("0023_renta_comision.sql", include_str!("../../migrations/0023_renta_comision.sql")),
     ("0024_extensiones_renta.sql", include_str!("../../migrations/0024_extensiones_renta.sql")),
     ("0025_audit_inmutable.sql", include_str!("../../migrations/0025_audit_inmutable.sql")),
-    ("0026_cobrar_horas_extra.sql", include_str!("../../migrations/0026_cobrar_horas_extra.sql")),    ("0027_soft_delete_entities.sql", include_str!("../../migrations/0027_soft_delete_entities.sql")),
+    ("0026_cobrar_horas_extra.sql", include_str!("../../migrations/0026_cobrar_horas_extra.sql")),
+    ("0027_soft_delete_entities.sql", include_str!("../../migrations/0027_soft_delete_entities.sql")),
 ];
 
 /// Aplica las migraciones pendientes. `migrations_dir` = src-tauri/migrations
@@ -277,9 +279,7 @@ pub fn split_sql_statements(sql: &str) -> Vec<String> {
             if clean == "BEGIN" {
                 block_depth += 1;
             } else if clean == "END" {
-                if block_depth > 0 {
-                    block_depth -= 1;
-                }
+                block_depth = block_depth.saturating_sub(1);
             }
         }
 
