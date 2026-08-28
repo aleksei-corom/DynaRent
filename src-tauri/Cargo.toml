@@ -1,6 +1,6 @@
 [package]
 name = "dynarent"
-version = "1.0.26"
+version = "1.0.30"
 description = "Dynarent ERP — Tauri V2 + Rust + Firebird Embedded 5.0"
 authors = ["Dynarent"]
 edition = "2021"
