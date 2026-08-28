@@ -246,7 +246,7 @@ mod tests {
         assert!(parse_fecha("2026-1-5").is_ok());
         assert!(parse_fecha("no-fecha").is_err());
         assert!(parse_fecha("2026-13-01").is_err()); // mes 13 inválido
-        // Acepta con espacios
+                                                     // Acepta con espacios
         assert!(parse_fecha("  2026-01-15  ").is_ok());
     }
 
@@ -255,7 +255,9 @@ mod tests {
         assert_eq!(parse_fecha_opt(&None).unwrap(), None);
         assert_eq!(parse_fecha_opt(&Some("".into())).unwrap(), None);
         assert_eq!(parse_fecha_opt(&Some("   ".into())).unwrap(), None);
-        assert!(parse_fecha_opt(&Some("2026-01-15".into())).unwrap().is_some());
+        assert!(parse_fecha_opt(&Some("2026-01-15".into()))
+            .unwrap()
+            .is_some());
     }
 
     #[test]

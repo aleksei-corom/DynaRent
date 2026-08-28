@@ -9,9 +9,9 @@ use serde::Serialize;
 use crate::core::crypto::PiiCipher;
 use crate::core::error::AppError;
 use crate::repositories::cliente::Cliente;
-use crate::services::AppState;
 use crate::services::auto::{AlertaVencimiento, AutoService};
 use crate::services::cliente::ClienteService;
+use crate::services::AppState;
 
 /// Conteo por estado de vehículo
 #[derive(Debug, Clone, Serialize)]

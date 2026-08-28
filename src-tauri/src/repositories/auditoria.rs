@@ -67,9 +67,8 @@ impl AuditoriaRepository {
         let (where_sql, params) = build_where(filtros);
 
         // ParamsType no es Clone: se reconstruye para cada consulta.
-        let to_params = |v: &[String]| {
-            ParamsType::Positional(v.iter().map(|p| p.into_param()).collect())
-        };
+        let to_params =
+            |v: &[String]| ParamsType::Positional(v.iter().map(|p| p.into_param()).collect());
 
         // COUNT con los parámetros como ParamsType
         let count_sql = format!("SELECT COUNT(*) FROM auditoria{where_sql}");
@@ -103,10 +102,8 @@ impl AuditoriaRepository {
 
     /// Acciones distintas existentes en el log (para el filtro del frontend)
     pub fn acciones(conn: &mut PooledConnection) -> Result<Vec<String>, AppError> {
-        let rows: Vec<(String,)> = conn.query(
-            "SELECT DISTINCT accion FROM auditoria ORDER BY accion",
-            (),
-        )?;
+        let rows: Vec<(String,)> =
+            conn.query("SELECT DISTINCT accion FROM auditoria ORDER BY accion", ())?;
         Ok(rows.into_iter().map(|(a,)| a).collect())
     }
 
@@ -127,23 +124,48 @@ fn build_where(filtros: &AuditoriaFiltros) -> (String, Vec<String>) {
     let mut clauses: Vec<String> = Vec::new();
     let mut params: Vec<String> = Vec::new();
 
-    if let Some(u) = filtros.usuario.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()) {
+    if let Some(u) = filtros
+        .usuario
+        .as_ref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+    {
         clauses.push("usuario = ?".into());
         params.push(u.to_string());
     }
-    if let Some(a) = filtros.accion.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()) {
+    if let Some(a) = filtros
+        .accion
+        .as_ref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+    {
         clauses.push("accion = ?".into());
         params.push(a.to_string());
     }
-    if let Some(d) = filtros.fecha_desde.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()) {
+    if let Some(d) = filtros
+        .fecha_desde
+        .as_ref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+    {
         clauses.push("CAST(fecha AS DATE) >= CAST(? AS DATE)".into());
         params.push(d.to_string());
     }
-    if let Some(h) = filtros.fecha_hasta.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()) {
+    if let Some(h) = filtros
+        .fecha_hasta
+        .as_ref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+    {
         clauses.push("CAST(fecha AS DATE) <= CAST(? AS DATE)".into());
         params.push(h.to_string());
     }
-    if let Some(b) = filtros.busqueda.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()) {
+    if let Some(b) = filtros
+        .busqueda
+        .as_ref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+    {
         let like = format!("%{b}%");
         clauses.push(
             "UPPER(COALESCE(usuario, '')) LIKE UPPER(?) \

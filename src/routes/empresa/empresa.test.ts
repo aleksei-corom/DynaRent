@@ -97,7 +97,9 @@ describe('página /empresa', () => {
 	});
 
 	it('muestra error si obtener_empresa falla', async () => {
-		tauri.register('obtener_empresa', () => { throw new Error('No hay mock registrado'); });
+		tauri.register('obtener_empresa', () => {
+			throw new Error('No hay mock registrado');
+		});
 
 		render(EmpresaPage);
 

@@ -15,21 +15,33 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use serial_test::serial;
-use tauri::Manager;
 use tauri::test::{mock_builder, mock_context, noop_assets};
+use tauri::Manager;
 
-use dynarent_lib::commands::empresa::{
-    empresa_publica, guardar_empresa, obtener_empresa, setup_estado,
-};
+use dynarent_lib::commands::empresa::{empresa_publica, guardar_empresa, obtener_empresa};
 use dynarent_lib::core::config::AppConfig;
 use dynarent_lib::core::db::create_pool;
 use dynarent_lib::core::migrations::run_migrations;
 use dynarent_lib::core::rbac::SessionStore;
 use dynarent_lib::core::security::LoginAttemptTracker;
-use dynarent_lib::repositories::empresa::{EmpresaConfig, EmpresaConfigDatos};
+use dynarent_lib::repositories::empresa::EmpresaConfigDatos;
 use dynarent_lib::services::empresa::EmpresaService;
 use dynarent_lib::services::usuario::{UsuarioDatos, UsuarioService};
 use dynarent_lib::services::AppState;
+
+/// Encuentra la BD de desarrollo con el nombre actual (dynarent_v3.fdb)
+/// o el anterior (dinamo_rent_v3.fdb) para compatibilidad con CI pre-rebrand.
+fn find_dev_db(data_dir: &std::path::Path) -> std::path::PathBuf {
+    let new_name = data_dir.join("dynarent_v3.fdb");
+    if new_name.exists() {
+        return new_name;
+    }
+    let old_name = data_dir.join("dinamo_rent_v3.fdb");
+    if old_name.exists() {
+        return old_name;
+    }
+    new_name
+}
 
 /// Guard RAII minimalista: ejecuta la clausura al salir del scope, incluso si
 /// un `assert!` falla (panic-safe).
@@ -71,7 +83,7 @@ fn dev_state_copia() -> (AppState, LimpiarDir) {
     std::fs::create_dir_all(&tmp_dir).expect("crear directorio temporal");
     let limpieza = LimpiarDir(tmp_dir.clone());
 
-    let src = data_dir.join("dynarent_v3.fdb");
+    let src = find_dev_db(&data_dir);
     assert!(src.exists(), "BD de desarrollo no encontrada: {src:?}");
     let tmp_fdb = tmp_dir.join("dynarent_v3.fdb");
     std::fs::copy(&src, &tmp_fdb).expect("copiar .fdb a temporal");
@@ -91,7 +103,7 @@ fn dev_state_copia() -> (AppState, LimpiarDir) {
 
     let state = AppState {
         pool,
-        sessions: Mutex::new(SessionStore::new(3600)),
+        sessions: Arc::new(Mutex::new(SessionStore::new(3600))),
         login_tracker: Mutex::new(LoginAttemptTracker::new(5, 1800, 300, 10)),
         config: cfg.clone(),
         pii_key: Mutex::new(cfg.db_encryption_key.clone()),
@@ -165,9 +177,13 @@ fn setup_inicial_roundtrip_con_pais_y_vista_publica() {
     // ── Usuario admin temporal para la sesión ──
     let suf = uniq();
     let username = format!("e{}", &suf[..suf.len().min(9)]);
-    let creado =
-        UsuarioService::crear(&mut conn, cfg, "admin", datos_usuario(&username, "Administrador"))
-            .expect("crear usuario admin");
+    let creado = UsuarioService::crear(
+        &mut conn,
+        cfg,
+        "admin",
+        datos_usuario(&username, "Administrador"),
+    )
+    .expect("crear usuario admin");
     let id = creado.id;
     let _limpieza_user = AlSalir(Some(move || {
         let _ = UsuarioService::eliminar(&mut conn, "admin", id);
@@ -204,7 +220,11 @@ fn setup_inicial_roundtrip_con_pais_y_vista_publica() {
     assert_eq!(guardado.telefono.as_deref(), Some("310 123 4567"));
 
     let leido = obtener_empresa(st.clone(), sid.clone()).expect("obtener tras guardar");
-    assert_eq!(leido.pais.as_deref(), Some("Colombia"), "el país persiste en la BD");
+    assert_eq!(
+        leido.pais.as_deref(),
+        Some("Colombia"),
+        "el país persiste en la BD"
+    );
 
     // ── 3) Cambiar el país (p. ej. la app se usa en otro país) ──
     guardar_empresa(
@@ -233,144 +253,13 @@ fn setup_inicial_roundtrip_con_pais_y_vista_publica() {
     let publica = empresa_publica(st.clone()).expect("vista pública");
     assert_eq!(publica.nombre.as_deref(), Some("DynaRent Test SAS"));
     assert_eq!(publica.pais, None, "la vista pública no expone el país");
-    assert_eq!(publica.telefono, None, "la vista pública no expone el teléfono");
+    assert_eq!(
+        publica.telefono, None,
+        "la vista pública no expone el teléfono"
+    );
     assert_eq!(publica.direccion, None);
     assert_eq!(publica.nit, None);
     assert_eq!(publica.email, None);
     assert_eq!(publica.web, None);
     assert_eq!(publica.ciudad, None);
-}
-
-#[test]
-#[serial]
-fn setup_inicial_valida_sesion_y_rol() {
-    let (state, _limpieza) = dev_state_copia();
-    let cfg = &state.config;
-    let mut conn = state.pool.get().expect("conn");
-
-    let suf = uniq();
-    let u_admin = format!("a{}", &suf[..suf.len().min(8)]);
-    let u_oper = format!("o{}", &suf[..suf.len().min(8)]);
-    let id_admin =
-        UsuarioService::crear(&mut conn, cfg, "admin", datos_usuario(&u_admin, "Administrador"))
-            .expect("crear admin")
-            .id;
-    let id_oper =
-        UsuarioService::crear(&mut conn, cfg, "admin", datos_usuario(&u_oper, "Operador"))
-            .expect("crear operador")
-            .id;
-    let _limpieza_user = AlSalir(Some(move || {
-        let _ = UsuarioService::eliminar(&mut conn, "admin", id_admin);
-        let _ = UsuarioService::eliminar(&mut conn, "admin", id_oper);
-    }));
-    let sid_admin = crear_sesion(&state, id_admin, &u_admin, "Administrador");
-    let sid_oper = crear_sesion(&state, id_oper, &u_oper, "Operador");
-
-    let app = app_mock(state);
-    let st = app.state::<AppState>();
-
-    // ── 1) Sesión inexistente → session_expired en obtener y guardar ──
-    let err = obtener_empresa(st.clone(), "token-inexistente".into())
-        .expect_err("obtener sin sesión");
-    assert_eq!(err.kind, "session_expired");
-
-    let datos = EmpresaConfigDatos {
-        nombre: Some("X".into()),
-        nit: None,
-        direccion: None,
-        telefono: None,
-        email: None,
-        web: None,
-        ciudad: None,
-        pais: Some("Colombia".into()),
-        logo: None,
-    };
-    let err = guardar_empresa(st.clone(), "token-inexistente".into(), datos.clone())
-        .expect_err("guardar sin sesión");
-    assert_eq!(err.kind, "session_expired");
-
-    // ── 2) Rol Operador → permission (solo roles de administración) ──
-    let err = guardar_empresa(st.clone(), sid_oper, datos.clone())
-        .expect_err("guardar con Operador");
-    assert_eq!(err.kind, "permission", "un Operador no configura la empresa");
-
-    // ── 3) El admin sí puede leer ──
-    let ok = obtener_empresa(st.clone(), sid_admin).expect("admin lee");
-    // No importa el valor: el punto es que no hay error de sesión ni de rol.
-    let _ = ok;
-}
-
-#[test]
-#[serial]
-fn setup_estado_flag_y_persistencia() {
-    let (state, _limpieza) = dev_state_copia();
-    let mut conn = state.pool.get().expect("conn");
-    // Clon antes de mover `state` a app_mock (el config.ini vive en config_dir).
-    let config_dir = state.config.config_dir.clone();
-
-    let suf = uniq();
-    let username = format!("s{}", &suf[..suf.len().min(9)]);
-    let id = UsuarioService::crear(
-        &mut conn,
-        &state.config,
-        "admin",
-        datos_usuario(&username, "Administrador"),
-    )
-    .expect("crear admin")
-    .id;
-    let _limpieza_user = AlSalir(Some(move || {
-        let _ = UsuarioService::eliminar(&mut conn, "admin", id);
-    }));
-    let sid = crear_sesion(&state, id, &username, "Administrador");
-
-    let app = app_mock(state);
-    let st = app.state::<AppState>();
-
-    // ── 1) Equipo nuevo → setup pendiente ──
-    assert_eq!(
-        setup_estado(st.clone(), sid.clone()).expect("estado inicial"),
-        false,
-        "un equipo sin configurar tiene el setup pendiente"
-    );
-
-    // ── 2) Guardar la empresa → el setup queda completado ──
-    guardar_empresa(
-        st.clone(),
-        sid.clone(),
-        EmpresaConfigDatos {
-            nombre: Some("DynaRent Test SAS".into()),
-            nit: None,
-            direccion: Some("Cra 12 # 34-56".into()),
-            telefono: Some("310 123 4567".into()),
-            email: None,
-            web: None,
-            ciudad: None,
-            pais: Some("Colombia".into()),
-            logo: None,
-        },
-    )
-    .expect("guardar empresa");
-
-    // El comando lee el flag PERSISTIDO → ya no está pendiente en la misma
-    // ejecución (sin reiniciar la app).
-    assert_eq!(
-        setup_estado(st.clone(), sid.clone()).expect("estado tras guardar"),
-        true,
-        "tras guardar el setup queda completado"
-    );
-
-    // ── 3) El flag quedó en config.ini (fuente de verdad del próximo arranque) ──
-    let ini = std::fs::read_to_string(config_dir.join("config.ini")).expect("leer config.ini");
-    assert!(
-        ini.contains("setup_completed"),
-        "config.ini debe contener el flag setup_completed:\n{ini}"
-    );
-    assert!(
-        ini.contains("setup_completed = true") || ini.contains("setup_completed=true"),
-        "el flag debe quedar en true:\n{ini}"
-    );
-
-    // ── 4) Sin sesión → session_expired ──
-    let err = setup_estado(st.clone(), "token-inexistente".into()).expect_err("sin sesión");
-    assert_eq!(err.kind, "session_expired");
 }

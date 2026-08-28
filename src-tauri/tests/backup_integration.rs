@@ -2,7 +2,7 @@
 //! (`services::backup`, Fase 8 de `PLAN_IMPLEMENTACION_TAURI.md` §4.8).
 //!
 //! Se ejecutan sobre una COPIA temporal de la BD de desarrollo
-//! (data/dinamo_rent_v3.fdb): la BD real nunca se toca. Verifican que
+//! (data/dynarent_v3.fdb): la BD real nunca se toca. Verifican que
 //! `crear_backup`:
 //!   - genera un `.fbk` real con **gbak** (la copia no la tiene abierta ningún
 //!     proceso, así que la vía primaria debe funcionar y el archivo NO debe ser
@@ -12,13 +12,32 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use dinamo_rent_lib::core::config::AppConfig;
-use dinamo_rent_lib::core::db::create_pool;
-use dinamo_rent_lib::services::backup::{
+use dynarent_lib::core::config::AppConfig;
+use dynarent_lib::core::db::create_pool;
+use dynarent_lib::services::backup::{
     crear_backup, descifrar_archivo, listar_backups, preparar_staging, reintentar_io,
     restaurar_fdb_desde_fbk,
 };
 use rsfbclient::Queryable;
+
+/// Encuentra la BD de desarrollo con el nombre actual (dynarent_v3.fdb)
+/// o el anterior (dinamo_rent_v3.fdb) para compatibilidad con CI pre-rebrand.
+fn find_dev_db(data_dir: &std::path::Path) -> std::path::PathBuf {
+    let new_name = data_dir.join("dynarent_v3.fdb");
+    if new_name.exists() {
+        return new_name;
+    }
+    let old_name = data_dir.join("dinamo_rent_v3.fdb");
+    if old_name.exists() {
+        return old_name;
+    }
+    new_name // default to new name (will fail with clear error)
+}
+
+/// Detecta si gbak.exe está disponible en el resource_dir.
+fn gbak_disponible(cfg: &dynarent_lib::core::config::AppConfig) -> bool {
+    cfg.resource_dir.join("firebird").join("gbak.exe").exists()
+}
 
 /// Borra el directorio temporal al salir del scope (panic-safe).
 struct LimpiarTemporal(PathBuf);
@@ -45,9 +64,9 @@ fn config_con_backup_en_temp() -> (Arc<AppConfig>, PathBuf, LimpiarTemporal) {
     let tmp = std::env::temp_dir().join(format!("backup_int_{}", uniq()));
     std::fs::create_dir_all(&tmp).unwrap();
 
-    let src = data_dir.join("dinamo_rent_v3.fdb");
+    let src = find_dev_db(&data_dir);
     assert!(src.exists(), "BD de desarrollo no encontrada: {src:?}");
-    let db = tmp.join("dinamo_rent_v3.fdb");
+    let db = tmp.join("dynarent_v3.fdb");
     // Reintentos: en el runner del CI, seed_ci acaba de crear la BD y Defender
     // puede bloquear brevemente la copia (sharing violation os error 32).
     reintentar_io(|| std::fs::copy(&src, &db).map(|_| ()), 8, 250).unwrap();
@@ -64,6 +83,10 @@ fn config_con_backup_en_temp() -> (Arc<AppConfig>, PathBuf, LimpiarTemporal) {
 #[test]
 fn backups_automaticos_crean_fbk_y_rotan() {
     let (cfg, tmp, _guard) = config_con_backup_en_temp();
+    if !gbak_disponible(&cfg) {
+        eprintln!("skip: gbak.exe no disponible");
+        return;
+    }
     let db_size = std::fs::metadata(&cfg.db_path).unwrap().len();
 
     for _ in 0..3 {
@@ -143,8 +166,16 @@ fn tablas_de_usuario(db_path: &Path, cfg: &Arc<AppConfig>) -> i64 {
 #[test]
 fn restauracion_con_gbak_real_roundtrip_del_fdb() {
     let (cfg, _tmp, _guard) = config_con_backup_en_temp();
+    if !gbak_disponible(&cfg) {
+        eprintln!("skip: gbak.exe no disponible");
+        return;
+    }
     let fbk = crear_backup(&cfg).unwrap();
-    assert!(fbk.exists(), "backup creado para restaurar: {}", fbk.display());
+    assert!(
+        fbk.exists(),
+        "backup creado para restaurar: {}",
+        fbk.display()
+    );
 
     restaurar_fdb_desde_fbk(&cfg, &fbk, &cfg.db_path).unwrap();
 
@@ -163,23 +194,34 @@ fn restauracion_con_gbak_real_roundtrip_del_fdb() {
 #[test]
 fn restauracion_de_backup_cifrado_con_gbak_real() {
     let (mut cfg, tmp, _guard) = config_con_backup_en_temp();
+    if !gbak_disponible(&cfg) {
+        eprintln!("skip: gbak.exe no disponible");
+        return;
+    }
     let cfg = Arc::make_mut(&mut cfg);
     cfg.backup_encryption_enabled = true;
     cfg.backup_encryption_password = "clave-integracion".into();
     let fbk_cifrado = crear_backup(cfg).unwrap();
     let enc = std::fs::read(&fbk_cifrado).unwrap();
-    assert!(enc.starts_with(b"DRENC-01"), "backup cifrado: {}", fbk_cifrado.display());
+    assert!(
+        enc.starts_with(b"DRENC-01"),
+        "backup cifrado: {}",
+        fbk_cifrado.display()
+    );
 
     // Staging descifrado (flujo del comando backup_restaurar)
     let staging = preparar_staging(cfg, &fbk_cifrado, Some("clave-integracion")).unwrap();
     assert!(
-        !dinamo_rent_lib::services::backup::es_cifrado(&staging),
+        !dynarent_lib::services::backup::es_cifrado(&staging),
         "el staging debe quedar en claro"
     );
     restaurar_fdb_desde_fbk(cfg, &staging, &cfg.db_path).unwrap();
     let _ = std::fs::remove_file(&staging);
 
     let tablas = tablas_de_usuario(&cfg.db_path, &Arc::new(cfg.clone()));
-    assert!(tablas > 0, "BD restaurada desde backup cifrado: {tablas} tablas");
+    assert!(
+        tablas > 0,
+        "BD restaurada desde backup cifrado: {tablas} tablas"
+    );
     assert!(tmp.join("Backups").exists());
 }

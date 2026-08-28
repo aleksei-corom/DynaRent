@@ -27,14 +27,28 @@ use chrono::{Duration, Local};
 use rsfbclient::{Execute, Queryable};
 use serial_test::serial;
 
-use dinamo_rent_lib::repositories::comparendo::{ComparendoDatos, ComparendoRepository};
-use dinamo_rent_lib::repositories::renta::RentaDatos;
-use dinamo_rent_lib::services::renta::RentaService;
+use dynarent_lib::repositories::comparendo::{ComparendoDatos, ComparendoRepository};
+use dynarent_lib::repositories::renta::RentaDatos;
+use dynarent_lib::services::renta::RentaService;
 
-use dinamo_rent_lib::core::config::AppConfig;
-use dinamo_rent_lib::core::db::{create_pool, Pool};
-use dinamo_rent_lib::core::migrations::MIGRACIONES_EMBEDIDAS;
-use dinamo_rent_lib::core::migrations::{has_initial_schema, run_migrations, split_sql_statements};
+use dynarent_lib::core::config::AppConfig;
+use dynarent_lib::core::db::{create_pool, Pool};
+use dynarent_lib::core::migrations::MIGRACIONES_EMBEDIDAS;
+use dynarent_lib::core::migrations::{has_initial_schema, run_migrations, split_sql_statements};
+
+/// Encuentra la BD de desarrollo con el nombre actual (dynarent_v3.fdb)
+/// o el anterior (dinamo_rent_v3.fdb) para compatibilidad con CI pre-rebrand.
+fn find_dev_db(data_dir: &std::path::Path) -> std::path::PathBuf {
+    let new_name = data_dir.join("dynarent_v3.fdb");
+    if new_name.exists() {
+        return new_name;
+    }
+    let old_name = data_dir.join("dinamo_rent_v3.fdb");
+    if old_name.exists() {
+        return old_name;
+    }
+    new_name // default to new name (will fail with clear error)
+}
 
 /// Borra el .fdb temporal al salir del scope (panic-safe).
 struct LimpiarTemporal(PathBuf);
@@ -47,10 +61,10 @@ impl Drop for LimpiarTemporal {
 /// Copia la BD de desarrollo a un archivo temporal (devuelve ruta + guard).
 fn copia_bd_dev() -> (PathBuf, LimpiarTemporal) {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let src = manifest.join("../data/dinamo_rent_v3.fdb");
+    let src = find_dev_db(&manifest.join("../data"));
     assert!(src.exists(), "BD de desarrollo no encontrada: {src:?}");
     let tmp = std::env::temp_dir().join(format!(
-        "dinamo_rent_migraciones_{}.fdb",
+        "dynarent_migraciones_{}.fdb",
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_nanos())
@@ -79,7 +93,7 @@ fn crear_bd_fresh() -> (Pool, LimpiarTemporal) {
     let base = AppConfig::load(&data_dir, &resource_dir, &manifest);
 
     let tmp = std::env::temp_dir().join(format!(
-        "dinamo_rent_fresh_{}.fdb",
+        "dynarent_fresh_{}.fdb",
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_nanos())
@@ -454,7 +468,7 @@ fn migraciones_sobre_bd_ya_migrada_son_no_op() {
 #[serial]
 fn create_pool_crea_la_bd_si_no_existe() {
     let tmp = std::env::temp_dir().join(format!(
-        "dinamo_rent_pool_nueva_{}.fdb",
+        "dynarent_pool_nueva_{}.fdb",
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_nanos())
@@ -483,13 +497,13 @@ fn create_pool_crea_la_bd_si_no_existe() {
 #[serial]
 fn create_pool_crea_el_directorio_padre_de_la_bd() {
     let dir = std::env::temp_dir().join(format!(
-        "dinamo_rent_dir_nuevo_{}",
+        "dynarent_dir_nuevo_{}",
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_nanos())
             .unwrap_or(0)
     ));
-    let tmp = dir.join("sub").join("dinamo_rent_v3.fdb");
+    let tmp = dir.join("sub").join("dynarent_v3.fdb");
     let _limpieza_dir = LimpiarDir(dir.clone());
 
     let cfg = config_con_db(&tmp);
@@ -529,7 +543,7 @@ fn migracion_que_falla_no_se_registra_y_es_reintentable() {
     // Directorio de migraciones temporal con UNA migración rota: la primera
     // sentencia es válida y la segunda es SQL inválido.
     let dir = std::env::temp_dir().join(format!(
-        "dinamo_rent_mig_dir_{}",
+        "dynarent_mig_dir_{}",
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_nanos())

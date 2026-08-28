@@ -13,7 +13,7 @@ use serde::Serialize;
 use crate::core::config::AppConfig;
 use crate::core::crypto::PiiCipher;
 use crate::core::error::AppError;
-use crate::core::validators::{validate_no_xss, mayusculas};
+use crate::core::validators::{mayusculas, validate_no_xss};
 use crate::core::PooledConnection;
 use crate::repositories::cliente::{Cliente, ClienteDatos, ClienteRepository};
 
@@ -39,8 +39,7 @@ impl ClienteService {
         let term = busqueda.unwrap_or("").trim();
         let raw = if !term.is_empty() {
             ClienteRepository::buscar(conn, term)?
-        } else if let Some(estado) =
-            estado.filter(|e| !e.trim().is_empty() && e.trim() != "Todos")
+        } else if let Some(estado) = estado.filter(|e| !e.trim().is_empty() && e.trim() != "Todos")
         {
             ClienteRepository::obtener_por_estado(conn, estado.trim())?
         } else {
@@ -72,7 +71,13 @@ impl ClienteService {
         validar(&datos, cfg)?;
         cifrar(cipher, &mut datos)?;
         let id = ClienteRepository::insertar(conn, &datos)?;
-        crate::core::audit::log_audit(conn, usuario, "CREAR CLIENTE", &format!("cliente={id}"), "local")?;
+        crate::core::audit::log_audit(
+            conn,
+            usuario,
+            "CREAR CLIENTE",
+            &format!("cliente={id}"),
+            "local",
+        )?;
         let c = ClienteRepository::obtener_por_id(conn, id)?
             .ok_or_else(|| AppError::Generic("No se pudo recuperar el cliente creado".into()))?;
         Ok(descifrar(cipher, c))
@@ -93,16 +98,29 @@ impl ClienteService {
         validar(&datos, cfg)?;
         cifrar(cipher, &mut datos)?;
         ClienteRepository::actualizar(conn, id, &datos)?;
-        crate::core::audit::log_audit(conn, usuario, "ACTUALIZAR CLIENTE", &format!("cliente={id}"), "local")?;
-        let c = ClienteRepository::obtener_por_id(conn, id)?
-            .ok_or_else(|| AppError::Generic("No se pudo recuperar el cliente actualizado".into()))?;
+        crate::core::audit::log_audit(
+            conn,
+            usuario,
+            "ACTUALIZAR CLIENTE",
+            &format!("cliente={id}"),
+            "local",
+        )?;
+        let c = ClienteRepository::obtener_por_id(conn, id)?.ok_or_else(|| {
+            AppError::Generic("No se pudo recuperar el cliente actualizado".into())
+        })?;
         Ok(descifrar(cipher, c))
     }
 
     /// Elimina un cliente por id
     pub fn eliminar(conn: &mut PooledConnection, usuario: &str, id: i64) -> Result<(), AppError> {
         ClienteRepository::eliminar(conn, id)?;
-        crate::core::audit::log_audit(conn, usuario, "ELIMINAR CLIENTE", &format!("cliente={id}"), "local")
+        crate::core::audit::log_audit(
+            conn,
+            usuario,
+            "ELIMINAR CLIENTE",
+            &format!("cliente={id}"),
+            "local",
+        )
     }
 
     /// Total de clientes (dashboard)
@@ -142,7 +160,10 @@ fn descifrar(cipher: &PiiCipher, mut c: Cliente) -> ClienteConPii {
             }
         }
     }
-    ClienteConPii { cliente: c, pii_oculto }
+    ClienteConPii {
+        cliente: c,
+        pii_oculto,
+    }
 }
 
 /// Cifra las columnas PII antes de persistir
@@ -165,25 +186,89 @@ fn cifrar(cipher: &PiiCipher, d: &mut ClienteDatos) -> Result<(), AppError> {
 /// Normaliza campos (trim → mayúsculas, nombre completo calculado, defaults)
 /// Los campos email NO se convierten a mayúsculas (convención de correo).
 fn normalizar(d: &mut ClienteDatos) {
-    d.tipo_doc = d.tipo_doc.as_ref().map(|s| mayusculas(s)).filter(|s| !s.is_empty());
-    d.no_doc = d.no_doc.as_ref().map(|s| mayusculas(s)).filter(|s| !s.is_empty());
+    d.tipo_doc = d
+        .tipo_doc
+        .as_ref()
+        .map(|s| mayusculas(s))
+        .filter(|s| !s.is_empty());
+    d.no_doc = d
+        .no_doc
+        .as_ref()
+        .map(|s| mayusculas(s))
+        .filter(|s| !s.is_empty());
     d.nombres = mayusculas(&d.nombres);
-    d.apellidos = d.apellidos.as_ref().map(|s| mayusculas(s)).filter(|s| !s.is_empty());
+    d.apellidos = d
+        .apellidos
+        .as_ref()
+        .map(|s| mayusculas(s))
+        .filter(|s| !s.is_empty());
     // email: solo trim, sin mayúsculas
-    d.email = d.email.as_ref().map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
+    d.email = d
+        .email
+        .as_ref()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
     // Teléfonos y ubicaciones: mayúsculas
-    d.celular = d.celular.as_ref().map(|s| mayusculas(s)).filter(|s| !s.is_empty());
-    d.celular2 = d.celular2.as_ref().map(|s| mayusculas(s)).filter(|s| !s.is_empty());
-    d.ciudad = d.ciudad.as_ref().map(|s| mayusculas(s)).filter(|s| !s.is_empty());
-    d.estado_region = d.estado_region.as_ref().map(|s| mayusculas(s)).filter(|s| !s.is_empty());
-    d.pais = d.pais.as_ref().map(|s| mayusculas(s)).filter(|s| !s.is_empty());
-    d.nacionalidad = d.nacionalidad.as_ref().map(|s| mayusculas(s)).filter(|s| !s.is_empty());
-    d.dir_residencia = d.dir_residencia.as_ref().map(|s| mayusculas(s)).filter(|s| !s.is_empty());
-    d.dir_temporal = d.dir_temporal.as_ref().map(|s| mayusculas(s)).filter(|s| !s.is_empty());
-    d.hotel = d.hotel.as_ref().map(|s| mayusculas(s)).filter(|s| !s.is_empty());
-    d.habitacion = d.habitacion.as_ref().map(|s| mayusculas(s)).filter(|s| !s.is_empty());
-    d.no_licencia = d.no_licencia.as_ref().map(|s| mayusculas(s)).filter(|s| !s.is_empty());
-    d.tipo_licencia = d.tipo_licencia.as_ref().map(|s| mayusculas(s)).filter(|s| !s.is_empty());
+    d.celular = d
+        .celular
+        .as_ref()
+        .map(|s| mayusculas(s))
+        .filter(|s| !s.is_empty());
+    d.celular2 = d
+        .celular2
+        .as_ref()
+        .map(|s| mayusculas(s))
+        .filter(|s| !s.is_empty());
+    d.ciudad = d
+        .ciudad
+        .as_ref()
+        .map(|s| mayusculas(s))
+        .filter(|s| !s.is_empty());
+    d.estado_region = d
+        .estado_region
+        .as_ref()
+        .map(|s| mayusculas(s))
+        .filter(|s| !s.is_empty());
+    d.pais = d
+        .pais
+        .as_ref()
+        .map(|s| mayusculas(s))
+        .filter(|s| !s.is_empty());
+    d.nacionalidad = d
+        .nacionalidad
+        .as_ref()
+        .map(|s| mayusculas(s))
+        .filter(|s| !s.is_empty());
+    d.dir_residencia = d
+        .dir_residencia
+        .as_ref()
+        .map(|s| mayusculas(s))
+        .filter(|s| !s.is_empty());
+    d.dir_temporal = d
+        .dir_temporal
+        .as_ref()
+        .map(|s| mayusculas(s))
+        .filter(|s| !s.is_empty());
+    d.hotel = d
+        .hotel
+        .as_ref()
+        .map(|s| mayusculas(s))
+        .filter(|s| !s.is_empty());
+    d.habitacion = d
+        .habitacion
+        .as_ref()
+        .map(|s| mayusculas(s))
+        .filter(|s| !s.is_empty());
+    d.no_licencia = d
+        .no_licencia
+        .as_ref()
+        .map(|s| mayusculas(s))
+        .filter(|s| !s.is_empty());
+    d.tipo_licencia = d
+        .tipo_licencia
+        .as_ref()
+        .map(|s| mayusculas(s))
+        .filter(|s| !s.is_empty());
     d.nombre_completo = match &d.apellidos {
         Some(ap) if !ap.is_empty() => format!("{} {}", d.nombres, ap),
         _ => d.nombres.clone(),
@@ -219,10 +304,11 @@ fn validar(d: &ClienteDatos, cfg: &Arc<AppConfig>) -> Result<(), AppError> {
         )));
     }
     if let Some(email) = &d.email {
-        if !email.is_empty()
-            && !(email.contains('@') && email.contains('.') && email.len() <= 100)
+        if !email.is_empty() && !(email.contains('@') && email.contains('.') && email.len() <= 100)
         {
-            return Err(AppError::Validation("El correo electrónico no es válido.".into()));
+            return Err(AppError::Validation(
+                "El correo electrónico no es válido.".into(),
+            ));
         }
     }
     if let Some(ven) = &d.vencimiento_licencia {

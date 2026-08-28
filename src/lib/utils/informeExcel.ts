@@ -63,11 +63,20 @@ function argb(hex: string): string {
  * título + periodo, resumen del balance, gastos por categoría,
  * rentas del rango y utilidad por vehículo.
  */
-export function filasInformeExcel(informe: InformeMensual, periodo: string, nombreEmpresa = 'DynaRent'): FilaInforme[] {
+export function filasInformeExcel(
+	informe: InformeMensual,
+	periodo: string,
+	nombreEmpresa = 'DynaRent'
+): FilaInforme[] {
 	const filas: FilaInforme[] = [];
 
 	// Título y periodo
-	filas.push([{ v: `${nombreEmpresa} — INFORME FINANCIERO`, estilo: { bold: true, fill: AZUL, color: 'FFFFFF', fontSize: 14 } }]);
+	filas.push([
+		{
+			v: `${nombreEmpresa} — INFORME FINANCIERO`,
+			estilo: { bold: true, fill: AZUL, color: 'FFFFFF', fontSize: 14 }
+		}
+	]);
 	filas.push([{ v: `Periodo: ${periodo}`, estilo: { color: '444444' } }]);
 	filas.push([{ v: ' ' }]);
 
@@ -205,7 +214,11 @@ export function filasInformeExcel(informe: InformeMensual, periodo: string, nomb
  * @returns `ExcelJS.Workbook` síncrono (no requiere await para construirse).
  *   Llama `await wb.xlsx.writeBuffer()` para serializarlo a bytes.
  */
-export function construirLibroInforme(informe: InformeMensual, periodo: string, nombreEmpresa = 'DynaRent'): ExcelJS.Workbook {
+export function construirLibroInforme(
+	informe: InformeMensual,
+	periodo: string,
+	nombreEmpresa = 'DynaRent'
+): ExcelJS.Workbook {
 	const filas = filasInformeExcel(informe, periodo, nombreEmpresa);
 	const wb = new ExcelJS.Workbook();
 	const ws = wb.addWorksheet('Informe');

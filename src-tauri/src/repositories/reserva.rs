@@ -8,8 +8,8 @@
 use rsfbclient::{Execute, IntoParam, ParamsType, Queryable};
 
 use crate::core::error::AppError;
-use crate::core::PooledConnection;
 use crate::core::repository::{map_fb_error_fk, opt_str, params, parse_fecha, parse_hora_opt};
+use crate::core::PooledConnection;
 
 use serde::Serialize;
 
@@ -130,7 +130,8 @@ fn from_row(r: ReservaRow) -> Reserva {
         created_at: r.20,
         updated_at: r.21,
     }
-}/// Mapea errores de Firebird a AppError (FKs de cliente/auto)
+}
+/// Mapea errores de Firebird a AppError (FKs de cliente/auto)
 fn map_fb_error(e: rsfbclient::FbError) -> AppError {
     map_fb_error_fk(
         e,
@@ -168,7 +169,10 @@ impl ReservaRepository {
     }
 
     /// Filtra por estado (Pendiente / Confirmada / Cancelada / Completada / Todos)
-    pub fn obtener_por_estado(conn: &mut PooledConnection, estado: &str) -> Result<Vec<Reserva>, AppError> {
+    pub fn obtener_por_estado(
+        conn: &mut PooledConnection,
+        estado: &str,
+    ) -> Result<Vec<Reserva>, AppError> {
         let rows: Vec<ReservaRow> = conn.query(
             &format!(
                 "SELECT {SELECT_COLS} FROM reservas WHERE deleted_at IS NULL AND estado = ? \
@@ -228,7 +232,10 @@ impl ReservaRepository {
     }
 
     /// Próximas reservas (recogida hoy o en el futuro, no canceladas)
-    pub fn obtener_proximas(conn: &mut PooledConnection, limit: i64) -> Result<Vec<Reserva>, AppError> {
+    pub fn obtener_proximas(
+        conn: &mut PooledConnection,
+        limit: i64,
+    ) -> Result<Vec<Reserva>, AppError> {
         let rows: Vec<ReservaRow> = conn.query(
             &format!(
                 "SELECT {SELECT_COLS} FROM reservas \
@@ -242,7 +249,10 @@ impl ReservaRepository {
     }
 
     /// Obtiene una reserva por id
-    pub fn obtener_por_id(conn: &mut PooledConnection, id: i64) -> Result<Option<Reserva>, AppError> {
+    pub fn obtener_por_id(
+        conn: &mut PooledConnection,
+        id: i64,
+    ) -> Result<Option<Reserva>, AppError> {
         let row: Option<ReservaRow> = conn.query_first(
             &format!("SELECT {SELECT_COLS} FROM reservas WHERE deleted_at IS NULL AND id = ?"),
             (id,),
@@ -291,7 +301,11 @@ impl ReservaRepository {
     }
 
     /// Actualiza una reserva por id
-    pub fn actualizar(conn: &mut PooledConnection, id: i64, d: &ReservaDatos) -> Result<(), AppError> {
+    pub fn actualizar(
+        conn: &mut PooledConnection,
+        id: i64,
+        d: &ReservaDatos,
+    ) -> Result<(), AppError> {
         conn.execute(
             "UPDATE reservas SET \
                 id_cliente = ?, nombre_cliente = ?, nacionalidad = ?, categoria_vehiculo = ?, \
@@ -345,14 +359,18 @@ impl ReservaRepository {
 
     /// Soft-delete de una reserva (las rentas asociadas quedan con id_reserva NULL por SET NULL)
     pub fn eliminar(conn: &mut PooledConnection, id: i64) -> Result<(), AppError> {
-        conn.execute("UPDATE reservas SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?", (id,))
-            .map_err(map_fb_error)?;
+        conn.execute(
+            "UPDATE reservas SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (id,),
+        )
+        .map_err(map_fb_error)?;
         Ok(())
     }
 
     /// Total de reservas
     pub fn contar(conn: &mut PooledConnection) -> Result<i64, AppError> {
-        let count: Option<(i64,)> = conn.query_first("SELECT COUNT(*) FROM reservas WHERE deleted_at IS NULL", ())?;
+        let count: Option<(i64,)> =
+            conn.query_first("SELECT COUNT(*) FROM reservas WHERE deleted_at IS NULL", ())?;
         Ok(count.map(|(c,)| c).unwrap_or(0))
     }
 

@@ -78,7 +78,7 @@ scripts/.tmp-*
 /simit_config.js
 /simit_index.html
 /vendors.js
-
+fix
 # Vite timestamps
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
