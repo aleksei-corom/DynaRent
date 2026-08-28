@@ -36,7 +36,17 @@ fn find_dev_db(data_dir: &std::path::Path) -> std::path::PathBuf {
 
 /// Detecta si gbak.exe está disponible en el resource_dir.
 fn gbak_disponible(cfg: &dynarent_lib::core::config::AppConfig) -> bool {
-    cfg.resource_dir.join("firebird").join("gbak.exe").exists()
+    let gbak = cfg.resource_dir.join("firebird").join("gbak.exe");
+    if !gbak.exists() {
+        return false;
+    }
+    // Intentar ejecutar gbak para verificar que sus dependencias (fbclient.dll) están disponibles
+    std::process::Command::new(&gbak)
+        .arg("-z")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .is_ok()
 }
 
 /// Borra el directorio temporal al salir del scope (panic-safe).
@@ -127,6 +137,10 @@ fn backups_cifrados_roundtrip_del_fdb() {
     // Sin gbak disponible → fallback de copia: descifrar debe reproducir el .fdb exacto
     cfg.resource_dir = tmp.join("sin-firebird");
 
+    // Leer ANTES del backup para tener los bytes exactos que se copiarán
+    let original = std::fs::read(&cfg.db_path).unwrap();
+    assert!(!original.is_empty());
+
     let p = crear_backup(cfg).unwrap();
     let enc = std::fs::read(&p).unwrap();
     assert!(
@@ -137,8 +151,6 @@ fn backups_cifrados_roundtrip_del_fdb() {
 
     let restaurado = tmp.join("restaurado.fdb");
     descifrar_archivo(&p, &restaurado, "clave-integracion").unwrap();
-    let original = std::fs::read(&cfg.db_path).unwrap();
-    assert!(!original.is_empty());
     assert_eq!(std::fs::read(&restaurado).unwrap(), original);
 }
 
