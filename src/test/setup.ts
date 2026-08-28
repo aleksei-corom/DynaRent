@@ -47,7 +47,9 @@ const tauriState = vi.hoisted(() => {
 			const fn = handlers.get(cmd);
 			if (!fn) {
 				return Promise.reject(
-					new Error(`[test] No hay mock registrado para el comando '${cmd}'. Usa tauri.register(...)`)
+					new Error(
+						`[test] No hay mock registrado para el comando '${cmd}'. Usa tauri.register(...)`
+					)
 				);
 			}
 			// async → los throw del handler se convierten en rechazos (igual que Tauri)
@@ -65,15 +67,16 @@ interface TauriTestBridge {
 	register(cmd: string, fn: (args?: any) => unknown): void;
 	reset(): void;
 }
-(globalThis as unknown as { __tauriTestState?: TauriTestBridge }).__tauriTestState = tauriState;	afterEach(() => {
-		cleanup();
-		tauriState.reset();
-		vi.clearAllMocks();
-		// jsdom expone storage en el global; limpiar de forma defensiva
-		try {
-			window.localStorage?.clear();
-			window.sessionStorage?.clear();
-		} catch {
-			/* entorno sin storage */
-		}
-	});
+(globalThis as unknown as { __tauriTestState?: TauriTestBridge }).__tauriTestState = tauriState;
+afterEach(() => {
+	cleanup();
+	tauriState.reset();
+	vi.clearAllMocks();
+	// jsdom expone storage en el global; limpiar de forma defensiva
+	try {
+		window.localStorage?.clear();
+		window.sessionStorage?.clear();
+	} catch {
+		/* entorno sin storage */
+	}
+});

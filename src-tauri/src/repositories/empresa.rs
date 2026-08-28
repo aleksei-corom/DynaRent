@@ -24,6 +24,7 @@ pub struct EmpresaConfig {
     pub web: Option<String>,
     pub ciudad: Option<String>,
     pub logo: Option<String>,
+    pub pais: Option<String>,
 }
 
 /// Datos recibidos al guardar (logo como data URL o null para quitar).
@@ -37,6 +38,7 @@ pub struct EmpresaConfigDatos {
     pub email: Option<String>,
     pub web: Option<String>,
     pub ciudad: Option<String>,
+    pub pais: Option<String>,
     /// Data URL del logo (`data:<mime>;base64,<b64>`) o null = sin logo.
     pub logo: Option<String>,
 }
@@ -64,10 +66,11 @@ pub fn logo_mime(ext: &str) -> Option<&'static str> {
 }
 
 /// Orden de columnas del SELECT (alineado con `EmpresaRow`)
-pub const SELECT_COLS: &str = "NOMBRE, NIT, DIRECCION, TELEFONO, EMAIL, WEB, CIUDAD, LOGO";
+pub const SELECT_COLS: &str = "NOMBRE, NIT, DIRECCION, TELEFONO, EMAIL, WEB, CIUDAD, LOGO, PAIS";
 
 #[allow(clippy::type_complexity)]
 pub type EmpresaRow = (
+    Option<String>,
     Option<String>,
     Option<String>,
     Option<String>,
@@ -83,9 +86,7 @@ pub struct EmpresaRepository;
 impl EmpresaRepository {
     /// Lee la fila única (ID = 1); devuelve None si aún no existe.
     pub fn obtener(conn: &mut PooledConnection) -> Result<Option<EmpresaRow>, AppError> {
-        let sql = format!(
-            "SELECT {SELECT_COLS} FROM EMPRESA_CONFIG WHERE ID = 1"
-        );
+        let sql = format!("SELECT {SELECT_COLS} FROM EMPRESA_CONFIG WHERE ID = 1");
         let row = conn.query_first(&sql, ())?;
         Ok(row)
     }

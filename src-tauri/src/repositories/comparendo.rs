@@ -217,8 +217,7 @@ impl ComparendoRepository {
     /// Lista todos los comparendos (más recientes primero por fecha e id),
     /// con el responsable del vehículo el día de la infracción
     pub fn obtener_todos(conn: &mut PooledConnection) -> Result<Vec<Comparendo>, AppError> {
-        let sql =
-            sql_con_responsable("", "ORDER BY c2.fecha_infraccion DESC, c2.id DESC");
+        let sql = sql_con_responsable("", "ORDER BY c2.fecha_infraccion DESC, c2.id DESC");
         let rows: Vec<ComparendoRow> = conn.query(&sql, ())?;
         Ok(rows.into_iter().map(from_row).collect())
     }
@@ -236,7 +235,10 @@ impl ComparendoRepository {
     }
 
     /// Filtra por placa exacta (historial de un vehículo), con el responsable
-    pub fn obtener_por_placa(conn: &mut PooledConnection, placa: &str) -> Result<Vec<Comparendo>, AppError> {
+    pub fn obtener_por_placa(
+        conn: &mut PooledConnection,
+        placa: &str,
+    ) -> Result<Vec<Comparendo>, AppError> {
         let sql = sql_con_responsable(
             "AND c.placa = ?",
             "ORDER BY c2.fecha_infraccion DESC, c2.id DESC",
@@ -246,7 +248,10 @@ impl ComparendoRepository {
     }
 
     /// Filtra por estado exacto (Pendiente / Pagado), con el responsable
-    pub fn obtener_por_estado(conn: &mut PooledConnection, estado: &str) -> Result<Vec<Comparendo>, AppError> {
+    pub fn obtener_por_estado(
+        conn: &mut PooledConnection,
+        estado: &str,
+    ) -> Result<Vec<Comparendo>, AppError> {
         let sql = sql_con_responsable(
             "AND c.estado = ?",
             "ORDER BY c2.fecha_infraccion DESC, c2.id DESC",
@@ -275,7 +280,10 @@ impl ComparendoRepository {
     }
 
     /// Obtiene un comparendo por id (con el responsable del día)
-    pub fn obtener_por_id(conn: &mut PooledConnection, id: i64) -> Result<Option<Comparendo>, AppError> {
+    pub fn obtener_por_id(
+        conn: &mut PooledConnection,
+        id: i64,
+    ) -> Result<Option<Comparendo>, AppError> {
         let sql = sql_con_responsable("AND c.id = ?", "");
         let row: Option<ComparendoRow> = conn.query_first(&sql, (id,))?;
         Ok(row.map(from_row))
@@ -361,7 +369,11 @@ impl ComparendoRepository {
     }
 
     /// Actualiza un comparendo por id
-    pub fn actualizar(conn: &mut PooledConnection, id: i64, d: &ComparendoDatos) -> Result<(), AppError> {
+    pub fn actualizar(
+        conn: &mut PooledConnection,
+        id: i64,
+        d: &ComparendoDatos,
+    ) -> Result<(), AppError> {
         conn.execute(
             "UPDATE comparendos SET placa = ?, fecha_infraccion = ?, hora_infraccion = ?, \
              monto = CAST(? AS DECIMAL(12,2)), numero_comparendo = ?, id_renta = ?, \
@@ -385,7 +397,11 @@ impl ComparendoRepository {
     }
 
     /// Cambia el estado (Pendiente ↔ Pagado)
-    pub fn cambiar_estado(conn: &mut PooledConnection, id: i64, estado: &str) -> Result<(), AppError> {
+    pub fn cambiar_estado(
+        conn: &mut PooledConnection,
+        id: i64,
+        estado: &str,
+    ) -> Result<(), AppError> {
         conn.execute(
             "UPDATE comparendos SET estado = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
             (estado.to_string(), id),
@@ -439,7 +455,10 @@ impl ComparendoRepository {
 
     /// Marca como pagado los comparendos activos con ese número oficial que
     /// aún estén pendientes (el Agente SIMIT converge la BD con el SIMIT).
-    pub fn marcar_pagado_por_numero(conn: &mut PooledConnection, numero: &str) -> Result<(), AppError> {
+    pub fn marcar_pagado_por_numero(
+        conn: &mut PooledConnection,
+        numero: &str,
+    ) -> Result<(), AppError> {
         conn.execute(
             "UPDATE comparendos SET estado = 'Pagado', updated_at = CURRENT_TIMESTAMP \
              WHERE numero_comparendo = ? AND estado <> 'Pagado' AND deleted_at IS NULL",
@@ -468,7 +487,10 @@ impl ComparendoRepository {
 
     /// Total de comparendos registrados
     pub fn contar(conn: &mut PooledConnection) -> Result<i64, AppError> {
-        let count: Option<(i64,)> = conn.query_first("SELECT COUNT(*) FROM comparendos WHERE deleted_at IS NULL", ())?;
+        let count: Option<(i64,)> = conn.query_first(
+            "SELECT COUNT(*) FROM comparendos WHERE deleted_at IS NULL",
+            (),
+        )?;
         Ok(count.map(|(c,)| c).unwrap_or(0))
     }
 
@@ -502,7 +524,9 @@ impl ComparendoRepository {
     }
 
     /// Suma de comparendos agrupada por estado
-    pub fn total_por_estado(conn: &mut PooledConnection) -> Result<Vec<(String, String)>, AppError> {
+    pub fn total_por_estado(
+        conn: &mut PooledConnection,
+    ) -> Result<Vec<(String, String)>, AppError> {
         let rows: Vec<(String, String)> = conn.query(
             "SELECT estado, CAST(SUM(monto) AS VARCHAR(12)) FROM comparendos \
              WHERE deleted_at IS NULL GROUP BY estado ORDER BY SUM(monto) DESC",
@@ -513,7 +537,9 @@ impl ComparendoRepository {
 }
 
 fn opt_str(v: &Option<String>) -> Option<String> {
-    v.as_ref().map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
+    v.as_ref()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
 }
 
 /// Parsea fecha 'AAAA-MM-DD' a NaiveDate (el servicio ya la validó)
@@ -525,7 +551,11 @@ fn parse_fecha(v: &str) -> Result<NaiveDate, AppError> {
 /// Parsea hora 'HH:MM[:SS]' a NaiveTime (el servicio ya la validó)
 fn parse_hora(v: &str) -> Result<NaiveTime, AppError> {
     let h = v.trim();
-    let h = if h.len() == 5 { format!("{h}:00") } else { h.to_string() };
+    let h = if h.len() == 5 {
+        format!("{h}:00")
+    } else {
+        h.to_string()
+    };
     NaiveTime::parse_from_str(&h, "%H:%M:%S")
         .map_err(|_| AppError::Validation("Hora inválida (formato HH:MM).".into()))
 }
