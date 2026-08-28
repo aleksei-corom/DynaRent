@@ -12,13 +12,13 @@ y reemplazarlos en el texto de las dos secciones.
 ## Versión larga (una pantalla)
 
 ```text
-🚀 Dinamo Rent ERP — v1.0.21 publicada (performance + accesibilidad + code quality)
+🚀 Dynarent ERP — v1.0.21 publicada (performance + accesibilidad + code quality)
 
 La versión v1.0.21 ya está publicada en GitHub, construida y firmada
 por CI (auto-update activo desde la v1.0.14).
 
-📦 Descarga: release v1.0.21 → https://github.com/CORJAR-Computers/dinamo_rent_tr/releases/download/v1.0.21/DinamoRent_1.0.21_x64-setup.exe
-(~22 MB, NSIS) o el .msi (~34 MB): https://github.com/CORJAR-Computers/dinamo_rent_tr/releases/download/v1.0.21/DinamoRent_1.0.21_x64_en-US.msi
+📦 Descarga: release v1.0.21 → https://github.com/CORJAR-Computers/dynarent/releases/download/v1.0.21/Dynarent_1.0.21_x64-setup.exe
+(~22 MB, NSIS) o el .msi (~34 MB): https://github.com/CORJAR-Computers/dynarent/releases/download/v1.0.21/Dynarent_1.0.21_x64_en-US.msi
 sha256 NSIS: d8d602315c7eb8a4d8a08db6fe3d76cc30604ad8beb1eac68cb8dc9bf177f224
 sha256 MSI:  6aefb6d9d278ec451607ea65bcf30eccc3f4126fe6fd5d2de733a64a7cbfb8bb
 Credenciales iniciales: admin / admin123 (cambio forzado al primer ingreso).
@@ -55,32 +55,32 @@ DEPLOYMENT_CLIENTES.md (despliegue y rollback) ·
 RESUMEN_EJECUTIVO.md (estado completo).
 
 Resumen completo:
-https://github.com/CORJAR-Computers/dinamo_rent_tr/blob/main/RESUMEN_EJECUTIVO.md
+https://github.com/CORJAR-Computers/dynarent/blob/main/RESUMEN_EJECUTIVO.md
 ```
 
 ## Versión corta (anuncio rápido, 2-3 líneas)
 
 ```text
-🚀 Dinamo Rent ERP v1.0.21 publicada y firmada por CI. Novedades: informes
+🚀 Dynarent ERP v1.0.21 publicada y firmada por CI. Novedades: informes
 optimizados (13→5 queries), store global BusinessLists (TTL 5 min), tracing
 estructurado, auditoría inmutable (triggers append-only), accesibilidad
 WCAG 2.1 (Modal focus trap, ARIA, skip-link), ts-rs para contratos
 TypeScript y dependabot para dependencias. Auto-update desde v1.0.14.
-Descarga: https://github.com/CORJAR-Computers/dinamo_rent_tr/releases/tag/v1.0.21
+Descarga: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.21
 ```
 
 ## Referencia rápida para rellenar
 
-- **Producto:** Dinamo Rent ERP
-- **Repo:** https://github.com/CORJAR-Computers/dinamo_rent_tr
-- **Assets de la v1.0.21:** `DinamoRent_1.0.21_x64-setup.exe` (NSIS, ~22 MB, sha256 `d8d602315c7eb8a4d8a08db6fe3d76cc30604ad8beb1eac68cb8dc9bf177f224`) y `DinamoRent_1.0.21_x64_en-US.msi` (~34 MB, sha256 `6aefb6d9d278ec451607ea65bcf30eccc3f4126fe6fd5d2de733a64a7cbfb8bb`)
+- **Producto:** Dynarent ERP
+- **Repo:** https://github.com/CORJAR-Computers/dynarent
+- **Assets de la v1.0.21:** `Dynarent_1.0.21_x64-setup.exe` (NSIS, ~22 MB, sha256 `d8d602315c7eb8a4d8a08db6fe3d76cc30604ad8beb1eac68cb8dc9bf177f224`) y `Dynarent_1.0.21_x64_en-US.msi` (~34 MB, sha256 `6aefb6d9d278ec451607ea65bcf30eccc3f4126fe6fd5d2de733a64a7cbfb8bb`)
 - **Credenciales iniciales:** `admin` / `admin123` (cambio forzado)
 - **URLs directas de assets v1.0.21:**
-  - NSIS: https://github.com/CORJAR-Computers/dinamo_rent_tr/releases/download/v1.0.21/DinamoRent_1.0.21_x64-setup.exe
-  - MSI: https://github.com/CORJAR-Computers/dinamo_rent_tr/releases/download/v1.0.21/DinamoRent_1.0.21_x64_en-US.msi
-  - Release (con changelog automático de commits): https://github.com/CORJAR-Computers/dinamo_rent_tr/releases/tag/v1.0.21
-  - Firmas del updater: `DinamoRent_1.0.21_x64-setup.exe.sig` / `DinamoRent_1.0.21_x64_en-US.msi.sig`
-  - Endpoint del auto-update (latest.json): https://github.com/CORJAR-Computers/dinamo_rent_tr/releases/latest/download/latest.json
+  - NSIS: https://github.com/CORJAR-Computers/dynarent/releases/download/v1.0.21/Dynarent_1.0.21_x64-setup.exe
+  - MSI: https://github.com/CORJAR-Computers/dynarent/releases/download/v1.0.21/Dynarent_1.0.21_x64_en-US.msi
+  - Release (con changelog automático de commits): https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.21
+  - Firmas del updater: `Dynarent_1.0.21_x64-setup.exe.sig` / `Dynarent_1.0.21_x64_en-US.msi.sig`
+  - Endpoint del auto-update (latest.json): https://github.com/CORJAR-Computers/dynarent/releases/latest/download/latest.json
 - **Conteos de tests** (actualizarlos si cambian): vitest · svelte-check · cargo 69 lib + integración completa (seed_ci) · importador · paginación
 - **Pasos al publicar:** crear tag `vX.Y.Z` → `release.yml` (CI) construye y publica → calcular sha256 de los instaladores y completar aquí → pegar el anuncio.
 - **Changelog automático:** `release.yml` genera el body de la release con los commits entre el tag anterior y el nuevo.

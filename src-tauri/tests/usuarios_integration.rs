@@ -1,5 +1,5 @@
 //! usuarios_integration.rs — Pruebas de integración del servicio de usuarios
-//! contra el .fdb de desarrollo (data/dinamo_rent_v3.fdb).
+//! contra el .fdb de desarrollo (data/dynarent_v3.fdb).
 //!
 //! Los tests crean usuarios temporales con usernames únicos y los eliminan al
 //! final. Ningún test crea administradores para que la protección del último
@@ -10,20 +10,20 @@ use std::sync::{Arc, Mutex};
 
 use serial_test::serial;
 
-use dinamo_rent_lib::core::config::AppConfig;
-use dinamo_rent_lib::core::rbac::SessionStore;
-use dinamo_rent_lib::core::security::{self, LoginAttemptTracker};
-use dinamo_rent_lib::repositories::usuario::UsuarioRepository;
-use dinamo_rent_lib::services::auth::AuthService;
-use dinamo_rent_lib::services::usuario::{UsuarioDatos, UsuarioDatosActualizar, UsuarioService};
-use dinamo_rent_lib::services::AppState;
+use dynarent_lib::core::config::AppConfig;
+use dynarent_lib::core::rbac::SessionStore;
+use dynarent_lib::core::security::{self, LoginAttemptTracker};
+use dynarent_lib::repositories::usuario::UsuarioRepository;
+use dynarent_lib::services::auth::AuthService;
+use dynarent_lib::services::usuario::{UsuarioDatos, UsuarioDatosActualizar, UsuarioService};
+use dynarent_lib::services::AppState;
 
 fn dev_state() -> AppState {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let data_dir = manifest.join("../data");
     let resource_dir = manifest.join("resources");
     let cfg = Arc::new(AppConfig::load(&data_dir, &resource_dir, &manifest));
-    let pool = dinamo_rent_lib::core::db::create_pool(&cfg).expect("pool embedded");
+    let pool = dynarent_lib::core::db::create_pool(&cfg).expect("pool embedded");
     AppState {
         pool,
         sessions: std::sync::Arc::new(Mutex::new(SessionStore::new(3600))),

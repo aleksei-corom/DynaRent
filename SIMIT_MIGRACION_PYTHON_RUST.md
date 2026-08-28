@@ -9,7 +9,7 @@
 
 ## 1. Contexto y objetivo
 
-- El Agente SIMIT de Dinamo Rent consulta comparendos/multas por placa contra
+- El Agente SIMIT de Dynarent consulta comparendos/multas por placa contra
   `consultasimit.fcm.org.co` (microservicio del FCM) resolviendo el captcha Proof-of-Work de
   `qxcaptcha.fcm.org.co`.
 - **Síntoma**: el endpoint de consulta respondía `401 {"codigo":5,"descripcion":"Autenticación
@@ -147,7 +147,7 @@ Cambios en `src-tauri/Cargo.toml` y `src-tauri/src/services/simit.rs`:
                 │<───────────────────────────────────────────────────────────────────┘
                 │  (si 401 con token válido → re-siembra + reintento 1 vez con token fresco)
                 │                         │                     │                      │
-   (5) Deduplicación + insert — BD Firebird dev (data/dinamo_rent_v3.fdb)
+   (5) Deduplicación + insert — BD Firebird dev (data/dynarent_v3.fdb)
                 │  por registro:  ¿ya_existe?  (numero_comparendo | placa+fecha+monto)
                 │    · no existe → INSERT comparendos (Pendiente, observaciones de trazabilidad)
                 │    · existe    → duplicados++ (no se reinserta)

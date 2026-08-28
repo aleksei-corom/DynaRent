@@ -1,5 +1,5 @@
 //! informes_integration.rs — Pruebas de integración del servicio de informes
-//! contra el .fdb de desarrollo (data/dinamo_rent_v3.fdb).
+//! contra el .fdb de desarrollo (data/dynarent_v3.fdb).
 //!
 //! Verifica el balance mensual: consistencia de ingresos/egresos, el mes por
 //! defecto y la lista de rentas del período.
@@ -10,21 +10,21 @@ use std::sync::{Arc, Mutex};
 use chrono::{Duration, Local};
 use serial_test::serial;
 
-use dinamo_rent_lib::core::config::AppConfig;
-use dinamo_rent_lib::core::rbac::SessionStore;
-use dinamo_rent_lib::core::security::LoginAttemptTracker;
-use dinamo_rent_lib::repositories::auto::AutoRepository;
-use dinamo_rent_lib::repositories::renta::RentaDatos;
-use dinamo_rent_lib::services::informe::InformeService;
-use dinamo_rent_lib::services::renta::RentaService;
-use dinamo_rent_lib::services::AppState;
+use dynarent_lib::core::config::AppConfig;
+use dynarent_lib::core::rbac::SessionStore;
+use dynarent_lib::core::security::LoginAttemptTracker;
+use dynarent_lib::repositories::auto::AutoRepository;
+use dynarent_lib::repositories::renta::RentaDatos;
+use dynarent_lib::services::informe::InformeService;
+use dynarent_lib::services::renta::RentaService;
+use dynarent_lib::services::AppState;
 
 fn dev_state() -> AppState {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let data_dir = manifest.join("../data");
     let resource_dir = manifest.join("resources");
     let cfg = Arc::new(AppConfig::load(&data_dir, &resource_dir, &manifest));
-    let pool = dinamo_rent_lib::core::db::create_pool(&cfg).expect("pool embedded");
+    let pool = dynarent_lib::core::db::create_pool(&cfg).expect("pool embedded");
     AppState {
         pool,
         sessions: std::sync::Arc::new(Mutex::new(SessionStore::new(3600))),
@@ -267,10 +267,10 @@ fn informe_requiere_roles_con_informes() {
         let token_op = sessions.create(1, "operador", "Operador", "Op", false);
         let token_sup = sessions.create(2, "supervisor", "Supervisor", "Sup", false);
         drop(sessions);
-        let err_op = dinamo_rent_lib::commands::require_informes(&state, &token_op)
+        let err_op = dynarent_lib::commands::require_informes(&state, &token_op)
             .expect_err("Operador no puede consultar informes");
         assert_eq!(err_op.kind, "permission");
-        let err_sup = dinamo_rent_lib::commands::require_informes(&state, &token_sup)
+        let err_sup = dynarent_lib::commands::require_informes(&state, &token_sup)
             .expect_err("Supervisor no puede consultar informes (solo Admin)");
         assert_eq!(err_sup.kind, "permission");
     }
@@ -281,14 +281,14 @@ fn informe_requiere_roles_con_informes() {
         let token_admin = sessions.create(3, "admin", "Administrador", "Adm", false);
         drop(sessions);
         assert!(
-            dinamo_rent_lib::commands::require_informes(&state, &token_admin).is_ok(),
+            dynarent_lib::commands::require_informes(&state, &token_admin).is_ok(),
             "Administrador tiene rol de informes"
         );
     }
 
     // Sin sesión → session_expired
     {
-        let err = dinamo_rent_lib::commands::require_informes(&state, "no-existe")
+        let err = dynarent_lib::commands::require_informes(&state, "no-existe")
             .expect_err("sin sesión no se accede a informes");
         assert_eq!(err.kind, "session_expired");
     }

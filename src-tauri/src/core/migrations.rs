@@ -312,7 +312,7 @@ pub fn run_migrations(pool: &Pool, migrations_dir: &Path) -> Result<(), AppError
 
 /// Verifica si la BD tiene el esquema inicial COMPLETO de 0001.
 ///
-/// Exige las 4 tablas núcleo (confirman que es una BD Dinamo Rent, no una
+/// Exige las 4 tablas núcleo (confirman que es una BD Dynarent, no una
 /// extranjera) MÁS `pagos`, la última tabla que crea 0001: eso garantiza que
 /// 0001 terminó. Si solo se exigieran las núcleo, un crash de instalación
 /// nueva tras `rentas` (sentencia ~20 de 38) dejaría 0001 registrada como

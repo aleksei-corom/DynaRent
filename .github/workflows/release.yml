@@ -71,7 +71,7 @@ jobs:
             ORIGEN="todo el historial"
           fi
           [ -n "$LOG" ] || LOG="- (sin commits nuevos)"
-          BODY="# Dinamo Rent ERP ${REF}
+          BODY="# Dynarent ERP ${REF}
           
           > Publicada automáticamente por GitHub Actions. Cambios ${ORIGEN} (commit ${GITHUB_SHA:0:7}).
           
@@ -82,7 +82,7 @@ jobs:
           ## Instalación
           
           - **Windows**: descarga el instalador NSIS \`*-setup.exe\` o el MSI \`*.msi\` de los assets de este release.
-          - La app crea su \`config.ini\` en \`%APPDATA%\\com.corjar.dinamorent\\\` en el primer arranque.
+          - La app crea su \`config.ini\` en \`%APPDATA%\\com.corjar.dynarent\\\` en el primer arranque.
           - Requiere WebView2 Runtime (se instala automáticamente si no está presente).
           
           Ver \`SECURITY.md\` para la política de manejo de secretos y respaldo de la clave PII."
@@ -105,7 +105,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: 'Dinamo Rent ERP ${{ github.ref_name }}'
+          releaseName: 'Dynarent ERP ${{ github.ref_name }}'
           releaseBody: ${{ steps.changelog.outputs.changelog }}
           releaseDraft: false
           prerelease: false

@@ -1,4 +1,4 @@
-# Instalación de Dinamo Rent ERP — v1.0.21 (estable)
+# Instalación de Dynarent ERP — v1.0.21 (estable)
 
 > Guía para el equipo de operaciones. **Última versión estable: v1.0.21** — con el
 > **auto-update** activo desde la v1.0.14 (la app detecta y ofrece instalar las versiones
@@ -15,12 +15,12 @@
 
 ## 1. Descarga de los instaladores
 
-Página de la release: <https://github.com/CORJAR-Computers/dinamo_rent_tr/releases/tag/v1.0.21>
+Página de la release: <https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.21>
 
 | Instalador | Enlace directo | Tamaño | Uso |
 |---|---|---|---|
-| **NSIS** (`DinamoRent_1.0.21_x64-setup.exe`) | <https://github.com/CORJAR-Computers/dinamo_rent_tr/releases/download/v1.0.21/DinamoRent_1.0.21_x64-setup.exe> | ~21 MB | **Recomendado** — instalación asistida con atajo de escritorio |
-| **MSI** (`DinamoRent_1.0.21_x64_en-US.msi`) | <https://github.com/CORJAR-Computers/dinamo_rent_tr/releases/download/v1.0.21/DinamoRent_1.0.21_x64_en-US.msi> | ~33 MB | Despliegue empresarial / GPO |
+| **NSIS** (`Dynarent_1.0.21_x64-setup.exe`) | <https://github.com/CORJAR-Computers/dynarent/releases/download/v1.0.21/Dynarent_1.0.21_x64-setup.exe> | ~21 MB | **Recomendado** — instalación asistida con atajo de escritorio |
+| **MSI** (`Dynarent_1.0.21_x64_en-US.msi`) | <https://github.com/CORJAR-Computers/dynarent/releases/download/v1.0.21/Dynarent_1.0.21_x64_en-US.msi> | ~33 MB | Despliegue empresarial / GPO |
 
 > ⚠️ **No usar la v1.0.0** (descontinuada): falla en equipos sin BD previa. Si un equipo
 > ya la tiene instalada **con datos**, no hay que desinstalar — la v1.0.21 abre la BD
@@ -36,25 +36,25 @@ Página de la release: <https://github.com/CORJAR-Computers/dinamo_rent_tr/relea
   automáticamente si el sistema no lo tiene (requiere conexión a internet en el primer
   arranque del instalador en ese caso).
 - **No** se necesita servidor de base de datos: Firebird Embedded usa un archivo `.fdb`
-  local en `%APPDATA%\com.corjar.dinamorent\`.
+  local en `%APPDATA%\com.corjar.dynarent\`.
 
 ---
 
 ## 3. Instalación
 
 ### Opción A — Asistida (NSIS, recomendada)
-1. Ejecutar `DinamoRent_1.0.21_x64-setup.exe` como usuario normal.
+1. Ejecutar `Dynarent_1.0.21_x64-setup.exe` como usuario normal.
 2. Seguir el asistente (siguiente → instalar → finalizar).
 
 ### Opción B — Silenciosa (NSIS)
 ```powershell
 # Instala sin interacción, sin atajo ni ejecución al final
-DinamoRent_1.0.21_x64-setup.exe /S
+Dynarent_1.0.21_x64-setup.exe /S
 ```
 
 ### Opción C — Silenciosa (MSI, para GPO/Intune)
 ```powershell
-msiexec /i DinamoRent_1.0.21_x64_en-US.msi /qn /norestart
+msiexec /i Dynarent_1.0.21_x64_en-US.msi /qn /norestart
 ```
 
 ---
@@ -64,9 +64,9 @@ msiexec /i DinamoRent_1.0.21_x64_en-US.msi /qn /norestart
 La app crea automáticamente en el primer arranque:
 
 ```
-%APPDATA%\com.corjar.dinamorent\
+%APPDATA%\com.corjar.dynarent\
 ├── config.ini            # configuración inicial
-└── dinamo_rent_v3.fdb    # base de datos Firebird Embedded (portable)
+└── dynarent_v3.fdb    # base de datos Firebird Embedded (portable)
 ```
 
 **Credenciales iniciales** (instalación nueva):
@@ -122,15 +122,15 @@ embebida y reinicia la app al terminar).
 - **Actualizar desde v1.0.3–v1.0.13**: a mano, instalando la release nueva encima (el diálogo
   no aparece en esas versiones; queda la transición al auto-update).
 - **Rollback**: si algo fallara, desinstalar y reinstalar la versión anterior conservando
-  `%APPDATA%\com.corjar.dinamorent\` (los datos están ahí, no en la carpeta de programa).
+  `%APPDATA%\com.corjar.dynarent\` (los datos están ahí, no en la carpeta de programa).
   Un rollback manual funciona igual tras un auto-update (desinstalar la versión actual e
   instalar la anterior).
-- **Desinstalar**: Panel de control → Programas → Dinamo Rent ERP (o `uninstall.exe` en
-  `%LOCALAPPDATA%\DinamoRent\`).
+- **Desinstalar**: Panel de control → Programas → Dynarent ERP (o `uninstall.exe` en
+  `%LOCALAPPDATA%\Dynarent\`).
 
 ---
 
 ## 7. Soporte
 
-- Issues del proyecto: <https://github.com/CORJAR-Computers/dinamo_rent_tr/issues>
+- Issues del proyecto: <https://github.com/CORJAR-Computers/dynarent/issues>
 - Detalle técnico del fix y políticas de seguridad: `SECURITY.md` y `Handsoff.md` del repo.

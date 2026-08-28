@@ -19,8 +19,8 @@ const DEFAULTS: &[(&str, &str, &str)] = &[
     ("database", "port", "3050"),
     ("database", "user", "sysdba"),
     ("database", "password", "masterkey"),
-    ("database", "database", "dinamo_rent"),
-    ("database", "path", "dinamo_rent_v3.fdb"),
+    ("database", "database", "dynarent"),
+    ("database", "path", "dynarent_v3.fdb"),
     ("database", "timeout", "10"),
     ("database", "pool_size", "10"),
     ("database", "pool_max_overflow", "20"),
@@ -48,9 +48,9 @@ const DEFAULTS: &[(&str, &str, &str)] = &[
     ("logging", "audit_enabled", "true"),
     ("logging", "audit_retention_days", "30"),
     // [application]
-    ("application", "name", "Dinamo Rent ERP"),
+    ("application", "name", "Dynarent ERP"),
     ("application", "version", "3.2.0"),
-    ("application", "author", "Dinamo Rent a Car"),
+    ("application", "author", "Dynarent"),
     ("application", "language", "es"),
     ("application", "timezone", "America/Bogota"),
     ("application", "production_mode", "false"),
@@ -250,7 +250,7 @@ impl AppConfig {
         let fbclient_path = find_fbclient(resource_dir, manifest_dir);
 
         // 4) Resolver ruta del .fdb (relativa al data_dir)
-        let db_name = get_str(&map, "database", "path", "dinamo_rent_v3.fdb");
+        let db_name = get_str(&map, "database", "path", "dynarent_v3.fdb");
         let db_path = if Path::new(&db_name).is_absolute() {
             PathBuf::from(&db_name)
         } else {
@@ -311,7 +311,7 @@ impl AppConfig {
             impuesto_porcentaje: get_str(&map, "business", "impuesto_porcentaje", "19")
                 .parse::<f64>()
                 .unwrap_or(19.0),
-            app_name: get_str(&map, "application", "name", "Dinamo Rent ERP"),
+            app_name: get_str(&map, "application", "name", "Dynarent ERP"),
             app_version: get_str(&map, "application", "version", "3.2.0"),
             ui_color_primario: get_str(&map, "ui", "color_primario", "#1e40af"),
             ui_color_fondo: get_str(&map, "ui", "color_fondo", "#f8fafc"),

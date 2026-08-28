@@ -53,7 +53,7 @@
 			const a = document.createElement('a');
 			a.href = url;
 			const fecha = new Date().toISOString().slice(0, 10);
-			a.download = `dinamo_rent_logs_${fecha}.txt`;
+			a.download = `dynarent_logs_${fecha}.txt`;
 			a.click();
 			URL.revokeObjectURL(url);
 			toast.success('Logs exportados correctamente');

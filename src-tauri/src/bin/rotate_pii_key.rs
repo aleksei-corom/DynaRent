@@ -1,6 +1,6 @@
 //! rotate_pii_key — Rotación de la clave PII (db_encryption_key)
 //!
-//! Wrapper CLI de `dinamo_rent_lib::services::rotacion::rotar_clave_pii`
+//! Wrapper CLI de `dynarent_lib::services::rotacion::rotar_clave_pii`
 //! (SECURITY.md §2.1): descifra cada columna PII de `clientes` con la clave
 //! VIEJA (tokens Fernet legacy y AES-GCM `v1:`) y la re-cifra con la clave
 //! NUEVA (AES-256-GCM v1:) en una transacción atómica, registrando el evento
@@ -11,7 +11,7 @@
 //!   cargo run --features dev --bin rotate_pii_key -- \
 //!       --old-key "CLAVE_VIEJA" \
 //!       --new-key "CLAVE_NUEVA" \
-//!       --db "D:/dinamo_rent_tr/data/dinamo_rent_v3.fdb"
+//!       --db "D:/dynarent/data/dynarent_v3.fdb"
 //!
 //! La clave NUEVA se genera con `openssl rand -base64 32`.
 //!
@@ -23,8 +23,8 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use dinamo_rent_lib::core::config::AppConfig;
-use dinamo_rent_lib::services::rotacion::rotar_clave_pii;
+use dynarent_lib::core::config::AppConfig;
+use dynarent_lib::services::rotacion::rotar_clave_pii;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
@@ -50,7 +50,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     Arc::get_mut(&mut cfg).unwrap().db_path = db_path;
 
-    let pool = dinamo_rent_lib::core::db::create_pool(&cfg)?;
+    let pool = dynarent_lib::core::db::create_pool(&cfg)?;
     let mut conn = pool.get()?;
 
     let resultado = rotar_clave_pii(&mut conn, &old_key, &new_key)?;

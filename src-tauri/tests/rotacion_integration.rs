@@ -3,7 +3,7 @@
 //! `rotate_pii_key` de SECURITY.md §2.1).
 //!
 //! Se ejecutan sobre una COPIA temporal de la BD de desarrollo
-//! (data/dinamo_rent_v3.fdb): la BD real nunca se toca (una rotación re-cifra
+//! (data/dynarent_v3.fdb): la BD real nunca se toca (una rotación re-cifra
 //! TODA la tabla clientes). Verifican que la rotación:
 //!   - re-cifra los datos PII con la clave nueva (descifrables con ella),
 //!   - registra el evento `PII_KEY_ROTATED` en la tabla `auditoria` con
@@ -17,12 +17,12 @@ use std::sync::Arc;
 use rsfbclient::{Execute, Queryable};
 use serial_test::serial;
 
-use dinamo_rent_lib::core::config::AppConfig;
-use dinamo_rent_lib::core::crypto::PiiCipher;
-use dinamo_rent_lib::core::db::{create_pool, PooledConnection};
-use dinamo_rent_lib::repositories::cliente::ClienteDatos;
-use dinamo_rent_lib::services::cliente::ClienteService;
-use dinamo_rent_lib::services::rotacion::rotar_clave_pii;
+use dynarent_lib::core::config::AppConfig;
+use dynarent_lib::core::crypto::PiiCipher;
+use dynarent_lib::core::db::{create_pool, PooledConnection};
+use dynarent_lib::repositories::cliente::ClienteDatos;
+use dynarent_lib::services::cliente::ClienteService;
+use dynarent_lib::services::rotacion::rotar_clave_pii;
 
 /// Clave nueva de prueba (base64 de 32 bytes — formato Fernet/válido).
 const NUEVA_CLAVE_TEST: &str = "QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE=";
@@ -38,10 +38,10 @@ impl Drop for LimpiarTemporal {
 /// Copia la BD de desarrollo a un archivo temporal (devuelve ruta + guard).
 fn copia_bd_dev() -> (PathBuf, LimpiarTemporal) {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let src = manifest.join("../data/dinamo_rent_v3.fdb");
+    let src = manifest.join("../data/dynarent_v3.fdb");
     assert!(src.exists(), "BD de desarrollo no encontrada: {src:?}");
     let tmp = std::env::temp_dir().join(format!(
-        "dinamo_rent_rotacion_{}.fdb",
+        "dynarent_rotacion_{}.fdb",
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_nanos())

@@ -2,7 +2,7 @@
 //! (`services::backup`, Fase 8 de `PLAN_IMPLEMENTACION_TAURI.md` §4.8).
 //!
 //! Se ejecutan sobre una COPIA temporal de la BD de desarrollo
-//! (data/dinamo_rent_v3.fdb): la BD real nunca se toca. Verifican que
+//! (data/dynarent_v3.fdb): la BD real nunca se toca. Verifican que
 //! `crear_backup`:
 //!   - genera un `.fbk` real con **gbak** (la copia no la tiene abierta ningún
 //!     proceso, así que la vía primaria debe funcionar y el archivo NO debe ser
@@ -12,16 +12,16 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use dinamo_rent_lib::core::config::AppConfig;
-use dinamo_rent_lib::core::db::create_pool;
-use dinamo_rent_lib::services::backup::{
+use dynarent_lib::core::config::AppConfig;
+use dynarent_lib::core::db::create_pool;
+use dynarent_lib::services::backup::{
     crear_backup, descifrar_archivo, listar_backups, preparar_staging, reintentar_io,
     restaurar_fdb_desde_fbk,
 };
 use rsfbclient::Queryable;
 
 /// Detecta si gbak.exe está disponible en el resource_dir.
-fn gbak_disponible(cfg: &dinamo_rent_lib::core::config::AppConfig) -> bool {
+fn gbak_disponible(cfg: &dynarent_lib::core::config::AppConfig) -> bool {
     cfg.resource_dir.join("firebird").join("gbak.exe").exists()
 }
 
@@ -51,9 +51,9 @@ fn config_con_backup_en_temp() -> (Arc<AppConfig>, PathBuf, LimpiarTemporal) {
     let tmp = std::env::temp_dir().join(format!("backup_int_{}", uniq()));
     std::fs::create_dir_all(&tmp).unwrap();
 
-    let src = data_dir.join("dinamo_rent_v3.fdb");
+    let src = data_dir.join("dynarent_v3.fdb");
     assert!(src.exists(), "BD de desarrollo no encontrada: {src:?}");
-    let db = tmp.join("dinamo_rent_v3.fdb");
+    let db = tmp.join("dynarent_v3.fdb");
     // Reintentos: en el runner del CI, seed_ci acaba de crear la BD y Defender
     // puede bloquear brevemente la copia (sharing violation os error 32).
     reintentar_io(|| std::fs::copy(&src, &db).map(|_| ()), 8, 250).unwrap();
@@ -199,7 +199,7 @@ fn restauracion_de_backup_cifrado_con_gbak_real() {
     // Staging descifrado (flujo del comando backup_restaurar)
     let staging = preparar_staging(cfg, &fbk_cifrado, Some("clave-integracion")).unwrap();
     assert!(
-        !dinamo_rent_lib::services::backup::es_cifrado(&staging),
+        !dynarent_lib::services::backup::es_cifrado(&staging),
         "el staging debe quedar en claro"
     );
     restaurar_fdb_desde_fbk(cfg, &staging, &cfg.db_path).unwrap();

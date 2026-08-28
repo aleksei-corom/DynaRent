@@ -1,5 +1,5 @@
 //! comparendos_integration.rs — Pruebas de integración del servicio de
-//! comparendos contra el .fdb de desarrollo (data/dinamo_rent_v3.fdb).
+//! comparendos contra el .fdb de desarrollo (data/dynarent_v3.fdb).
 //!
 //! Usa un auto real de la BD (solo lectura) y crea/elimina comparendos
 //! temporales en cada test. Verifica CRUD, marcado de pago y totales.
@@ -10,22 +10,22 @@ use std::sync::{Arc, Mutex};
 use chrono::{Duration, Local};
 use serial_test::serial;
 
-use dinamo_rent_lib::core::config::AppConfig;
-use dinamo_rent_lib::core::rbac::SessionStore;
-use dinamo_rent_lib::core::security::LoginAttemptTracker;
-use dinamo_rent_lib::repositories::auto::AutoRepository;
-use dinamo_rent_lib::repositories::comparendo::ComparendoDatos;
-use dinamo_rent_lib::repositories::renta::RentaDatos;
-use dinamo_rent_lib::services::comparendo::ComparendoService;
-use dinamo_rent_lib::services::renta::RentaService;
-use dinamo_rent_lib::services::AppState;
+use dynarent_lib::core::config::AppConfig;
+use dynarent_lib::core::rbac::SessionStore;
+use dynarent_lib::core::security::LoginAttemptTracker;
+use dynarent_lib::repositories::auto::AutoRepository;
+use dynarent_lib::repositories::comparendo::ComparendoDatos;
+use dynarent_lib::repositories::renta::RentaDatos;
+use dynarent_lib::services::comparendo::ComparendoService;
+use dynarent_lib::services::renta::RentaService;
+use dynarent_lib::services::AppState;
 
 fn dev_state() -> AppState {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let data_dir = manifest.join("../data");
     let resource_dir = manifest.join("resources");
     let cfg = Arc::new(AppConfig::load(&data_dir, &resource_dir, &manifest));
-    let pool = dinamo_rent_lib::core::db::create_pool(&cfg).expect("pool embedded");
+    let pool = dynarent_lib::core::db::create_pool(&cfg).expect("pool embedded");
     AppState {
         pool,
         sessions: std::sync::Arc::new(Mutex::new(SessionStore::new(3600))),
@@ -223,7 +223,7 @@ fn comparendo_totales() {
 fn comparendo_numero_oficial_y_dedup() {
     // Verifica el número oficial (fuente SIMIT): round-trip del campo y los
     // métodos de deduplicación que usa el Agente SIMIT.
-    use dinamo_rent_lib::repositories::comparendo::ComparendoRepository;
+    use dynarent_lib::repositories::comparendo::ComparendoRepository;
 
     let state = dev_state();
     let cfg = &state.config;
@@ -308,7 +308,7 @@ fn comparendo_origen_simit_y_ultimo_visto() {
     // queda 'Manual' con ultimo_visto NULL; marcar_visto_simit_por_id converge
     // un Manual a SIMIT y toca la confirmación; id_existente deduplica y
     // devuelve el id del registro existente.
-    use dinamo_rent_lib::repositories::comparendo::ComparendoRepository;
+    use dynarent_lib::repositories::comparendo::ComparendoRepository;
 
     let state = dev_state();
     let cfg = &state.config;
@@ -378,8 +378,8 @@ fn comparendo_no_confirmados_simit() {
     // Filtro «el SIMIT dejó de confirmar»: entran los de origen SIMIT con
     // ultimo_visto_simit nulo o anterior al corte; salen los recién
     // confirmados y los manuales (el SIMIT nunca los confirma, es lo esperado).
-    use dinamo_rent_lib::repositories::comparendo::ComparendoRepository;
-    use dinamo_rent_lib::services::comparendo::DIAS_SIN_CONFIRMAR_SIMIT;
+    use dynarent_lib::repositories::comparendo::ComparendoRepository;
+    use dynarent_lib::services::comparendo::DIAS_SIN_CONFIRMAR_SIMIT;
     use rsfbclient::Execute;
 
     let state = dev_state();
@@ -467,7 +467,7 @@ fn persistencia_ultimo_resultado_simit() {
     // El filtro «Solo nuevos» sobrevive al reinicio: el resultado de la última
     // sincronización se persiste como JSON (una fila, upsert) y se restaura.
     // Round-trip completo: persistir → cargar → re-persistir (upsert).
-    use dinamo_rent_lib::services::simit::{
+    use dynarent_lib::services::simit::{
         cargar_ultimo_resultado, persistir_ultimo_resultado, ErrorPlacaSimit, MetricasSimit,
         RegistroSimit, ResultadoSincronizacion,
     };

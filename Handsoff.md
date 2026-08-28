@@ -1,4 +1,4 @@
-# Handsoff — Dinamo Rent ERP (Tauri + SvelteKit + Firebird)
+# Handsoff — Dynarent ERP (Tauri + SvelteKit + Firebird)
 
 > Última actualización: **2026-08-19** · Estado: **todos los módulos operativos, validación verde · release v1.0.18 en preparación · Bloques 1-4 aplicados (tracing, informes optimizados, repository DRY, accesibilidad WCAG 2.1, dependabot, ts-rs) · edición de rentas cerradas · extensiones acumulables · mayúsculas automáticas · backups de la BD (Fase 8) · auto-update activo · CI en Node 24**
 
@@ -30,8 +30,8 @@
 > intento (el exe quedó en 19:50, anterior a los fixes de las 20:56), se relanzó
 > `npm run tauri build` completo desacoplado (`Start-Process`) y terminó sin el `os error 32`.
 > Artefactos en `src-tauri/target/release/bundle/`:
-> **`nsis/DinamoRent_1.0.0_x64-setup.exe`** (23,8 MB) y **`msi/DinamoRent_1.0.0_x64_en-US.msi`**
-> (35,4 MB) · `dinamo-rent.exe` relinkeado a las 22:25 (v1.0.0, 12,2 MB) con las **16
+> **`nsis/Dynarent_1.0.0_x64-setup.exe`** (23,8 MB) y **`msi/Dynarent_1.0.0_x64_en-US.msi`**
+> (35,4 MB) · `dynarent.exe` relinkeado a las 22:25 (v1.0.0, 12,2 MB) con las **16
 > migraciones embebidas verificadas** (grep de 0001/0005/0010/0016 en el binario). Suites
 > validadas antes del build: `cargo test --lib` **43/43** · `migraciones_integration` **11/11**.
 > 🐛 **Bug 3 (descubierto con Windows Sandbox, 12-08) — la app moría en equipos limpios sin
@@ -47,14 +47,14 @@
 > descargar el VC++ redist en las máquinas de los clientes. Validado en **Windows Sandbox**
 > (Windows limpio, sin runtime en System32): instalador reconstruido (12-08 00:48) → smoke
 > test **OPERATIVO** — BD creada (2.9 MB), proceso vivo a los 12 s, Login OK con admin sembrado.
-> Reproducible con `scripts/dinamorent-sandbox.wsb` + `scripts/smoke-test-sandbox.ps1`
+> Reproducible con `scripts/dynarent-sandbox.wsb` + `scripts/smoke-test-sandbox.ps1`
 > (resultado en `scripts/smoke-result.txt`).
-> 🚀 **Release v1.0.1 publicada (12-08):** [github.com/CORJAR-Computers/dinamo_rent_tr/releases/tag/v1.0.1]
-> — instaladores `DinamoRent_1.0.1_x64-setup.exe` (NSIS, 20 MB) y `.msi` (31 MB) construidos
+> 🚀 **Release v1.0.1 publicada (12-08):** [github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.1]
+> — instaladores `Dynarent_1.0.1_x64-setup.exe` (NSIS, 20 MB) y `.msi` (31 MB) construidos
 > **por CI** (workflow `release.yml`, disparado por el tag `v1.0.1`) con los fixes de
 > instalación limpia ya fusionados en main. Notas de la release documentan el bug.
-> 🚀 **Release v1.0.2 publicada (14-08):** [github.com/CORJAR-Computers/dinamo_rent_tr/releases/tag/v1.0.2]
-> — instaladores `DinamoRent_1.0.2_x64-setup.exe` (NSIS, ~21 MB) y `.msi` (~31 MB)
+> 🚀 **Release v1.0.2 publicada (14-08):** [github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.2]
+> — instaladores `Dynarent_1.0.2_x64-setup.exe` (NSIS, ~21 MB) y `.msi` (~31 MB)
 > construidos por CI. Añade IVA por renta (checkbox, migración 0019), auto-cálculo de
 > días/horas al cerrar, cambio de vehículo sin cerrar la renta y combos con búsqueda
 > (§7.2/§7.3). `release.yml` ahora genera el **body de la release con changelog automático**
@@ -69,7 +69,7 @@
 > (`scripts/verificar-updater-e2e.sh`: firma real → `latest.json` → `check()` detecta la
 > v1.0.3 → `download()` verifica firma + bytes idénticos; las versiones del fixture se
 > derivan de `tauri.conf.json` para no quedar fijas). ✅ **Publicado (14-08):** el secret
-> `TAURI_SIGNING_PRIVATE_KEY` quedó configurado (contenido de `~/.tauri/dinamorent.key`,
+> `TAURI_SIGNING_PRIVATE_KEY` quedó configurado (contenido de `~/.tauri/dynarent.key`,
 > respaldado fuera del repo) y la **release v1.0.3 salió firmada** — los `.sig` y el
 > `latest.json` validan criptográficamente contra la pubkey embebida (Ed25519/BLAKE2b
 > sobre los artefactos reales). Las instalaciones **v1.0.2 no tienen updater**: se
@@ -78,7 +78,7 @@
 > 🚀 **Releases v1.0.4 → v1.0.9 publicadas (14-08, diagnóstico y documento):** la cadena
 > arrancó con la **v1.0.4** (diagnóstico en producción: el toast de errores de BD ahora
 > muestra el detalle real de Firebird — SQLCODE/columna/lock — y el logging se activa en
-> release escribiendo a `%APPDATA%\com.corjar.dinamorent\logs\app.log`, 5 MB por archivo
+> release escribiendo a `%APPDATA%\com.corjar.dynarent\logs\app.log`, 5 MB por archivo
 > con rotación conservada). Con eso se capturó el **-303 `conversion error from string ""`**
 > al crear/modificar rentas → fix en la **v1.0.5** (`normalizar()` convierte montos vacíos a
 > `"0.00"` antes del `CAST(? AS DECIMAL)` en rentas/reservas/autos + test de regresión).
@@ -103,7 +103,7 @@
 > firmas completas.
 > 🐛 **Hallazgo del CI (12-08) — el feature `linking` de rsfbclient rompía el build de
 > release**: el release v1.0.0 **nunca había pasado por CI** (se publicó con artefactos
-> locales) y el primer build en GitHub Actions fallaba en el linkeo de `dinamo_rent_lib.dll`
+> locales) y el primer build en GitHub Actions fallaba en el linkeo de `dynarent_lib.dll`
 > con LNK2019/LNK1120 (símbolos `isc_*`/`fb_interpret` sin resolver). Causa: el feature por
 > defecto `linking` de `rsfbclient` exige `fbclient.lib` en build time; localmente compilaba
 > porque la máquina de desarrollo tiene el SDK de Firebird, el runner limpio de GitHub no.
@@ -136,7 +136,7 @@
 > comparendos 5/5) · vitest ✅ · `svelte-check` 0/0 · `eslint` 0.
 
 > **Publicado en origin/main (11-08):** el trabajo del Agente SIMIT de estos días quedó
-> empujado a `github.com/CORJAR-Computers/dinamo_rent_tr` (rama `main`) como **6 commits
+> empujado a `github.com/CORJAR-Computers/dynarent` (rama `main`) como **6 commits
 > temáticos**: `9561b2a` Fase 1 (jar persistente + siembra de sesión + token de una solución +
 > `sync_dev`), `1e7bf80` fixes (fechas DD/MM/YYYY y pre-check de fecha antes de dedup),
 > `1e53fd6` herramientas de monitoreo/test (`check-simit`, `watch-simit`, `test-check-simit`,
@@ -566,7 +566,7 @@ y `IntoParams` para tuplas de **≤15**. Cualquier SELECT largo debe partirse en
       arg `r` de informeExcel). Validación: `npm run lint` 0 problemas, `npm run check` 0/0,
       `npm run test` 190/190, `npm run build` ✅ — el pre-commit (`bun run lint`) ya no bloquea.
 - [x] **Configurar `business.impuesto_porcentaje`** en el `config.ini` real de producción (dev usa 19).
-      *Hecho (10-08): el config real (`%APPDATA%\com.corjar.dinamorent\config.ini`) ya trae
+      *Hecho (10-08): el config real (`%APPDATA%\com.corjar.dynarent\config.ini`) ya trae
       `impuesto_porcentaje = 19` en `[business]` (auto-generado con los defaults) y la app lo lee al
       arrancar. Para CAMBIAR la tasa en producción: editar esa clave en `[business]` del config.ini y
       reiniciar la app (sin rebuild; `AppConfig::save()` preserva la clave — no la pisa). Se documentó
@@ -612,11 +612,11 @@ y `IntoParams` para tuplas de **≤15**. Cualquier SELECT largo debe partirse en
    Guards frontend centralizados en `utils/guards.ts` (`validarSesion`, `guardSesion`, `haySesion`, `guardRole`).
 5. **PII:** clientes se descifran en el backend con `db_encryption_key` (`pii_key` en caliente).
 6. **Errores:** `AppError` → `to_payload()` → `{kind, message, detail}`; el frontend lanza `ApiError`.
-7. **Tests:** integración Rust contra `data/dinamo_rent_v3.fdb` (serial, autos/clientes reales de
+7. **Tests:** integración Rust contra `data/dynarent_v3.fdb` (serial, autos/clientes reales de
    solo lectura, limpieza de registros temporales). Frontend con mock de Tauri
    (`src/test/tauri.ts` + `register`), `session.setSession` en `beforeEach`.
 8. **Tracing estructurado (Bloque 1):** `tracing` + `tracing-subscriber` con `EnvFilter`
-   (`RUST_LOG=info,dinamo_rent_lib=debug`). Coexistencia con `tauri-plugin-log` via
+   (`RUST_LOG=info,dynarent_lib=debug`). Coexistencia con `tauri-plugin-log` via
    `tracing_log::LogTracer`. Spans etiquetados en `login`, `cerrar_renta` y `registrar_pago`
    para correlacionar logs con auditoría. El `tracing_subscriber` se inicializa en `lib.rs`
    ANTES del setup de Tauri.
@@ -798,7 +798,7 @@ con `firebird-driver`, `cryptography` y `openpyxl`; corren contra la BD de una i
 
 ### 6.1 Importador de Autos/Clientes — `scripts/importar_autos_clientes.py`
 
-Lleva datos de **AUTOS** y **CLIENTES** a la BD de una instalación DinamoRent desde un dump SQL
+Lleva datos de **AUTOS** y **CLIENTES** a la BD de una instalación Dynarent desde un dump SQL
 o desde una hoja de cálculo. Caso de uso: el cliente tiene una copia de su BD (exportada a
 SQL) o los datos están recopilados en Excel y hay que poblar la instalación.
 
@@ -854,28 +854,28 @@ actualizados) → auditoría registrada. Fixtures de ejemplo en `scripts/fixture
 
 Post-instalación en el equipo del cliente: comprueba exe **v1.0.15** instalado, **arranca la
 app** y verifica que siga viva 10 s (el check crítico — el bug del v1.0.0 moría ahí), y luego
-valida los datos que crea el **primer arranque** (`%APPDATA%\com.corjar.dinamorent`: `config.ini`
-+ `dinamo_rent_v3.fdb`). Veredicto `OK` / `FALLOS` con checks numerados, exit 0/1.
+valida los datos que crea el **primer arranque** (`%APPDATA%\com.corjar.dynarent`: `config.ini`
++ `dynarent_v3.fdb`). Veredicto `OK` / `FALLOS` con checks numerados, exit 0/1.
 
 > **Orden de checks (fix 12-08):** primero se arranca la app y después se comprueban los
-datos — la carpeta `%APPDATA%\com.corjar.dinamorent` se crea en el primer arranque (el
+datos — la carpeta `%APPDATA%\com.corjar.dynarent` se crea en el primer arranque (el
 propio fix de instalación limpia), así que comprobarla antes producía FALLOS falsos.
 Validado de punta a punta en Windows Sandbox con la v1.0.1 oficial: **VEREDICTO OK (6/6)**.
 Harness reutilizable: `scripts/verificar-despliegue-sandbox.ps1` +
-`scripts/dinamorent-sandbox-verificar.wsb`. Ver `DEPLOYMENT_CLIENTES.md` para el plan completo.
+`scripts/dynarent-sandbox-verificar.wsb`. Ver `DEPLOYMENT_CLIENTES.md` para el plan completo.
 
 > **Modo `-DryRun` (17-08):** `-DryRun` ejecuta los mismos chequeos y el veredicto reales
 > contra un ambiente simulado en `%TEMP%` (exe, carpeta de datos y BD fake), sin tocar la
 > máquina real; `-SimularFallo` fuerza el camino de FALLOS. Validado de punta a punta en el
 > host: caso OK (6/6, exit 0) y caso FALLOS (4 fallos con detalles, exit 1).
 
-También de esta línea: `scripts/dinamorent-sandbox.wsb` + `scripts/smoke-test-sandbox.ps1`
+También de esta línea: `scripts/dynarent-sandbox.wsb` + `scripts/smoke-test-sandbox.ps1`
 (smoke test del instalador en Windows limpio, ver nota de portada 12-08).
 
 ### 6.3 Dejar lista la BD de desarrollo desde cero (2026-08-14)
 
-Receta validada en un clon nuevo (sin `data/config.ini` ni `data/dinamo_rent_v3.fdb`).
-Deja la BD dev (`data/dinamo_rent_v3.fdb`) funcional para que `cargo test --tests`
+Receta validada en un clon nuevo (sin `data/config.ini` ni `data/dynarent_v3.fdb`).
+Deja la BD dev (`data/dynarent_v3.fdb`) funcional para que `cargo test --tests`
 corra completo en verde — sin esto, las suites con flota fallan con un mensaje que
 indica correr el setup (antes se omitían silenciosamente):
 
@@ -893,7 +893,7 @@ indica correr el setup (antes se omitían silenciosamente):
    `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`
    — clave local al clon, nunca al repo.
 4. **Sembrar flota de prueba**: `python scripts/importar_autos_clientes.py
-   --sql scripts/fixtures/dump_autos_clientes.sql --db data/dinamo_rent_v3.fdb`
+   --sql scripts/fixtures/dump_autos_clientes.sql --db data/dynarent_v3.fdb`
    — primero dry-run (sin `--commit`) y luego `--commit` (transaccional). Inserta 2 autos +
    2 clientes con PII cifrada y auditoría `IMPORTACION_DATOS`. Necesario para el test 0016
    (`expect("hay autos en la BD dev")`) y para que las suites de rentas corran de verdad
@@ -967,7 +967,7 @@ no los de Dinamo:
 - Se eliminaron el SVG provisional (`LogoDynaRent.svg`) y los duplicados de la
   raíz del clon; el logo queda solo en `static/`.
 
-⚠️ El `origin` del clon apunta a `D:/dinamo_rent_tr` (ruta local) — **no hacer
+⚠️ El `origin` del clon apunta a `D:/dynarent` (ruta local) — **no hacer
 `git push` dentro del clon**; al distribuir hay que crear un repo nuevo
 (ej. `CORJAR-Computers/dynarent`) y cambiar el remote.
 
@@ -1057,7 +1057,7 @@ acciones. El botón «Nuevo» de cliente y el `ClienteFormModal` embebido ya
 existían y se conservan.
 
 **Seed de BD mínima para CI** (`src-tauri/src/bin/seed_ci.rs`): siembra
-`data/dinamo_rent_v3.fdb` determinista (config → pool → migraciones → admin
+`data/dynarent_v3.fdb` determinista (config → pool → migraciones → admin
 `Admin123!` → 2 autos → 2 clientes) para que `cargo test --tests` se EJECUTE
 completo en CI (antes solo se compilaba con `--no-run`). Idempotente (upsert por
 placa/no_doc); persiste una clave PII de desarrollo si config.ini viene vacía

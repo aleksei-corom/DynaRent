@@ -1,4 +1,4 @@
-# Plan de Migración — Dinamo Rent ERP → Tauri V2 + Rust + SvelteKit + Tailwind CSS
+# Plan de Migración — Dynarent ERP → Tauri V2 + Rust + SvelteKit + Tailwind CSS
 
 > **Autor:** Ingeniería de Software (Senior Full Stack)
 > **Proyecto origen:** `Dinamo_Rent` (Python + PySide6 + SQLAlchemy) v3.2.1
@@ -9,7 +9,7 @@
 
 ## 1. Resumen ejecutivo
 
-**Dinamo Rent ERP** es un sistema de gestión de flota para renta de vehículos (autos, clientes, rentas, reservas, finanzas, taller, comparendos, alertas, informes, usuarios y auditoría) construido sobre **Python + PySide6 + SQLAlchemy**. El motor de base de datos productivo es **Firebird Embedded** (ya es el valor por defecto en `config.ini`: `engine = firebird`, archivo `dinamo_rent_v3.fdb` con `fbclient.dll` embebida en la carpeta `Firebird-*` del proyecto).
+**Dynarent ERP** es un sistema de gestión de flota para renta de vehículos (autos, clientes, rentas, reservas, finanzas, taller, comparendos, alertas, informes, usuarios y auditoría) construido sobre **Python + PySide6 + SQLAlchemy**. El motor de base de datos productivo es **Firebird Embedded** (ya es el valor por defecto en `config.ini`: `engine = firebird`, archivo `dynarent_v3.fdb` con `fbclient.dll` embebida en la carpeta `Firebird-*` del proyecto).
 
 Esta migración reescribe la aplicación con:
 
@@ -40,7 +40,7 @@ Esta migración reescribe la aplicación con:
 
 - **UI:** PySide6 ≥ 6.6
 - **BD:** SQLAlchemy ≥ 2.0.25, `firebird-driver` (cliente Python de Firebird), `sqlalchemy-firebird`, Alembic ≥ 1.13
-- **Motor por defecto:** Firebird Embedded 4.0.7 (carpeta `Firebird-4.0.7.3271/fbclient.dll` en la raíz; archivo `dinamo_rent_v3.fdb`). MySQL y SQLite existen como alternativas secundarias en el código, pero Firebird es el motor configurado (`config.ini [database] engine = firebird`).
+- **Motor por defecto:** Firebird Embedded 4.0.7 (carpeta `Firebird-4.0.7.3271/fbclient.dll` en la raíz; archivo `dynarent_v3.fdb`). MySQL y SQLite existen como alternativas secundarias en el código, pero Firebird es el motor configurado (`config.ini [database] engine = firebird`).
 - **Validación:** Pydantic ≥ 2.5, pydantic-settings
 - **Reportes:** Jinja2, WeasyPrint, reportlab
 - **Excel:** pandas, openpyxl
@@ -146,7 +146,7 @@ Detalles críticos:
 │                                    ┌───────────▼──────────────┐  │
 │                                    │ Firebird Embedded 5.0    │  │
 │                                    │ fbclient.dll en proceso  │  │
-│                                    │ dinamo_rent_v3.fdb       │  │
+│                                    │ dynarent_v3.fdb       │  │
 │                                    └──────────────────────────┘  │
 └──────────────────────────────────────────────────────────────────┘
 ```
@@ -175,7 +175,7 @@ Firebird Embedded corre **dentro del mismo proceso** (fbclient.dll se carga en m
 ### 3.3 Estructura de carpetas del nuevo repositorio
 
 ```
-dinamo-rent-tauri/
+dynarent-tauri/
 ├── package.json                  # Frontend (SvelteKit)
 ├── svelte.config.js              # adapter-static, ssr=false, prerender=true
 ├── vite.config.ts                # + @tailwindcss/vite, tauri plugin
@@ -296,14 +296,14 @@ Trade-off a mitigar: `rsfbclient` no tiene macros `query!` de verificación en c
 - **Excel:** `xlsx` (SheetJS) en el frontend para exportar los mismos informes.
 
 ### 4.8 Backups
-- **Firebird (primario):** invocar **`gbak`** vía `std::process::Command` (se empaqueta `gbak.exe` + `zlib1.dll` junto al binario; usa el mismo `fbclient.dll`). Comando: `gbak -b -user sysdba -password *** dinamo_rent_v3.fdb Backup_Dinamo_<ts>.fbk` (formato nativo, consistente). Ejecutar con la BD sin conexiones activas de escritura.
+- **Firebird (primario):** invocar **`gbak`** vía `std::process::Command` (se empaqueta `gbak.exe` + `zlib1.dll` junto al binario; usa el mismo `fbclient.dll`). Comando: `gbak -b -user sysdba -password *** dynarent_v3.fdb Backup_Dinamo_<ts>.fbk` (formato nativo, consistente). Ejecutar con la BD sin conexiones activas de escritura.
 - **Firebird (alternativa simple):** copia del archivo `.fdb` (`fs::copy`) con la app sin conexiones activas (mismo patrón de copia de archivo que usa la app actual para Firebird); suficiente para single-user embedded. En producción con la app corriendo el motor Embedded abre la BD en exclusiva por proceso, así que **el fallback de copia es el camino operativo** del scheduler.
 - **Cifrado:** AES-256-GCM con PBKDF2-SHA256 (salt 16 bytes prefijado) — compatible en concepto con el actual Fernet+PBKDF2.
 - **Rotación:** conservar N copias (config `max_copies`, default 10).
 - **Implementado (Fase 8, 18-08):** `services/backup.rs` — scheduler automático en `[backup] schedule_times` (4 horarios), `backup_ahora`/`backup_estado`, cifrado por chunks de 1 MiB (magic `DRENC-01` + salt PBKDF2 prefijado) y rotación a `max_copies`; panel `/backups` (solo admin) con crear manual, listado de copias, estado de la última corrida y **restauración** (descifrar si aplica + `gbak -r` con reinicio de la app). `database_config_dialog` y el setup wizard **pospuestos** (proyecto de uso interno de Dinamo: la instalación con defaults basta; se retoman solo si hay despliegues externos).
 
 ### 4.9 Configuración
-- Se **mantiene `config.ini`** (mismo formato y secciones) para no romper la migración de instalaciones existentes. Se implementa con crate `config` (o `ini` + serde) y los mismos defaults de `core/config.py` (engine fijo `firebird`, `path = dinamo_rent_v3.fdb`, user/password `sysdba`/`masterkey`).
+- Se **mantiene `config.ini`** (mismo formato y secciones) para no romper la migración de instalaciones existentes. Se implementa con crate `config` (o `ini` + serde) y los mismos defaults de `core/config.py` (engine fijo `firebird`, `path = dynarent_v3.fdb`, user/password `sysdba`/`masterkey`).
 - Alternativa a considerar (Fase 9, opcional): migrar a `tauri-plugin-store` (JSON) manteniendo un importador desde `config.ini`.
 
 ### 4.10 Tareas pesadas y asincronía
@@ -378,7 +378,7 @@ Script de auditoría que compara: recuento por tabla, suma de montos (`pagos.mon
 **Objetivo:** repo nuevo con frontend SvelteKit + Tauri V2 compilando end-to-end.
 
 Pasos:
-1. Crear app SvelteKit: `npm create svelte@latest dinamo-rent-tauri` (template minimal, TypeScript, opciones de lint/format activadas).
+1. Crear app SvelteKit: `npm create svelte@latest dynarent-tauri` (template minimal, TypeScript, opciones de lint/format activadas).
 2. Agregar `adapter-static`:
    ```bash
    npm i -D @sveltejs/adapter-static @tauri-apps/cli@^2
@@ -407,9 +407,9 @@ Pasos:
    ```json
    {
      "$schema": "https://schema.tauri.app/config/2",
-     "productName": "DinamoRent",
+     "productName": "Dynarent",
      "version": "0.1.0",
-     "identifier": "com.corjar.dinamorent",
+     "identifier": "com.corjar.dynarent",
      "build": {
        "beforeDevCommand": "npm run dev",
        "devUrl": "http://localhost:5173",
@@ -417,7 +417,7 @@ Pasos:
        "frontendDist": "../build"
      },
      "app": {
-       "windows": [{ "title": "Dinamo Rent ERP", "width": 1366, "height": 768 }],
+       "windows": [{ "title": "Dynarent ERP", "width": 1366, "height": 768 }],
        "security": { "csp": null }
      },
      "bundle": {
@@ -469,7 +469,7 @@ Pasos:
            rsfbclient::builder_native()
                .with_dyn_load(&fbclient_path)   // carga fbclient.dll en proceso
                .with_embedded()                  // modo embedded (sin servidor)
-               .db_name(cfg.db_path())           // dinamo_rent_v3.fdb
+               .db_name(cfg.db_path())           // dynarent_v3.fdb
                .user(cfg.db_user())
                .password(cfg.db_password()),
        );
@@ -688,7 +688,7 @@ Plantilla de iteración (por módulo):
 
 ## 12. Próximos pasos inmediatos
 
-1. Crear el repo `dinamo-rent-tauri` y ejecutar la **Fase 0** (incluye descargar Firebird 5.0 Embedded y verificar el hello-world con conexión al `.fdb`).
+1. Crear el repo `dynarent-tauri` y ejecutar la **Fase 0** (incluye descargar Firebird 5.0 Embedded y verificar el hello-world con conexión al `.fdb`).
 2. Confirmar con el equipo las decisiones de §4 (especialmente: **Firebird Embedded 5.0 único motor**, rsfbclient, Argon2id, gbak).
 3. **Respaldar el `.fdb` de producción con `gbak`** y validar el restore antes de la primera apertura con Firebird 5.0.
 4. Definir el alcance del primer hito entregable: **login + dashboard + autos + clientes** (Fases 0–4 + módulos base).

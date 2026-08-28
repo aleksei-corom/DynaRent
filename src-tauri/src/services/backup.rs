@@ -1042,7 +1042,7 @@ mod tests {
         cfg.backup_directory = PathBuf::from("Backups");
         cfg.backup_max_copies = 2;
         // .fdb falso: gbak falla (no hay firebird en resource_dir) → copia
-        let fdb = tmp.join("dinamo_rent_v3.fdb");
+        let fdb = tmp.join("dynarent_v3.fdb");
         fs::write(&fdb, b"contenido-fdb-falso").unwrap();
         cfg.db_path = fdb;
         let contenido = b"contenido-fdb-falso";
@@ -1166,7 +1166,7 @@ mod tests {
         cfg.backup_max_copies = 2;
         cfg.backup_encryption_enabled = true;
         cfg.backup_encryption_password = "clave-del-backup".into();
-        let fdb = tmp.join("dinamo_rent_v3.fdb");
+        let fdb = tmp.join("dynarent_v3.fdb");
         fs::write(&fdb, b"contenido-fdb-falso").unwrap();
         cfg.db_path = fdb;
 
@@ -1193,7 +1193,7 @@ mod tests {
         cfg.backup_directory = PathBuf::from("Backups");
         cfg.backup_encryption_enabled = true;
         cfg.backup_encryption_password = "".into();
-        let fdb = tmp.join("dinamo_rent_v3.fdb");
+        let fdb = tmp.join("dynarent_v3.fdb");
         fs::write(&fdb, b"contenido-fdb-falso").unwrap();
         cfg.db_path = fdb;
 
@@ -1255,7 +1255,7 @@ mod tests {
         let mut cfg = config_prueba();
         cfg.data_dir = tmp.clone();
         cfg.backup_directory = PathBuf::from("Backups");
-        let fdb = tmp.join("dinamo_rent_v3.fdb");
+        let fdb = tmp.join("dynarent_v3.fdb");
         fs::write(&fdb, b"contenido-fdb-falso").unwrap();
         cfg.db_path = fdb;
 
@@ -1378,7 +1378,7 @@ mod tests {
     fn renombrar_con_reintentos_reemplaza_el_existente() {
         let tmp = std::env::temp_dir().join(format!("restore_rename_{}", uniq()));
         fs::create_dir_all(&tmp).unwrap();
-        let destino = tmp.join("dinamo_rent_v3.fdb");
+        let destino = tmp.join("dynarent_v3.fdb");
         fs::write(&destino, b"bd-actual").unwrap();
         let origen = tmp.join("nueva.fdb");
         fs::write(&origen, b"bd-restaurada").unwrap();
@@ -1395,7 +1395,7 @@ mod tests {
         fs::create_dir_all(&tmp).unwrap();
         let mut cfg = config_prueba(); // resource_dir sin firebird
         cfg.data_dir = tmp.clone();
-        let fdb = tmp.join("dinamo_rent_v3.fdb");
+        let fdb = tmp.join("dynarent_v3.fdb");
         fs::write(&fdb, b"bd-actual-intacta").unwrap();
         cfg.db_path = fdb;
         let staging = tmp.join("staging.fbk");

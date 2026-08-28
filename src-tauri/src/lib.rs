@@ -1,5 +1,5 @@
 #![allow(linker_messages)]
-//! Dinamo Rent ERP — Tauri V2 backend
+//! Dynarent ERP — Tauri V2 backend
 
 pub mod commands;
 pub mod core;
@@ -87,7 +87,7 @@ pub fn run() {
     //     tauri_plugin_log → stderr (dev) / archivo (prod).
     //   - `set_global_default()` NO toca el logger de `log`, evitando
     //     el crash "attempted to set a logger after already initialized".
-    //   - En runtime: `RUST_LOG=info,dinamo_rent_lib=debug` para verbosity.
+    //   - En runtime: `RUST_LOG=info,dynarent_lib=debug` para verbosity.
     use tracing_subscriber::prelude::*;
     let subscriber = tracing_subscriber::registry()
         .with(

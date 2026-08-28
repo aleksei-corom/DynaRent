@@ -1,4 +1,4 @@
-# Plan de despliegue en equipos de clientes — Dinamo Rent v1.0.21
+# Plan de despliegue en equipos de clientes — Dynarent v1.0.21
 
 > Procedimiento operativo para dejar los equipos de los clientes en la **v1.0.21** (última
 > versión estable, con **auto-actualización** activa desde la v1.0.14): instalación
@@ -16,7 +16,7 @@
    pudieron auto-actualizarse** (faltaba el permiso ACL del plugin updater en
    capabilities; el check fallaba en silencio). La **v1.0.14 es la primera con
    auto-update funcional** — los equipos en ≤v1.0.13 requieren instalar la v1.0.14 a mano.
-2. **Los datos viven en `%APPDATA%\com.corjar.dinamorent\`**, NO en la carpeta de
+2. **Los datos viven en `%APPDATA%\com.corjar.dynarent\`**, NO en la carpeta de
    programa. Nunca borrar esa carpeta: es la BD del cliente.
 3. La instalación **no requiere desinstalar** la versión anterior ni borrar nada
    previamente — el instalador reemplaza la app y el arranque migra la BD.
@@ -36,7 +36,7 @@
 |---|---|
 | Versión de Windows (debe ser x64, 10 1803+ / 11) | `winver` o `systeminfo` |
 | ¿Versión anterior instalada? (v1.0.0) | `Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*' , 'HKLM:\SOFTWARE\WOW6432Node\...' | Where-Object DisplayName -like '*Dinamo*'` |
-| ¿BD existente? (`%APPDATA%\com.corjar.dinamorent\dinamo_rent_v3.fdb`) | `Test-Path "$env:APPDATA\com.corjar.dinamorent\dinamo_rent_v3.fdb"` |
+| ¿BD existente? (`%APPDATA%\com.corjar.dynarent\dynarent_v3.fdb`) | `Test-Path "$env:APPDATA\com.corjar.dynarent\dynarent_v3.fdb"` |
 | ¿Backup reciente de la BD? | Crearlo antes de tocar nada (ver §4) |
 
 > Si el equipo **ya tiene una versión anterior con datos**: no hay nada especial —
@@ -55,14 +55,14 @@
 
 ```powershell
 # NSIS — silenciosa total (sin atajos, sin ejecutar al final)
-& "D:\deploy\DinamoRent_1.0.21_x64-setup.exe" /S
+& "D:\deploy\Dynarent_1.0.21_x64-setup.exe" /S
 # Esperar a que termine (NSIS /S es síncrono al esperar al proceso)
-# Start-Process -Wait -FilePath "D:\deploy\DinamoRent_1.0.21_x64-setup.exe" -ArgumentList "/S"
+# Start-Process -Wait -FilePath "D:\deploy\Dynarent_1.0.21_x64-setup.exe" -ArgumentList "/S"
 ```
 
 ```powershell
 # MSI — para GPO / Intune / SCCM
-msiexec /i "D:\deploy\DinamoRent_1.0.21_x64_en-US.msi" /qn /norestart
+msiexec /i "D:\deploy\Dynarent_1.0.21_x64_en-US.msi" /qn /norestart
 ```
 
 > **WebView2**: si el equipo no lo tiene, el instalador lo descarga e instala
@@ -78,7 +78,7 @@ equipos y ejecutar con una herramienta de gestión (Intune, SCCM, GPO `msi` + `c
 
 ```powershell
 # Ejemplo con psexec (máquina de operaciones):
-psexec \\PC-CLIENTE-01 -s -d "D:\deploy\DinamoRent_1.0.21_x64-setup.exe" /S
+psexec \\PC-CLIENTE-01 -s -d "D:\deploy\Dynarent_1.0.21_x64-setup.exe" /S
 ```
 
 ---
@@ -107,11 +107,11 @@ powershell -ExecutionPolicy Bypass -File scripts\verificar-despliegue.ps1 -DryRu
 
 | # | Comprobación | Esperado |
 |---|---|---|
-| 1 | Exe instalado (`%LOCALAPPDATA%\DinamoRent\dinamo-rent.exe`) | existe, versión **1.0.21** |
+| 1 | Exe instalado (`%LOCALAPPDATA%\Dynarent\dynarent.exe`) | existe, versión **1.0.21** |
 | 2 | Arranque: proceso vivo a los 10 s | **no** se cuelga ni muere (el bug del v1.0.0) |
-| 3 | `%APPDATA%\com.corjar.dinamorent\` | existe (la crea el **primer arranque**; por eso se comprueba después del arranque) |
+| 3 | `%APPDATA%\com.corjar.dynarent\` | existe (la crea el **primer arranque**; por eso se comprueba después del arranque) |
 | 4 | `config.ini` | existe |
-| 5 | `dinamo_rent_v3.fdb` | existe y pesa > 0 (BD creada o migrada) |
+| 5 | `dynarent_v3.fdb` | existe y pesa > 0 (BD creada o migrada) |
 | 6 | Migraciones: `schema_migrations` tiene 23 versiones (0001–0023) | 23 (comprobación opcional con tooling dev) |
 | 7 | Login manual | `admin` + contraseña del cliente (primer ingreso: cambio forzado) |
 | 8 | Auto-update al día | la app **no** muestra «Actualización disponible» al arrancar (la v1.0.21 ya es la vigente) |
@@ -132,7 +132,7 @@ operativo con el auto-update:
    repetir.
 3. Comprobación opcional desde la máquina de operaciones: el endpoint del auto-update
    debe responder con la versión instalada:
-   `curl -s https://github.com/CORJAR-Computers/dinamo_rent_tr/releases/latest/download/latest.json`
+   `curl -s https://github.com/CORJAR-Computers/dynarent/releases/latest/download/latest.json`
    → `"version": "1.0.13"`.
 
 > Los equipos **sin internet** no pueden auto-actualizarse: el chequeo falla silencioso y
@@ -156,20 +156,20 @@ operativo con el auto-update:
 
 ```powershell
 # Copia del archivo (Firebird Embedded: copiar solo con la app cerrada)
-Stop-Process -Name dinamo-rent -ErrorAction SilentlyContinue
-Copy-Item "$env:APPDATA\com.corjar.dinamorent\dinamo_rent_v3.fdb" "D:\backups\dinamo_$(Get-Date -Format yyyyMMdd_HHmmss).fdb"
+Stop-Process -Name dynarent -ErrorAction SilentlyContinue
+Copy-Item "$env:APPDATA\com.corjar.dynarent\dynarent_v3.fdb" "D:\backups\dynarent_$(Get-Date -Format yyyyMMdd_HHmmss).fdb"
 ```
 
 > **Importante**: copiar el `.fdb` **con la app cerrada** (Firebird Embedded usa WAL y
 > una copia en caliente puede quedar inconsistente). Alternativa robusta: usar `gbak`
 > del runtime de Firebird (`firebird\gbak.exe` en la carpeta de instalación) para un
 > backup consistente:
-> `"$env:LOCALAPPDATA\DinamoRent\firebird\gbak.exe" -b -user SYSDBA -password <pass> "$env:APPDATA\com.corjar.dinamorent\dinamo_rent_v3.fdb" "D:\backups\dinamo_$(Get-Date -Format yyyyMMdd_HHmmss).fbk"`
+> `"$env:LOCALAPPDATA\Dynarent\firebird\gbak.exe" -b -user SYSDBA -password <pass> "$env:APPDATA\com.corjar.dynarent\dynarent_v3.fdb" "D:\backups\dynarent_$(Get-Date -Format yyyyMMdd_HHmmss).fbk"`
 
 ### 4.2 Rollback (volver a una versión anterior o recuperarse)
 
-1. **Cerrar la app** (`Stop-Process -Name dinamo-rent`).
-2. **Restaurar la BD** desde el backup (reemplazar `dinamo_rent_v3.fdb`).
+1. **Cerrar la app** (`Stop-Process -Name dynarent`).
+2. **Restaurar la BD** desde el backup (reemplazar `dynarent_v3.fdb`).
 3. **Reinstalar la versión deseada** (desinstalar e instalar, o instalar encima).
 4. Arrancar y verificar login + datos.
 

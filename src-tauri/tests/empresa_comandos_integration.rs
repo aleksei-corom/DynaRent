@@ -18,16 +18,16 @@ use serial_test::serial;
 use tauri::test::{mock_builder, mock_context, noop_assets};
 use tauri::Manager;
 
-use dinamo_rent_lib::commands::empresa::{empresa_publica, guardar_empresa, obtener_empresa};
-use dinamo_rent_lib::core::config::AppConfig;
-use dinamo_rent_lib::core::db::create_pool;
-use dinamo_rent_lib::core::migrations::run_migrations;
-use dinamo_rent_lib::core::rbac::SessionStore;
-use dinamo_rent_lib::core::security::LoginAttemptTracker;
-use dinamo_rent_lib::repositories::empresa::EmpresaConfigDatos;
-use dinamo_rent_lib::services::empresa::EmpresaService;
-use dinamo_rent_lib::services::usuario::{UsuarioDatos, UsuarioService};
-use dinamo_rent_lib::services::AppState;
+use dynarent_lib::commands::empresa::{empresa_publica, guardar_empresa, obtener_empresa};
+use dynarent_lib::core::config::AppConfig;
+use dynarent_lib::core::db::create_pool;
+use dynarent_lib::core::migrations::run_migrations;
+use dynarent_lib::core::rbac::SessionStore;
+use dynarent_lib::core::security::LoginAttemptTracker;
+use dynarent_lib::repositories::empresa::EmpresaConfigDatos;
+use dynarent_lib::services::empresa::EmpresaService;
+use dynarent_lib::services::usuario::{UsuarioDatos, UsuarioService};
+use dynarent_lib::services::AppState;
 
 /// Guard RAII minimalista: ejecuta la clausura al salir del scope, incluso si
 /// un `assert!` falla (panic-safe).

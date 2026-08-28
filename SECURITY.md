@@ -1,6 +1,6 @@
-# Seguridad — Dinamo Rent ERP
+# Seguridad — Dynarent ERP
 
-Este documento describe las políticas de manejo de secretos, rotación de claves y reporte de vulnerabilidades para el proyecto **Dinamo Rent ERP** (Tauri V2 + Rust + SvelteKit + Firebird Embedded).
+Este documento describe las políticas de manejo de secretos, rotación de claves y reporte de vulnerabilidades para el proyecto **Dynarent ERP** (Tauri V2 + Rust + SvelteKit + Firebird Embedded).
 
 ---
 
@@ -63,9 +63,9 @@ en memoria (`AppState.pii_key`). Ubicaciones actuales de la clave:
 | Entorno | Archivo | Estado |
 |---|---|---|
 | Desarrollo | `<repo>/data/config.ini` → `[security] db_encryption_key` | Configurada (10-08-2026) |
-| Producción | `%APPDATA%\com.corjar.dinamorent\config.ini` → `[security] db_encryption_key` | Configurada (10-08-2026) |
+| Producción | `%APPDATA%\com.corjar.dynarent\config.ini` → `[security] db_encryption_key` | Configurada (10-08-2026) |
 
-> ℹ️ La ruta de producción deriva del `identifier` de Tauri (`com.corjar.dinamorent`, ver
+> ℹ️ La ruta de producción deriva del `identifier` de Tauri (`com.corjar.dynarent`, ver
 > `src-tauri/tauri.conf.json`). Si se cambia el identifier, la app leería un `config.ini` nuevo
 > **sin** la clave y los datos PII quedarían ocultos — actualizar la ruta en esta tabla.
 
@@ -78,8 +78,8 @@ son **irrecuperables** — no existe mecanismo de recuperación ni puerta traser
 §4, incidente de clave expuesta), ni en logs, issues, capturas ni mensajes.
 
 **Verificación (2026-08-11)**: con la clave almacenada en los `config.ini` anteriores, un
-diagnóstico de solo lectura contra ambas BD (`data/dinamo_rent_v3.fdb` y
-`%APPDATA%\com.corjar.dinamorent\dinamo_rent_v3.fdb`) confirmó que **los 42 clientes / 238 tokens
+diagnóstico de solo lectura contra ambas BD (`data/dynarent_v3.fdb` y
+`%APPDATA%\com.corjar.dynarent\dynarent_v3.fdb`) confirmó que **los 42 clientes / 238 tokens
 PII descifran al 100% con esa clave** en cada BD (cero campos ocultos, cero tokens Fernet legacy
 pendientes). La clave se carga en memoria al arrancar: tras cambiar o reconfigurar la clave,
 **reiniciar la app** para que el estado en caliente se actualice.
@@ -113,7 +113,7 @@ Equivalente manual mínimo (solo la BD de desarrollo):
 
 ```bash
 # Asumiendo que la app está detenida
-cp data/dinamo_rent_v3.fdb data/dinamo_rent_v3.fdb.pre-rotation.bak
+cp data/dynarent_v3.fdb data/dynarent_v3.fdb.pre-rotation.bak
 # (el .bak está ignorado en .git)
 ```
 
@@ -136,7 +136,7 @@ La rotación implica **descifrar cada fila PII con la clave vieja y re-cifrarla 
 cargo run --features dev --bin rotate_pii_key -- \
   --old-key "CLAVE_VIEJA" \
   --new-key "$NEW_KEY" \
-  --db "ruta/al/dinamo_rent_v3.fdb"
+  --db "ruta/al/dynarent_v3.fdb"
 ```
 
 > ⚠️ Hacer backup previo (§2.1 Paso 0) y ejecutar UNA vez por cada instalación
@@ -225,7 +225,7 @@ git push --force --tags
 Solo cuando la app lleve ≥72h funcionando con la nueva clave sin incidentes:
 
 ```bash
-shred -u data/dinamo_rent_v3.fdb.pre-rotation.bak
+shred -u data/dynarent_v3.fdb.pre-rotation.bak
 rm -f /tmp/new_key.txt /tmp/replacements.txt
 ```
 
@@ -235,7 +235,7 @@ rm -f /tmp/new_key.txt /tmp/replacements.txt
 
 ### 3.1 Canal de reporte
 
-- **Email**: seguridad@dinamorent.com (placeholder — actualizar con correo real de operaciones antes de producción).
+- **Email**: seguridad@dynarent.com (placeholder — actualizar con correo real de operaciones antes de producción).
 - **PGP**: el equipo de seguridad puede proporcionar una clave pública para cifrado del reporte bajo petición.
 - **Respuesta**: confirmación de recepción en **≤ 48h hábiles**. Evaluación inicial y plan de mitigación en **≤ 5 días hábiles**.
 
@@ -248,7 +248,7 @@ rm -f /tmp/new_key.txt /tmp/replacements.txt
 
 ### 3.3 Alcance
 
-- Aplicación Dinamo Rent ERP (binarios Windows distribuidos).
+- Aplicación Dynarent ERP (binarios Windows distribuidos).
 - Backend Rust y repositorios (`src-tauri/src/`).
 - Configuración por defecto del instalador.
 - Manejo de PII de clientes.

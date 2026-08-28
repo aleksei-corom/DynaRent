@@ -52,7 +52,7 @@ pub fn leer_errores_frontend(
 
 /// Escapa caracteres de control en strings provenientes del frontend
 /// para prevenir log injection (falsificación de entradas mediante \n, \r, etc.).
-/// Ver mejora #3 del roadmap de Dinamo Rent ERP.
+/// Ver mejora #3 del roadmap de Dynarent ERP.
 fn sanitize_log(s: &str) -> String {
     s.replace('\r', "\\r")
         .replace('\n', "\\n")
@@ -124,7 +124,7 @@ pub fn exportar_logs(state: State<'_, AppState>, session_id: String) -> Cmd<Stri
     let mut output = String::new();
 
     output.push_str(&format!(
-        "=== Dinamo Rent ERP — Exportación de Logs ===\n\
+        "=== Dynarent ERP — Exportación de Logs ===\n\
          Fecha: {}\n\
          Versión: {}\n\n",
         chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),

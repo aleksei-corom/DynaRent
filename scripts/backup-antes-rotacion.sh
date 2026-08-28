@@ -25,7 +25,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DATA_DIR="$SCRIPT_DIR/data"
 
 # La producción guarda config/BD en %APPDATA%/<identifier> (tauri.conf.json)
-TAURI_IDENTIFIER="com.corjar.dinamorent"
+TAURI_IDENTIFIER="com.corjar.dynarent"
 
 DEV_ONLY=0
 PROD_ONLY=0
@@ -70,16 +70,16 @@ fi
 # ── Guarda: la copia de una BD abierta puede quedar inconsistente ────────────
 app_running() {
   if command -v tasklist >/dev/null 2>&1; then
-    tasklist 2>/dev/null | grep -qi 'dinamo-rent' && return 0
+    tasklist 2>/dev/null | grep -qi 'dynarent' && return 0
   fi
   if command -v pgrep >/dev/null 2>&1; then
-    pgrep -f 'dinamo-rent' >/dev/null 2>&1 && return 0
+    pgrep -f 'dynarent' >/dev/null 2>&1 && return 0
   fi
   return 1
 }
 
 if app_running && [[ "$FORCE" -ne 1 ]]; then
-  die "La app (dinamo-rent.exe) está corriendo. Ciérrala y reintenta, o usa --force si sabes lo que haces."
+  die "La app (dynarent.exe) está corriendo. Ciérrala y reintenta, o usa --force si sabes lo que haces."
 fi
 
 # ── Ruta de la BD desde config.ini (database.path; relativa al data_dir) ─────
@@ -94,7 +94,7 @@ resolve_db() {
         sed 's/[[:space:]]*$//' || true
     )"
   fi
-  [[ -z "$path" ]] && path="dinamo_rent_v3.fdb"
+  [[ -z "$path" ]] && path="dynarent_v3.fdb"
   case "$path" in
     /* | [A-Za-z]:/* | [A-Za-z]:\\*) printf '%s' "$path" ;;
     *) printf '%s/%s' "$ini_dir" "$path" ;;
@@ -152,7 +152,7 @@ backup_one() {
 if [[ "$PROD_ONLY" -eq 0 ]]; then
   log "== Desarrollo ($DATA_DIR) =="
   backup_one "$DATA_DIR/config.ini" "config-dev.ini"
-  backup_one "$(resolve_db "$DATA_DIR" "$DATA_DIR/config.ini")" "dinamo-dev.fdb"
+  backup_one "$(resolve_db "$DATA_DIR" "$DATA_DIR/config.ini")" "dynarent-dev.fdb"
 fi
 
 if [[ "$DEV_ONLY" -eq 0 ]]; then
@@ -161,7 +161,7 @@ if [[ "$DEV_ONLY" -eq 0 ]]; then
     if [[ -d "$PROD_DIR" ]]; then
       log "== Producción ($PROD_DIR) =="
       backup_one "$PROD_DIR/config.ini" "config-prod.ini"
-      backup_one "$(resolve_db "$PROD_DIR" "$PROD_DIR/config.ini")" "dinamo-prod.fdb"
+      backup_one "$(resolve_db "$PROD_DIR" "$PROD_DIR/config.ini")" "dynarent-prod.fdb"
     else
       warn "No existe el directorio de producción $PROD_DIR (omitido)"
     fi
@@ -176,7 +176,7 @@ log "Manifiesto:      $MANIFEST"
 log "Checksums:       $CHECKSUMS  (verificar con: sha256sum -c \"$CHECKSUMS\")"
 echo ""
 echo "Restauración (si algo sale mal):"
-echo "  cp \"$DEST/dinamo-dev.fdb\"  \"$DATA_DIR/\""
+echo "  cp \"$DEST/dynarent-dev.fdb\"  \"$DATA_DIR/\""
 echo "  cp \"$DEST/config-dev.ini\"  \"$DATA_DIR/\""
 echo ""
 echo "  ⚠️  config-*.ini contiene la clave PII: no lo subas a ningún repositorio."

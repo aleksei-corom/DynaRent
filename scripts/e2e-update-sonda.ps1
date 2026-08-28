@@ -28,7 +28,7 @@
 $ErrorActionPreference = 'Continue'
 $sondaOrigen = 'C:\shared\bundle\updater_e2e_v1012.exe'
 $out = 'C:\shared\out\sonda-resultado.txt'
-$url = 'https://github.com/CORJAR-Computers/dinamo_rent_tr/releases/latest/download/latest.json'
+$url = 'https://github.com/CORJAR-Computers/dynarent/releases/latest/download/latest.json'
 $dir = Join-Path $env:TEMP 'sonda-e2e'
 
 $dlls = @('vcruntime140.dll', 'vcruntime140_1.dll', 'msvcp140.dll')

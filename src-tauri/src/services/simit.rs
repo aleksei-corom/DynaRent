@@ -1203,7 +1203,7 @@ fn generar_reporte_html(
   <p class="pie">🆕 = registrado en la BD en esta sincronización.</p>
   {vacio}
   {errores}
-  <div class="pie">Generado automáticamente por el Agente SIMIT de Dinamo Rent · {sincronizado}</div>
+  <div class="pie">Generado automáticamente por el Agente SIMIT de Dynarent · {sincronizado}</div>
 </body>
 </html>"#,
         sincronizado = esc_html(&r.sincronizado_en),

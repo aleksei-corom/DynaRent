@@ -9,7 +9,7 @@
 --
 -- ADVERTENCIA: un ALTER TABLE ADD CONSTRAINT CHECK valida TODAS las filas
 -- existentes. Si hay datos legacy con valores fuera de la lista, la migración
--- ABORTA. Verificado en la BD de desarrollo (data/dinamo_rent_v3.fdb):
+-- ABORTA. Verificado en la BD de desarrollo (data/dynarent_v3.fdb):
 --   rentas.estado = Activo | autos.estado = Baja, Disponible
 --   clientes.estado = Activo | reservas/comparendos = sin filas
 -- Antes de aplicar en producción, ejecutar:
