@@ -1,7 +1,7 @@
-# Checklist de publicación de release — Dinamo Rent ERP
+# Checklist de publicación de release — Dynarent ERP
 
 > Procedimiento operativo para publicar una versión nueva en
-> `github.com/CORJAR-Computers/dinamo_rent_tr`: el bump de versión, el tag que
+> `github.com/CORJAR-Computers/dynarent`: el bump de versión, el tag que
 > dispara el CI, la verificación de los assets y el anuncio. Complementa a
 > `INSTALACION_OPERACIONES.md` (instalación), `DEPLOYMENT_CLIENTES.md`
 > (despliegue a clientes) y `ANUNCIO_RELEASE_TEMPLATE.md` (mensajes de anuncio).
@@ -74,7 +74,7 @@ auto-update verificado en máquina real.
 ya estén bumpeados.** El CI (`release.yml`) compila el código del commit del tag
 y los instaladores se nombran con la versión de `src-tauri/tauri.conf.json`,
 NO con el nombre del tag. Un tag sobre un commit sin bumpear publicaría una
-release `v1.0.17` con instaladores `DinamoRent_1.0.15_*` (si el bump quedara a medias).
+release `v1.0.17` con instaladores `Dynarent_1.0.15_*` (si el bump quedara a medias).
 
 ---
 
@@ -91,7 +91,7 @@ release `v1.0.17` con instaladores `DinamoRent_1.0.15_*` (si el bump quedara a m
       del repo (y `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` solo si la clave tiene password).
       Sin él, `tauri build` NO firma los bundles y la release saldría sin `.sig`/`latest.json`
       → la app instalada no podría auto-actualizarse. La clave privada vive SOLO en
-      `~/.tauri/dinamorent.key` de la máquina que la generó: respáldala (si se pierde,
+      `~/.tauri/dynarent.key` de la máquina que la generó: respáldala (si se pierde,
       las instalaciones v1.0.3+ dejarían de actualizarse).
       → Configurar y verificar por CLI: [`SECRET_FIRMA_UPDATER.md`](SECRET_FIRMA_UPDATER.md)
 
@@ -102,7 +102,7 @@ Editar la versión en los **tres** archivos (deben coincidir):
 | Archivo | Campo |
 |---|---|
 | `package.json` | `"version": "1.0.17"` |
-| `src-tauri/Cargo.toml` | `version = "1.0.17"` (crate `dinamo-rent`) |
+| `src-tauri/Cargo.toml` | `version = "1.0.17"` (crate `dynarent`) |
 | `src-tauri/tauri.conf.json` | `"version": "1.0.17"` |
 
 Verificar la consistencia:
@@ -174,9 +174,9 @@ paginación.
 
 ## 6. Verificar la release (no confiar a ciegas en el CI)
 
-- [ ] Release `v1.0.17` existe en <https://github.com/CORJAR-Computers/dinamo_rent_tr/releases/tag/v1.0.17>
-      con **5 assets**: los 2 instaladores (`DinamoRent_1.0.17_x64-setup.exe` NSIS ~21 MB y
-      `DinamoRent_1.0.17_x64_en-US.msi` ~33 MB), sus firmas del updater (`*.exe.sig` / `*.msi.sig`)
+- [ ] Release `v1.0.17` existe en <https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.17>
+      con **5 assets**: los 2 instaladores (`Dynarent_1.0.17_x64-setup.exe` NSIS ~21 MB y
+      `Dynarent_1.0.17_x64_en-US.msi` ~33 MB), sus firmas del updater (`*.exe.sig` / `*.msi.sig`)
       y `latest.json`. Los `.sig` son de **minisign** (verificación del updater), NO firma de
       código Authenticode.
 - [ ] `latest.json` existe y `platforms.windows-x86_64.url` apunta al instalador de esta
@@ -191,9 +191,9 @@ paginación.
 
       ```bash
       cd src-tauri && cargo run --features dev --bin updater_e2e -- \
-        --endpoint https://github.com/CORJAR-Computers/dinamo_rent_tr/releases/latest/download/latest.json \
+        --endpoint https://github.com/CORJAR-Computers/dynarent/releases/latest/download/latest.json \
         --expect-version 1.0.17 \
-        --expect-file ./DinamoRent_1.0.17_x64_en-US.msi
+        --expect-file ./Dynarent_1.0.17_x64_en-US.msi
       ```
 
       Debe terminar con `[OK]` (check() detecta v1.0.17, firma minisign verificada contra
@@ -201,7 +201,7 @@ paginación.
 
       > ⚠️ El updater sirve por defecto la plataforma `windows-x86_64` = **MSI** — el
       > `--expect-file` debe ser el `.msi` (verificado el 18-08 contra la release real).
-      > Para validar el NSIS en su lugar, usar `--expect-file ./DinamoRent_1.0.17_x64-setup.exe`
+      > Para validar el NSIS en su lugar, usar `--expect-file ./Dynarent_1.0.17_x64-setup.exe`
       > apuntando el endpoint a una copia local del `latest.json` con `windows-x86_64-nsis`
       > como plataforma por defecto (o verificar el NSIS con `verificar-updater-e2e.sh`).
 - [ ] **E2E del auto-update en máquina real** (la contraparte de campo del test de
@@ -220,7 +220,7 @@ paginación.
 
 ```powershell
 # En el PC objetivo
-Get-FileHash .\DinamoRent_1.0.17_x64-setup.exe -Algorithm SHA256
+Get-FileHash .\Dynarent_1.0.17_x64-setup.exe -Algorithm SHA256
 # comparar contra el sha256 publicado por GitHub en la página de la release
 ```
 

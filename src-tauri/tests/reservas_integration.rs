@@ -1,5 +1,5 @@
 //! reservas_integration.rs — Pruebas de integración del servicio de reservas
-//! contra el .fdb de desarrollo (data/dinamo_rent_v3.fdb).
+//! contra el .fdb de desarrollo (data/dynarent_v3.fdb).
 //!
 //! Usa un cliente y un auto reales de la BD (solo lectura) y crea/elimina
 //! reservas temporales en cada test.
@@ -10,21 +10,21 @@ use std::sync::{Arc, Mutex};
 use chrono::{Duration, Local};
 use serial_test::serial;
 
-use dinamo_rent_lib::core::config::AppConfig;
-use dinamo_rent_lib::core::rbac::SessionStore;
-use dinamo_rent_lib::core::security::LoginAttemptTracker;
-use dinamo_rent_lib::repositories::auto::AutoRepository;
-use dinamo_rent_lib::repositories::cliente::ClienteRepository;
-use dinamo_rent_lib::repositories::reserva::ReservaDatos;
-use dinamo_rent_lib::services::reserva::ReservaService;
-use dinamo_rent_lib::services::AppState;
+use dynarent_lib::core::config::AppConfig;
+use dynarent_lib::core::rbac::SessionStore;
+use dynarent_lib::core::security::LoginAttemptTracker;
+use dynarent_lib::repositories::auto::AutoRepository;
+use dynarent_lib::repositories::cliente::ClienteRepository;
+use dynarent_lib::repositories::reserva::ReservaDatos;
+use dynarent_lib::services::reserva::ReservaService;
+use dynarent_lib::services::AppState;
 
 fn dev_state() -> AppState {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let data_dir = manifest.join("../data");
     let resource_dir = manifest.join("resources");
     let cfg = Arc::new(AppConfig::load(&data_dir, &resource_dir, &manifest));
-    let pool = dinamo_rent_lib::core::db::create_pool(&cfg).expect("pool embedded");
+    let pool = dynarent_lib::core::db::create_pool(&cfg).expect("pool embedded");
     AppState {
         pool,
         sessions: std::sync::Arc::new(Mutex::new(SessionStore::new(3600))),
@@ -61,7 +61,9 @@ fn datos_reserva(nombre: &str, dias: i64) -> ReservaDatos {
         fecha_recogida: (hoy + Duration::days(7)).format("%Y-%m-%d").to_string(),
         hora_recogida: Some("09:00".into()),
         ubicacion_recogida: Some("Oficina principal".into()),
-        fecha_retorno: (hoy + Duration::days(7 + dias)).format("%Y-%m-%d").to_string(),
+        fecha_retorno: (hoy + Duration::days(7 + dias))
+            .format("%Y-%m-%d")
+            .to_string(),
         hora_retorno: Some("18:00".into()),
         ubicacion_retorno: Some("Oficina principal".into()),
         dias_calculados: dias,
@@ -92,12 +94,19 @@ fn reserva_crud_roundtrip() {
     datos.nombre_cliente = "NOMBRE EQUIVOCADO".into();
 
     // Crear
-    let creada = ReservaService::crear(&mut conn, cfg, "test", datos.clone()).expect("crear reserva");
+    let creada =
+        ReservaService::crear(&mut conn, cfg, "test", datos.clone()).expect("crear reserva");
     let id = creada.id;
-    assert_eq!(creada.nombre_cliente, nombre_cliente, "nombre autocompletado del cliente");
+    assert_eq!(
+        creada.nombre_cliente, nombre_cliente,
+        "nombre autocompletado del cliente"
+    );
     assert_eq!(creada.dias_calculados, 3);
     // total = 3 × 150000 + 2 × 20000 = 490000
-    assert_eq!(creada.total, "490000.00", "total recalculado por el backend");
+    assert_eq!(
+        creada.total, "490000.00",
+        "total recalculado por el backend"
+    );
     assert_eq!(creada.placa_asignada.as_deref(), Some(placa.as_str()));
     assert_eq!(creada.estado, "Confirmada");
 
@@ -114,7 +123,10 @@ fn reserva_crud_roundtrip() {
 
     // Eliminar
     ReservaService::eliminar(&mut conn, "test", id).expect("eliminar reserva");
-    assert!(ReservaService::obtener(&mut conn, id).is_err(), "reserva eliminada");
+    assert!(
+        ReservaService::obtener(&mut conn, id).is_err(),
+        "reserva eliminada"
+    );
 }
 
 #[test]
@@ -179,8 +191,10 @@ fn reserva_cancelar() {
     // Completada no se puede cancelar
     let mut datos = datos_reserva("Cliente Completar", 1);
     datos.estado = "Completada".into();
-    let completada = ReservaService::crear(&mut conn, cfg, "test", datos).expect("crear completada");
-    let err = ReservaService::cancelar(&mut conn, completada.id).expect_err("no cancelar completada");
+    let completada =
+        ReservaService::crear(&mut conn, cfg, "test", datos).expect("crear completada");
+    let err =
+        ReservaService::cancelar(&mut conn, completada.id).expect_err("no cancelar completada");
     assert_eq!(err.kind(), "business");
 
     // Limpieza

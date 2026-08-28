@@ -1,4 +1,4 @@
-# verificar-despliegue.ps1 - Verificacion post-instalacion de DinamoRent v1.0.21
+# verificar-despliegue.ps1 - Verificacion post-instalacion de Dynarent v1.0.21
 #
 # Corre en el equipo objetivo como usuario normal:
 #   powershell -ExecutionPolicy Bypass -File scripts\verificar-despliegue.ps1
@@ -6,17 +6,17 @@
 # IMPORTANTE: ASCII puro a proposito (Windows PowerShell 5.1 lee los .ps1 sin BOM
 # como ANSI/CP1252 y los acentos/guiones largos UTF-8 rompen el parseo).
 #
-# Comprueba: exe instalado (v1.0.21), %APPDATA%\com.corjar.dinamorent (config.ini
-# + dinamo_rent_v3.fdb) y que la app arranca y queda viva 10 s (el bug del v1.0.0
+# Comprueba: exe instalado (v1.0.21), %APPDATA%\com.corjar.dynarent (config.ini
+# + dynarent_v3.fdb) y que la app arranca y queda viva 10 s (el bug del v1.0.0
 # era justamente morirse antes del Login). Ver DEPLOYMENT_CLIENTES.md.
 
 <#
 .SYNOPSIS
-Verificacion post-instalacion de DinamoRent (exe, datos y arranque).
+Verificacion post-instalacion de Dynarent (exe, datos y arranque).
 
 .DESCRIPTION
 Comprueba en el equipo objetivo: exe instalado con la version esperada,
-%APPDATA%\com.corjar.dinamorent con config.ini + dinamo_rent_v3.fdb, y que
+%APPDATA%\com.corjar.dynarent con config.ini + dynarent_v3.fdb, y que
 la app arranca y queda viva 10 s. Termina con "VEREDICTO: OK" y exit 0 si
 todo pasa, o "VEREDICTO: FALLOS" y exit 1 si alguna comprobacion falla.
 
@@ -71,37 +71,37 @@ function Check([string]$name, [bool]$cond, [string]$detail = '') {
     }
 }
 
-Write-Host "=== Verificacion de despliegue DinamoRent $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') ==="
+Write-Host "=== Verificacion de despliegue Dynarent $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') ==="
 
 # --- Modo DryRun: ambiente simulado en TEMP ---
 $dryBase = $null
 if ($DryRun) {
     Write-Host "  [dry-run] ambiente simulado en TEMP (no toca la maquina real)"
-    $dryBase = Join-Path $env:TEMP ("dinamorent-dryrun-" + [guid]::NewGuid().ToString("N"))
-    New-Item -ItemType Directory -Force -Path (Join-Path $dryBase 'DinamoRent') | Out-Null
-    New-Item -ItemType Directory -Force -Path (Join-Path $dryBase 'com.corjar.dinamorent') | Out-Null
+    $dryBase = Join-Path $env:TEMP ("dynarent-dryrun-" + [guid]::NewGuid().ToString("N"))
+    New-Item -ItemType Directory -Force -Path (Join-Path $dryBase 'Dynarent') | Out-Null
+    New-Item -ItemType Directory -Force -Path (Join-Path $dryBase 'com.corjar.dynarent') | Out-Null
     if (-not $SimularFallo) {
         # Caso OK: config.ini + BD simulada (~5 MB)
-        New-Item -ItemType File -Force -Path (Join-Path $dryBase 'com.corjar.dinamorent\config.ini') | Out-Null
+        New-Item -ItemType File -Force -Path (Join-Path $dryBase 'com.corjar.dynarent\config.ini') | Out-Null
         $fdbBytes = New-Object byte[] (5 * 1024 * 1024)
-        [IO.File]::WriteAllBytes((Join-Path $dryBase 'com.corjar.dinamorent\dinamo_rent_v3.fdb'), $fdbBytes)
+        [IO.File]::WriteAllBytes((Join-Path $dryBase 'com.corjar.dynarent\dynarent_v3.fdb'), $fdbBytes)
     }
 }
 
 # 1) Ejecutable instalado y version
 $exe = $null
 if ($DryRun) {
-    $exe = Join-Path $dryBase 'DinamoRent\dinamo-rent.exe'
+    $exe = Join-Path $dryBase 'Dynarent\dynarent.exe'
     New-Item -ItemType File -Force -Path $exe | Out-Null
 } else {
     $cands = @(
-        "$env:LOCALAPPDATA\DinamoRent\dinamo-rent.exe",
-        "$env:LOCALAPPDATA\Programs\DinamoRent\dinamo-rent.exe",
-        "$env:ProgramFiles\DinamoRent\dinamo-rent.exe"
+        "$env:LOCALAPPDATA\Dynarent\dynarent.exe",
+        "$env:LOCALAPPDATA\Programs\Dynarent\dynarent.exe",
+        "$env:ProgramFiles\Dynarent\dynarent.exe"
     )
     foreach ($c in $cands) { if (Test-Path $c) { $exe = $c; break } }
     if (-not $exe) {
-        $exe = Get-ChildItem $env:LOCALAPPDATA, $env:ProgramFiles -Recurse -Filter 'dinamo-rent.exe' -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+        $exe = Get-ChildItem $env:LOCALAPPDATA, $env:ProgramFiles -Recurse -Filter 'dynarent.exe' -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
     }
 }
 if ($exe) {
@@ -113,11 +113,11 @@ if ($exe) {
     Check "Ejecutable instalado" $true $exe
     Check "Version 1.0.21" ($ver -like '1.0.21*') "ProductVersion=$ver"
 } else {
-    Check "Ejecutable instalado" $false 'no se encontro dinamo-rent.exe'
+    Check "Ejecutable instalado" $false 'no se encontro dynarent.exe'
 }
 
 # 2) Arranque: proceso vivo tras 10 s (PRIMERO: el primer arranque es el que
-#    crea %APPDATA%\com.corjar.dinamorent\ con config.ini + BD. Si los datos se
+#    crea %APPDATA%\com.corjar.dynarent\ con config.ini + BD. Si los datos se
 #    comprobaran antes, una instalacion recien hecha fallaria falsamente.)
 $app = $null
 if ($exe) {
@@ -145,16 +145,16 @@ if ($exe) {
 }
 
 # 3) Carpeta de datos (debe existir tras el primer arranque)
-$data = if ($DryRun) { Join-Path $dryBase 'com.corjar.dinamorent' } else { "$env:APPDATA\com.corjar.dinamorent" }
-$fdb = Join-Path $data 'dinamo_rent_v3.fdb'
+$data = if ($DryRun) { Join-Path $dryBase 'com.corjar.dynarent' } else { "$env:APPDATA\com.corjar.dynarent" }
+$fdb = Join-Path $data 'dynarent_v3.fdb'
 $ini = Join-Path $data 'config.ini'
 Check "Carpeta de datos creada" (Test-Path $data) $data
 Check "config.ini generado" (Test-Path $ini)
 if (Test-Path $fdb) {
     $sz = (Get-Item $fdb).Length
-    Check "BD dinamo_rent_v3.fdb existe" ($sz -gt 0) ("$([math]::Round($sz/1MB,1)) MB")
+    Check "BD dynarent_v3.fdb existe" ($sz -gt 0) ("$([math]::Round($sz/1MB,1)) MB")
 } else {
-    Check "BD dinamo_rent_v3.fdb existe" $false 'no se creo (bug v1.0.0: cuelgue aqui)'
+    Check "BD dynarent_v3.fdb existe" $false 'no se creo (bug v1.0.0: cuelgue aqui)'
 }
 
 # 4) Cierre de prueba

@@ -1,7 +1,7 @@
 # Secret de firma del auto-update (TAURI_SIGNING_PRIVATE_KEY)
 
 La clave privada que firma los instaladores para el auto-update vive **solo** en la
-máquina que la generó (`~/.tauri/dinamorent.key`). Para que el CI (`release.yml`)
+máquina que la generó (`~/.tauri/dynarent.key`). Para que el CI (`release.yml`)
 firme los bundles y suba los `.sig` + `latest.json` hay que copiarla a GitHub como
 secret — **nunca se commitea al repo**.
 
@@ -17,19 +17,19 @@ secret — **nunca se commitea al repo**.
   GH_TOKEN="$(printf 'protocol=https\nhost=github.com\n' | git credential fill | sed -n 's/^password=//p')"
   ```
   (El token debe pertenecer a un usuario con admin sobre el repo; verifícalo antes de continuar.)
-- La clave existe: `ls ~/.tauri/dinamorent.key`
-- Permiso de verificación: `gh repo view CORJAR-Computers/dinamo_rent_tr` responde OK.
+- La clave existe: `ls ~/.tauri/dynarent.key`
+- Permiso de verificación: `gh repo view CORJAR-Computers/dynarent` responde OK.
 
 ## 2. Configurar el secret
 
 ```bash
 gh secret set TAURI_SIGNING_PRIVATE_KEY \
-  --repo CORJAR-Computers/dinamo_rent_tr \
-  --body "$(cat ~/.tauri/dinamorent.key)"
+  --repo CORJAR-Computers/dynarent \
+  --body "$(cat ~/.tauri/dynarent.key)"
 ```
 
 > En Git Bash `~` se expande a `C:\Users\<usuario>`; si `$HOME` no se resuelve
-> (rutas MSYS), usa la ruta Windows: `--body "$(cat 'C:\Users\TU_USUARIO\.tauri\dinamorent.key')"`.
+> (rutas MSYS), usa la ruta Windows: `--body "$(cat 'C:\Users\TU_USUARIO\.tauri\dynarent.key')"`.
 
 **Solo si la clave tiene password** (este proyecto la generó sin password — no hace
 falta): además, configurar `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
@@ -41,10 +41,10 @@ imprime la clave, el secret quedó mal configurado.
 
 ```bash
 # El nombre debe aparecer en la lista (el valor nunca se muestra):
-gh secret list --repo CORJAR-Computers/dinamo_rent_tr
+gh secret list --repo CORJAR-Computers/dynarent
 
 # Confirmación por API de que existe (200 = OK, 404 = no existe):
-gh api repos/CORJAR-Computers/dinamo_rent_tr/actions/secrets/TAURI_SIGNING_PRIVATE_KEY \
+gh api repos/CORJAR-Computers/dynarent/actions/secrets/TAURI_SIGNING_PRIVATE_KEY \
   --jq '{name: .name, updated_at: .updated_at}'
 ```
 
@@ -61,7 +61,7 @@ valida que la clave local y la pubkey de `tauri.conf.json` coinciden.
 
 ## 4. Respaldo y rotación
 
-- **Respaldar** `~/.tauri/dinamorent.key` fuera del repo (ej. gestor de contraseñas).
+- **Respaldar** `~/.tauri/dynarent.key` fuera del repo (ej. gestor de contraseñas).
   Si se pierde, las instalaciones v1.0.14+ dejarían de poder actualizarse.
 - Si se rota la clave: regenerar el par (`bunx tauri signer generate`), actualizar el
   secret **y** la pubkey en `src-tauri/tauri.conf.json` (`plugins.updater.pubkey`), y

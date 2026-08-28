@@ -1,5 +1,5 @@
 //! auth_integration.rs — Prueba de integración del flujo de login contra el
-//! .fdb de desarrollo (data/dinamo_rent_v3.fdb).
+//! .fdb de desarrollo (data/dynarent_v3.fdb).
 //!
 //! Requiere que la BD de desarrollo exista y que 'admin' tenga la contraseña
 //! conocida (ej: tras ejecutar `cargo run --bin dev_reset_admin`).
@@ -7,18 +7,18 @@
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-use dinamo_rent_lib::core::config::AppConfig;
-use dinamo_rent_lib::core::rbac::SessionStore;
-use dinamo_rent_lib::core::security::LoginAttemptTracker;
-use dinamo_rent_lib::services::auth::AuthService;
-use dinamo_rent_lib::services::AppState;
+use dynarent_lib::core::config::AppConfig;
+use dynarent_lib::core::rbac::SessionStore;
+use dynarent_lib::core::security::LoginAttemptTracker;
+use dynarent_lib::services::auth::AuthService;
+use dynarent_lib::services::AppState;
 
 fn dev_state() -> AppState {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let data_dir = manifest.join("../data");
     let resource_dir = manifest.join("resources");
     let cfg = Arc::new(AppConfig::load(&data_dir, &resource_dir, &manifest));
-    let pool = dinamo_rent_lib::core::db::create_pool(&cfg).expect("pool embedded");
+    let pool = dynarent_lib::core::db::create_pool(&cfg).expect("pool embedded");
     AppState {
         pool,
         sessions: std::sync::Arc::new(Mutex::new(SessionStore::new(3600))),
@@ -32,7 +32,11 @@ fn dev_state() -> AppState {
 fn login_ok_admin() {
     let state = dev_state();
     let result = AuthService::login(&state, "admin", "Admin123!", Some("127.0.0.1"));
-    assert!(result.is_ok(), "login debería funcionar: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "login debería funcionar: {:?}",
+        result.err()
+    );
     let login = result.unwrap();
     assert!(login.success);
     assert_eq!(login.username, "admin");
@@ -81,7 +85,10 @@ fn account_locks_after_5_failures() {
     }
     // El 6º intento con credenciales correctas debe estar bloqueado
     let result = AuthService::login(&state, "admin", "Admin123!", Some("10.0.0.1"));
-    assert!(result.is_err(), "la cuenta debe estar bloqueada tras 5 intentos");
+    assert!(
+        result.is_err(),
+        "la cuenta debe estar bloqueada tras 5 intentos"
+    );
     // Desbloquear para no dejar la BD de desarrollo bloqueada
     let _ = AuthService::unlock_account(&state, "admin");
 }

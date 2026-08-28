@@ -1,5 +1,5 @@
 //! auditoria_integration.rs — Pruebas de integración del servicio de auditoría
-//! contra el .fdb de desarrollo (data/dinamo_rent_v3.fdb).
+//! contra el .fdb de desarrollo (data/dynarent_v3.fdb).
 //!
 //! Los tests insertan eventos temporales de auditoría y los eliminan al final
 //! para no ensuciar el log real.
@@ -9,22 +9,22 @@ use std::sync::{Arc, Mutex};
 
 use serial_test::serial;
 
-use dinamo_rent_lib::core::audit::log_audit;
-use dinamo_rent_lib::core::config::AppConfig;
-use dinamo_rent_lib::core::rbac::SessionStore;
-use dinamo_rent_lib::core::security::LoginAttemptTracker;
+use dynarent_lib::core::audit::log_audit;
+use dynarent_lib::core::config::AppConfig;
+use dynarent_lib::core::rbac::SessionStore;
+use dynarent_lib::core::security::LoginAttemptTracker;
 use rsfbclient::{Execute, Queryable};
 
-use dinamo_rent_lib::repositories::auditoria::AuditoriaFiltros;
-use dinamo_rent_lib::services::auditoria::AuditoriaService;
-use dinamo_rent_lib::services::AppState;
+use dynarent_lib::repositories::auditoria::AuditoriaFiltros;
+use dynarent_lib::services::auditoria::AuditoriaService;
+use dynarent_lib::services::AppState;
 
 fn dev_state() -> AppState {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let data_dir = manifest.join("../data");
     let resource_dir = manifest.join("resources");
     let cfg = Arc::new(AppConfig::load(&data_dir, &resource_dir, &manifest));
-    let pool = dinamo_rent_lib::core::db::create_pool(&cfg).expect("pool embedded");
+    let pool = dynarent_lib::core::db::create_pool(&cfg).expect("pool embedded");
     AppState {
         pool,
         sessions: std::sync::Arc::new(Mutex::new(SessionStore::new(3600))),
@@ -39,7 +39,9 @@ fn insertar_evento(state: &AppState, usuario: &str, accion: &str, mensaje: &str)
     let mut conn = state.pool.get().expect("conn");
     log_audit(&mut conn, usuario, accion, mensaje, "127.0.0.1").expect("log_audit");
     // id del evento recién insertado (último)
-    let row: Option<(i64,)> = conn.query_first("SELECT MAX(id) FROM auditoria", ()).expect("max id");
+    let row: Option<(i64,)> = conn
+        .query_first("SELECT MAX(id) FROM auditoria", ())
+        .expect("max id");
     row.map(|(id,)| id).unwrap_or(0)
 }
 
@@ -61,7 +63,12 @@ fn auditoria_listar_y_filtrar() {
 
     // Insertar eventos temporales con marca clara
     let id1 = insertar_evento(&state, "testaudit", "LOGIN OK", "usuario=testaudit");
-    let id2 = insertar_evento(&state, "testaudit", "LOGIN FALLIDO", "usuario=testaudit, intentos=1");
+    let id2 = insertar_evento(
+        &state,
+        "testaudit",
+        "LOGIN FALLIDO",
+        "usuario=testaudit, intentos=1",
+    );
     let id3 = insertar_evento(&state, "otrouser", "USUARIO CREADO", "username=prueba");
 
     // Sin filtros → los incluye (paginación grande)
@@ -69,7 +76,9 @@ fn auditoria_listar_y_filtrar() {
         .expect("listar");
     assert!(r.total >= 3);
     assert!(
-        r.eventos.iter().any(|e| e.id == id1 || e.id == id2 || e.id == id3),
+        r.eventos
+            .iter()
+            .any(|e| e.id == id1 || e.id == id2 || e.id == id3),
         "los eventos temporales aparecen en la lista"
     );
 
@@ -135,7 +144,8 @@ fn auditoria_filtro_fechas_invalidas() {
         fecha_desde: Some("no-es-fecha".into()),
         ..Default::default()
     };
-    let err = AuditoriaService::listar(&mut conn, f, Some(1), Some(50)).expect_err("fecha inválida");
+    let err =
+        AuditoriaService::listar(&mut conn, f, Some(1), Some(50)).expect_err("fecha inválida");
     assert_eq!(err.kind(), "validation");
 
     // Desde > Hasta → validation
@@ -144,7 +154,8 @@ fn auditoria_filtro_fechas_invalidas() {
         fecha_hasta: Some("2026-01-01".into()),
         ..Default::default()
     };
-    let err = AuditoriaService::listar(&mut conn, f, Some(1), Some(50)).expect_err("rango invertido");
+    let err =
+        AuditoriaService::listar(&mut conn, f, Some(1), Some(50)).expect_err("rango invertido");
     assert_eq!(err.kind(), "validation");
 
     // Rango válido no falla (aunque devuelva 0 del pasado remoto)

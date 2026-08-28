@@ -2,7 +2,7 @@
 # Sandbox y ejecuta scripts\verificar-despliegue.ps1 de punta a punta para
 # validar el script de verificacion contra una instalacion real y limpia.
 #
-# Se lanza automaticamente via LogonCommand en dinamorent-sandbox-verificar.wsb.
+# Se lanza automaticamente via LogonCommand en dynarent-sandbox-verificar.wsb.
 # El resultado queda en C:\shared\out\verificar-result.txt (scripts/ del host).
 #
 # IMPORTANTE: ASCII puro a proposito - Windows PowerShell 5.1 lee los .ps1 sin
@@ -19,7 +19,7 @@ function Write-Log([string]$msg) {
     Add-Content -Path $log -Value $line -Encoding UTF8
 }
 
-$installer = 'C:\shared\bundle\nsis\DinamoRent_1.0.1_x64-setup.exe'
+$installer = 'C:\shared\bundle\nsis\Dynarent_1.0.1_x64-setup.exe'
 if (-not (Test-Path $installer)) {
     Write-Log "FALLO: no se encontro el instalador en $installer"
     exit 1

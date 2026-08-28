@@ -15,22 +15,22 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use serial_test::serial;
-use tauri::Manager;
 use tauri::test::{mock_builder, mock_context, noop_assets};
+use tauri::Manager;
 
-use dinamo_rent_lib::commands::pii::get_pii_status;
-use dinamo_rent_lib::commands::simit::simit_sync_now;
-use dinamo_rent_lib::core::config::AppConfig;
-use dinamo_rent_lib::core::rbac::SessionStore;
-use dinamo_rent_lib::core::security::LoginAttemptTracker;
-use dinamo_rent_lib::services::AppState;
+use dynarent_lib::commands::pii::get_pii_status;
+use dynarent_lib::commands::simit::simit_sync_now;
+use dynarent_lib::core::config::AppConfig;
+use dynarent_lib::core::rbac::SessionStore;
+use dynarent_lib::core::security::LoginAttemptTracker;
+use dynarent_lib::services::AppState;
 
 fn dev_state() -> AppState {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let data_dir = manifest.join("../data");
     let resource_dir = manifest.join("resources");
     let cfg = Arc::new(AppConfig::load(&data_dir, &resource_dir, &manifest));
-    let pool = dinamo_rent_lib::core::db::create_pool(&cfg).expect("pool embedded");
+    let pool = dynarent_lib::core::db::create_pool(&cfg).expect("pool embedded");
     AppState {
         pool,
         sessions: std::sync::Arc::new(Mutex::new(SessionStore::new(3600))),
@@ -88,12 +88,8 @@ fn simit_sync_now_deniega_operador() {
 
     // Operador con sesión válida → permission (sin red ni agente gestionado)
     let sid = sesion_rol(st.inner(), 2, "operador", "Operador");
-    let err = tauri::async_runtime::block_on(simit_sync_now(
-        handle.clone(),
-        st.clone(),
-        sid,
-    ))
-    .expect_err("Operador no dispara sincronizaciones SIMIT");
+    let err = tauri::async_runtime::block_on(simit_sync_now(handle.clone(), st.clone(), sid))
+        .expect_err("Operador no dispara sincronizaciones SIMIT");
     assert_eq!(err.kind, "permission");
 
     // Sin sesión → session_expired

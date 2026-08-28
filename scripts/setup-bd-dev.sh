@@ -2,7 +2,7 @@
 # setup-bd-dev.sh — Deja la BD de desarrollo lista desde cero (Handsoff §6.3).
 #
 # Ejecuta los 7 pasos de la receta validada en un clon nuevo (sin
-# data/config.ini ni data/dinamo_rent_v3.fdb). Todo es idempotente: se puede
+# data/config.ini ni data/dynarent_v3.fdb). Todo es idempotente: se puede
 # volver a correr sin romper nada.
 #
 #   1. sync_dev --solo-total   → crea config.ini + BD + aplica las 19 migraciones
@@ -23,7 +23,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SRC_TAURI="$ROOT/src-tauri"
 DATA="$ROOT/data"
 INI="$DATA/config.ini"
-FDB="$DATA/dinamo_rent_v3.fdb"
+FDB="$DATA/dynarent_v3.fdb"
 FB_DIR="$SRC_TAURI/resources/firebird"
 FIXTURES="$ROOT/scripts/fixtures/dump_autos_clientes.sql"
 

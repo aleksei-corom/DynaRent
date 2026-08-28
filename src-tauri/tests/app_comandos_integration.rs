@@ -11,7 +11,7 @@
 
 use tauri::test::mock_builder;
 
-use dinamo_rent_lib::commands::app::app_version;
+use dynarent_lib::commands::app::app_version;
 
 #[test]
 fn app_version_devuelve_la_version_de_cargo_toml() {

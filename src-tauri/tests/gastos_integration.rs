@@ -1,5 +1,5 @@
 //! gastos_integration.rs — Pruebas de integración del servicio de gastos
-//! contra el .fdb de desarrollo (data/dinamo_rent_v3.fdb).
+//! contra el .fdb de desarrollo (data/dynarent_v3.fdb).
 //!
 //! Usa un auto real de la BD (solo lectura) y crea/elimina gastos temporales
 //! en cada test.
@@ -10,20 +10,20 @@ use std::sync::{Arc, Mutex};
 use chrono::Local;
 use serial_test::serial;
 
-use dinamo_rent_lib::core::config::AppConfig;
-use dinamo_rent_lib::core::rbac::SessionStore;
-use dinamo_rent_lib::core::security::LoginAttemptTracker;
-use dinamo_rent_lib::repositories::auto::AutoRepository;
-use dinamo_rent_lib::repositories::gasto::GastoDatos;
-use dinamo_rent_lib::services::gasto::GastoService;
-use dinamo_rent_lib::services::AppState;
+use dynarent_lib::core::config::AppConfig;
+use dynarent_lib::core::rbac::SessionStore;
+use dynarent_lib::core::security::LoginAttemptTracker;
+use dynarent_lib::repositories::auto::AutoRepository;
+use dynarent_lib::repositories::gasto::GastoDatos;
+use dynarent_lib::services::gasto::GastoService;
+use dynarent_lib::services::AppState;
 
 fn dev_state() -> AppState {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let data_dir = manifest.join("../data");
     let resource_dir = manifest.join("resources");
     let cfg = Arc::new(AppConfig::load(&data_dir, &resource_dir, &manifest));
-    let pool = dinamo_rent_lib::core::db::create_pool(&cfg).expect("pool embedded");
+    let pool = dynarent_lib::core::db::create_pool(&cfg).expect("pool embedded");
     AppState {
         pool,
         sessions: std::sync::Arc::new(Mutex::new(SessionStore::new(3600))),
@@ -69,8 +69,15 @@ fn gasto_crud_roundtrip() {
     let id = creado.id;
     assert_eq!(creado.descripcion, "GASTO ROUNDTRIP");
     assert_eq!(creado.categoria, "COMBUSTIBLE");
-    assert_eq!(creado.monto, "120000.00", "monto normalizado con 2 decimales");
-    assert_eq!(creado.usuario.as_deref(), Some("tester"), "actor registrado");
+    assert_eq!(
+        creado.monto, "120000.00",
+        "monto normalizado con 2 decimales"
+    );
+    assert_eq!(
+        creado.usuario.as_deref(),
+        Some("tester"),
+        "actor registrado"
+    );
     if let Some(placa) = &datos.placa {
         assert_eq!(creado.placa.as_deref(), Some(placa.as_str()));
     }
@@ -82,14 +89,17 @@ fn gasto_crud_roundtrip() {
     // Actualizar
     datos.monto = "150000".into();
     datos.descripcion = "Gasto actualizado".into();
-    let actualizado = GastoService::actualizar(&mut conn, cfg, id, datos.clone())
-        .expect("actualizar gasto");
+    let actualizado =
+        GastoService::actualizar(&mut conn, cfg, id, datos.clone()).expect("actualizar gasto");
     assert_eq!(actualizado.monto, "150000.00");
     assert_eq!(actualizado.descripcion, "GASTO ACTUALIZADO");
 
     // Eliminar
     GastoService::eliminar(&mut conn, id).expect("eliminar gasto");
-    assert!(GastoService::obtener(&mut conn, id).is_err(), "gasto eliminado");
+    assert!(
+        GastoService::obtener(&mut conn, id).is_err(),
+        "gasto eliminado"
+    );
 }
 
 #[test]
@@ -101,7 +111,8 @@ fn gasto_validaciones() {
 
     // Descripción vacía → validation
     let sin_desc = datos_gasto("   ");
-    let err = GastoService::crear(&mut conn, cfg, "tester", sin_desc).expect_err("descripción vacía");
+    let err =
+        GastoService::crear(&mut conn, cfg, "tester", sin_desc).expect_err("descripción vacía");
     assert_eq!(err.kind(), "validation");
 
     // Monto cero → validation
@@ -144,13 +155,13 @@ fn gasto_totales_y_contar() {
     // Dos gastos: 120000 + 80000 = 200000
     let mut g1 = datos_gasto("Gasto totales 1");
     g1.monto = "120000".into();
-    g1.categoria = "Combustible".into();  // uppercased to COMBUSTIBLE by normalizar
+    g1.categoria = "Combustible".into(); // uppercased to COMBUSTIBLE by normalizar
     let creado1 = GastoService::crear(&mut conn, cfg, "tester", g1).expect("crear g1");
     let id1 = creado1.id;
 
     let mut g2 = datos_gasto("Gasto totales 2");
     g2.monto = "80000".into();
-    g2.categoria = "Lavado".into();  // uppercased to LAVADO by normalizar
+    g2.categoria = "Lavado".into(); // uppercased to LAVADO by normalizar
     let creado2 = GastoService::crear(&mut conn, cfg, "tester", g2).expect("crear g2");
     let id2 = creado2.id;
 
@@ -158,7 +169,10 @@ fn gasto_totales_y_contar() {
     let totales = GastoService::totales(&mut conn).expect("totales");
     // El total general incluye los gastos preexistentes de la BD; al menos suma los nuestros
     let monto_total: rust_decimal::Decimal = totales.total_general.parse().expect("total numérico");
-    assert!(monto_total >= rust_decimal::Decimal::from(200_000), "total >= 200000");
+    assert!(
+        monto_total >= rust_decimal::Decimal::from(200_000),
+        "total >= 200000"
+    );
 
     let comb = totales
         .por_categoria
@@ -196,12 +210,14 @@ fn gasto_por_placa() {
 
     let mut datos = datos_gasto("Gasto placa ABC");
     datos.placa = Some(placa.clone());
-    let creado = GastoService::crear(&mut conn, cfg, "tester", datos).expect("crear gasto con placa");
+    let creado =
+        GastoService::crear(&mut conn, cfg, "tester", datos).expect("crear gasto con placa");
     let id = creado.id;
     assert_eq!(creado.placa.as_deref(), Some(placa.as_str()));
 
     // Listar por placa devuelve el gasto
-    let lista = GastoService::listar(&mut conn, None, Some(&placa), None).expect("listar por placa");
+    let lista =
+        GastoService::listar(&mut conn, None, Some(&placa), None).expect("listar por placa");
     assert!(
         lista.iter().any(|g| g.id == id),
         "el gasto aparece filtrando por placa"

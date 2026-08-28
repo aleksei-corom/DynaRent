@@ -1,6 +1,6 @@
 @import 'tailwindcss';
 
-/* ─── Tokens de tema Dinamo Rent (fuente: config.ini [ui]) ───────────────────
+/* ─── Tokens de tema Dynarent (fuente: config.ini [ui]) ───────────────────
    Paleta semántica: los componentes usan únicamente estas variables, así que
    el tema oscuro se consigue redefiniéndolas bajo .dark (ver abajo). */
 @theme {
@@ -279,7 +279,7 @@ select.input {
 	size: letter;
 	margin: 0 0 14mm 0;
 	@bottom-center {
-		content: "Página " counter(page) " de " counter(pages);
+		content: 'Página ' counter(page) ' de ' counter(pages);
 		font-family: Arial, sans-serif;
 		font-size: 7pt;
 		color: #444;

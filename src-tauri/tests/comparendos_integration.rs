@@ -1,5 +1,5 @@
 //! comparendos_integration.rs — Pruebas de integración del servicio de
-//! comparendos contra el .fdb de desarrollo (data/dinamo_rent_v3.fdb).
+//! comparendos contra el .fdb de desarrollo (data/dynarent_v3.fdb).
 //!
 //! Usa un auto real de la BD (solo lectura) y crea/elimina comparendos
 //! temporales en cada test. Verifica CRUD, marcado de pago y totales.
@@ -10,22 +10,22 @@ use std::sync::{Arc, Mutex};
 use chrono::{Duration, Local};
 use serial_test::serial;
 
-use dinamo_rent_lib::core::config::AppConfig;
-use dinamo_rent_lib::core::rbac::SessionStore;
-use dinamo_rent_lib::core::security::LoginAttemptTracker;
-use dinamo_rent_lib::repositories::auto::AutoRepository;
-use dinamo_rent_lib::repositories::comparendo::ComparendoDatos;
-use dinamo_rent_lib::repositories::renta::RentaDatos;
-use dinamo_rent_lib::services::comparendo::ComparendoService;
-use dinamo_rent_lib::services::renta::RentaService;
-use dinamo_rent_lib::services::AppState;
+use dynarent_lib::core::config::AppConfig;
+use dynarent_lib::core::rbac::SessionStore;
+use dynarent_lib::core::security::LoginAttemptTracker;
+use dynarent_lib::repositories::auto::AutoRepository;
+use dynarent_lib::repositories::comparendo::ComparendoDatos;
+use dynarent_lib::repositories::renta::RentaDatos;
+use dynarent_lib::services::comparendo::ComparendoService;
+use dynarent_lib::services::renta::RentaService;
+use dynarent_lib::services::AppState;
 
 fn dev_state() -> AppState {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let data_dir = manifest.join("../data");
     let resource_dir = manifest.join("resources");
     let cfg = Arc::new(AppConfig::load(&data_dir, &resource_dir, &manifest));
-    let pool = dinamo_rent_lib::core::db::create_pool(&cfg).expect("pool embedded");
+    let pool = dynarent_lib::core::db::create_pool(&cfg).expect("pool embedded");
     AppState {
         pool,
         sessions: std::sync::Arc::new(Mutex::new(SessionStore::new(3600))),
@@ -76,7 +76,10 @@ fn comparendo_crud_y_marcar_pagado() {
     let creado = ComparendoService::crear(&mut conn, cfg, datos.clone()).expect("crear comparendo");
     let id = creado.id;
     assert_eq!(creado.placa, placa);
-    assert_eq!(creado.monto, "580000.00", "monto normalizado con 2 decimales");
+    assert_eq!(
+        creado.monto, "580000.00",
+        "monto normalizado con 2 decimales"
+    );
     assert_eq!(creado.estado, "Pendiente");
     assert_eq!(creado.hora_infraccion, "14:30", "hora recortada a HH:MM");
     assert!(!creado.vehiculo.is_empty(), "JOIN con autos para la UI");
@@ -107,7 +110,10 @@ fn comparendo_crud_y_marcar_pagado() {
 
     // Eliminar
     ComparendoService::eliminar(&mut conn, id).expect("eliminar");
-    assert!(ComparendoService::obtener(&mut conn, id).is_err(), "eliminado");
+    assert!(
+        ComparendoService::obtener(&mut conn, id).is_err(),
+        "eliminado"
+    );
 }
 
 #[test]
@@ -192,7 +198,10 @@ fn comparendo_totales() {
 
     let totales = ComparendoService::totales(&mut conn).expect("totales");
     let monto_total: rust_decimal::Decimal = totales.total_general.parse().expect("numérico");
-    assert!(monto_total >= rust_decimal::Decimal::from(240_000), "total >= 240000");
+    assert!(
+        monto_total >= rust_decimal::Decimal::from(240_000),
+        "total >= 240000"
+    );
     assert!(
         totales.por_placa.iter().any(|t| t.clave == placa),
         "la placa aparece en los totales por placa"
@@ -214,7 +223,7 @@ fn comparendo_totales() {
 fn comparendo_numero_oficial_y_dedup() {
     // Verifica el número oficial (fuente SIMIT): round-trip del campo y los
     // métodos de deduplicación que usa el Agente SIMIT.
-    use dinamo_rent_lib::repositories::comparendo::ComparendoRepository;
+    use dynarent_lib::repositories::comparendo::ComparendoRepository;
 
     let state = dev_state();
     let cfg = &state.config;
@@ -258,13 +267,8 @@ fn comparendo_numero_oficial_y_dedup() {
         "misma placa/fecha/monto → duplicado"
     );
     assert!(
-        !ComparendoRepository::existe_duplicado(
-            &mut conn,
-            &placa,
-            &datos.fecha_infraccion,
-            "1.00"
-        )
-        .expect("dup 2"),
+        !ComparendoRepository::existe_duplicado(&mut conn, &placa, &datos.fecha_infraccion, "1.00")
+            .expect("dup 2"),
         "monto distinto → no duplicado"
     );
 
@@ -283,7 +287,10 @@ fn comparendo_numero_oficial_y_dedup() {
     ComparendoRepository::marcar_pagado_por_numero(&mut conn, "TEST-250010000000999")
         .expect("marcar por número");
     let obtenido = ComparendoService::obtener(&mut conn, creado.id).expect("obtener");
-    assert_eq!(obtenido.estado, "Pagado", "estado sincronizado desde el número");
+    assert_eq!(
+        obtenido.estado, "Pagado",
+        "estado sincronizado desde el número"
+    );
 
     ComparendoService::eliminar(&mut conn, creado.id).expect("eliminar");
     assert!(
@@ -301,7 +308,7 @@ fn comparendo_origen_simit_y_ultimo_visto() {
     // queda 'Manual' con ultimo_visto NULL; marcar_visto_simit_por_id converge
     // un Manual a SIMIT y toca la confirmación; id_existente deduplica y
     // devuelve el id del registro existente.
-    use dinamo_rent_lib::repositories::comparendo::ComparendoRepository;
+    use dynarent_lib::repositories::comparendo::ComparendoRepository;
 
     let state = dev_state();
     let cfg = &state.config;
@@ -351,7 +358,10 @@ fn comparendo_origen_simit_y_ultimo_visto() {
     // 4) Un comparendo manual que el SIMIT reporta converge a SIMIT al tocarlo
     ComparendoRepository::marcar_visto_simit_por_id(&mut conn, manual.id).expect("marcar visto");
     let convergido = ComparendoService::obtener(&mut conn, manual.id).expect("obtener convergido");
-    assert_eq!(convergido.origen, "SIMIT", "confirmado por SIMIT ya no es manual");
+    assert_eq!(
+        convergido.origen, "SIMIT",
+        "confirmado por SIMIT ya no es manual"
+    );
     assert!(
         convergido.ultimo_visto_simit.is_some(),
         "toca la confirmación al re-verlo"
@@ -368,8 +378,8 @@ fn comparendo_no_confirmados_simit() {
     // Filtro «el SIMIT dejó de confirmar»: entran los de origen SIMIT con
     // ultimo_visto_simit nulo o anterior al corte; salen los recién
     // confirmados y los manuales (el SIMIT nunca los confirma, es lo esperado).
-    use dinamo_rent_lib::repositories::comparendo::ComparendoRepository;
-    use dinamo_rent_lib::services::comparendo::DIAS_SIN_CONFIRMAR_SIMIT;
+    use dynarent_lib::repositories::comparendo::ComparendoRepository;
+    use dynarent_lib::services::comparendo::DIAS_SIN_CONFIRMAR_SIMIT;
     use rsfbclient::Execute;
 
     let state = dev_state();
@@ -410,9 +420,8 @@ fn comparendo_no_confirmados_simit() {
         .expect("confirmar reciente");
 
     // d) Manual (nunca lo confirma el SIMIT) → NO entra
-    let manual =
-        ComparendoService::crear(&mut conn, cfg, datos_comparendo(&placa, "334000"))
-            .expect("crear manual");
+    let manual = ComparendoService::crear(&mut conn, cfg, datos_comparendo(&placa, "334000"))
+        .expect("crear manual");
 
     let ids: Vec<i64> = ComparendoService::listar(&mut conn, None, None, None, true)
         .expect("listar no confirmados")
@@ -424,7 +433,10 @@ fn comparendo_no_confirmados_simit() {
         ids.contains(&id_sin_confirmar),
         "SIMIT nunca visto → entra (ids: {ids:?})"
     );
-    assert!(ids.contains(&id_viejo), "confirmado hace {DIAS_SIN_CONFIRMAR_SIMIT}+ días → entra");
+    assert!(
+        ids.contains(&id_viejo),
+        "confirmado hace {DIAS_SIN_CONFIRMAR_SIMIT}+ días → entra"
+    );
     assert!(
         !ids.contains(&id_reciente),
         "recién confirmado → no entra (ids: {ids:?})"
@@ -437,7 +449,10 @@ fn comparendo_no_confirmados_simit() {
         .into_iter()
         .map(|c| c.id)
         .collect();
-    assert!(todos.contains(&id_reciente), "sin filtro incluye el reciente");
+    assert!(
+        todos.contains(&id_reciente),
+        "sin filtro incluye el reciente"
+    );
 
     // Limpieza
     ComparendoService::eliminar(&mut conn, id_sin_confirmar).expect("limpiar a");
@@ -452,7 +467,7 @@ fn persistencia_ultimo_resultado_simit() {
     // El filtro «Solo nuevos» sobrevive al reinicio: el resultado de la última
     // sincronización se persiste como JSON (una fila, upsert) y se restaura.
     // Round-trip completo: persistir → cargar → re-persistir (upsert).
-    use dinamo_rent_lib::services::simit::{
+    use dynarent_lib::services::simit::{
         cargar_ultimo_resultado, persistir_ultimo_resultado, ErrorPlacaSimit, MetricasSimit,
         RegistroSimit, ResultadoSincronizacion,
     };
@@ -507,10 +522,17 @@ fn persistencia_ultimo_resultado_simit() {
     assert_eq!(cargado.registros.len(), 1);
     let reg = &cargado.registros[0];
     assert!(reg.nuevo, "el registro nuevo conserva su flag");
-    assert_eq!(reg.id, Some(42), "el id del comparendo sobrevive (filtro «Solo nuevos»)");
+    assert_eq!(
+        reg.id,
+        Some(42),
+        "el id del comparendo sobrevive (filtro «Solo nuevos»)"
+    );
     assert_eq!(reg.numero.as_deref(), Some("TEST-0022"));
     assert_eq!(cargado.errores[0].placa, "ZZZ111");
-    assert_eq!(cargado.reporte_html.as_deref(), Some("C:\\tmp\\reporte.html"));
+    assert_eq!(
+        cargado.reporte_html.as_deref(),
+        Some("C:\\tmp\\reporte.html")
+    );
 
     // Upsert: una segunda corrida reemplaza (sigue siendo una sola fila)
     let mut segunda = resultado.clone();
@@ -521,7 +543,11 @@ fn persistencia_ultimo_resultado_simit() {
     let filas: Option<(i64,)> = conn
         .query_first("SELECT COUNT(*) FROM agente_simit_ultimo_resultado", ())
         .expect("contar filas");
-    assert_eq!(filas.map(|r| r.0), Some(1), "el upsert mantiene una sola fila");
+    assert_eq!(
+        filas.map(|r| r.0),
+        Some(1),
+        "el upsert mantiene una sola fila"
+    );
 
     let cargado2 = cargar_ultimo_resultado(&mut conn)
         .expect("cargar 2")
@@ -622,7 +648,10 @@ fn comparendo_cruce_responsable_renta() {
         Some(renta.id),
         "el alta resuelve y guarda la renta del día"
     );
-    assert_eq!(c1.id_cliente, renta.id_cliente, "id_cliente heredado de la renta");
+    assert_eq!(
+        c1.id_cliente, renta.id_cliente,
+        "id_cliente heredado de la renta"
+    );
 
     // Comparendo FUERA del rango (30 días después del retorno) → sin responsable
     let mut c2 = datos_comparendo(&placa, "450001");

@@ -2,7 +2,7 @@
 
 > Investigado en agosto 2026 contra la normativa vigente de la DIAN y el estado
 > actual del código (Tauri v2 + Rust + Firebird Embedded 5.0 + SvelteKit 5).
-> Producto objetivo: **DynaRent** (Dinamo Rent a Car), persona jurídica
+> Producto objetivo: **DynaRent** (Dynarent a Car), persona jurídica
 > colombiana → **obligada a emitir Factura Electrónica de Venta (FEV)**.
 
 ---
@@ -131,7 +131,7 @@ QR, numeración y leyenda legal exigida por el Anexo Técnico.
 
 ### Fase 0 — Decisiones y requisitos externos (negocio, 1–2 semanas)
 1. Cotizar y elegir proveedor tecnológico (sandbox incluido).
-2. Trámites Dinamo Rent a Car: RUT actualizado, IFE, rangos de numeración FEV,
+2. Trámites Dynarent a Car: RUT actualizado, IFE, rangos de numeración FEV,
    definición de régimen IVA en config (ya existe flag `COBRA_IVA` por renta).
 3. Definir qué evento genera factura: cierre de renta (y pagos/abonos si se
    requiere factura por pago parcial).

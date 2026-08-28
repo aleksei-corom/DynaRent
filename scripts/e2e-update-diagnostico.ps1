@@ -11,8 +11,8 @@
 # C:\shared\out\e2e-update-diagnostico.ps1
 
 $ErrorActionPreference = 'Continue'
-$exe = "$env:LOCALAPPDATA\DinamoRent\dinamo-rent.exe"
-$url = 'https://github.com/CORJAR-Computers/dinamo_rent_tr/releases/latest/download/latest.json'
+$exe = "$env:LOCALAPPDATA\DinamoRent\dynarent.exe"
+$url = 'https://github.com/CORJAR-Computers/dynarent/releases/latest/download/latest.json'
 
 function Write-Diag([string]$msg) {
     Write-Host ("[{0}] {1}" -f (Get-Date -Format 'HH:mm:ss'), $msg)

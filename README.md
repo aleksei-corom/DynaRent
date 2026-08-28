@@ -1,4 +1,4 @@
-# 🖥️ Dinamo Rent ERP - Sistema de Gestión de Flota (Tauri V2)
+# 🖥️ Dynarent ERP - Sistema de Gestión de Flota (Tauri V2)
 
 > Sistema de gestión de flota para renta de vehículos. Administración integral: flota, clientes, rentas, reservas, finanzas, taller y más.
 > **Nueva versión reescrita** utilizando Tauri V2, Rust, SvelteKit y Tailwind CSS.
@@ -7,25 +7,25 @@
 
 ## ⬇️ Descarga e instalación (usuarios finales)
 
-> **Última versión estable: [v1.0.21](https://github.com/CORJAR-Computers/dinamo_rent_tr/releases/tag/v1.0.21)** — con el **auto-update** activo desde la v1.0.14 (las v1.0.3–v1.0.13 no pudieron auto-actualizarse) y novedades financieras: **comisión por renta** (checkbox + valor; neto = total − comisión) visible en el informe mensual, el balance, el listado de rentas y la timeline por vehículo; y **comparendos con procedencia persistente** (SIMIT/Manual), filtros «No confirmadas por SIMIT» y «Solo nuevos de la última sincronización» (combinables) con el último resultado del agente guardado en la BD (sobrevive al reinicio). Construida y validada por CI.
+> **Última versión estable: [v1.0.21](https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.21)** — con el **auto-update** activo desde la v1.0.14 (las v1.0.3–v1.0.13 no pudieron auto-actualizarse) y novedades financieras: **comisión por renta** (checkbox + valor; neto = total − comisión) visible en el informe mensual, el balance, el listado de rentas y la timeline por vehículo; y **comparendos con procedencia persistente** (SIMIT/Manual), filtros «No confirmadas por SIMIT» y «Solo nuevos de la última sincronización» (combinables) con el último resultado del agente guardado en la BD (sobrevive al reinicio). Construida y validada por CI.
 
 ### 1. Descargar el instalador
 
-Ve a la página de [releases de GitHub](https://github.com/CORJAR-Computers/dinamo_rent_tr/releases) y descarga de la **v1.0.21**:
+Ve a la página de [releases de GitHub](https://github.com/CORJAR-Computers/dynarent/releases) y descarga de la **v1.0.21**:
 
 | Instalador | Cuándo usarlo |
 |---|---|
-| `DinamoRent_1.0.21_x64-setup.exe` (NSIS, ~21 MB) | **Recomendado** — instalación asistida con atajo de escritorio |
-| `DinamoRent_1.0.21_x64_en-US.msi` (MSI, ~33 MB) | Despliegue empresarial / GPO (instalación silenciosa con `msiexec`) |
+| `Dynarent_1.0.21_x64-setup.exe` (NSIS, ~21 MB) | **Recomendado** — instalación asistida con atajo de escritorio |
+| `Dynarent_1.0.21_x64_en-US.msi` (MSI, ~33 MB) | Despliegue empresarial / GPO (instalación silenciosa con `msiexec`) |
 
 > ⚠️ **No uses la v1.0.0** (descontinuada): en equipos nuevos sin BD previa se colgaba antes de llegar al Login. Si ya la tienes instalada **con datos**, no necesitas desinstalar — la v1.0.21 abre tu BD actual tal cual.
 
 ### 2. Instalar
 
 - Ejecuta el `.exe` (o despliega el `.msi`) en el equipo objetivo. **Windows x64**.
-- En el primer arranque la app crea automáticamente en `%APPDATA%\com.corjar.dinamorent\`:
+- En el primer arranque la app crea automáticamente en `%APPDATA%\com.corjar.dynarent\`:
   - `config.ini` — configuración inicial.
-  - `dinamo_rent_v3.fdb` — la base de datos Firebird Embedded (portable, no requiere instalación de servidor).
+  - `dynarent_v3.fdb` — la base de datos Firebird Embedded (portable, no requiere instalación de servidor).
 - **No hace falta instalar nada más**: el runtime de Firebird y el de Visual C++ viajan dentro del instalador, y WebView2 se instala automáticamente si el sistema no lo tiene.
 
 ### 3. Primer ingreso
@@ -41,7 +41,7 @@ La app pedirá **cambiar la contraseña** en el primer ingreso. En una instalaci
 
 ### 4. Actualizar desde versiones anteriores
 
-Solo instala la v1.0.21 encima (o desinstala y reinstala conservando `%APPDATA%\com.corjar.dinamorent\`): el arranque es idempotente y aplica únicamente las migraciones pendientes. **No se pierde ningún dato.**
+Solo instala la v1.0.21 encima (o desinstala y reinstala conservando `%APPDATA%\com.corjar.dynarent\`): el arranque es idempotente y aplica únicamente las migraciones pendientes. **No se pierde ningún dato.**
 
 ---
 
@@ -132,7 +132,7 @@ Dinamo_Rent_tr/
 
 ---
 
-**Versión estable**: 1.0.21 (construida y validada por CI — ver [releases](https://github.com/CORJAR-Computers/dinamo_rent_tr/releases)). La versión legacy de la migración Tauri V2 era 4.0.0-beta; desde la **v1.0.0** el versionado sigue el semver del proyecto (1.0.x).
+**Versión estable**: 1.0.21 (construida y validada por CI — ver [releases](https://github.com/CORJAR-Computers/dynarent/releases)). La versión legacy de la migración Tauri V2 era 4.0.0-beta; desde la **v1.0.0** el versionado sigue el semver del proyecto (1.0.x).
 
 
 ---
@@ -232,18 +232,18 @@ Principio de la consolidación: **una columna de búsqueda = un solo índice** �
 
 **Síntoma**: `error: failed to build archive at ...rlib ... (os error 32)` al compilar con cargo (típicamente en el crate `tauri`) dentro de `src-tauri\target`. La causa: Windows Defender (escaneo en tiempo real) y/o el índice de búsqueda (`SearchIndexer`) abren los archivos temporales `.tmp*.temp-archive` que `rustc` crea y borra, bloqueándolos un instante.
 
-**Solución**: excluir la carpeta del proyecto de ambos componentes. Reemplazar `D:\dinamo_rent_tr` por la ruta real del repo en cada máquina.
+**Solución**: excluir la carpeta del proyecto de ambos componentes. Reemplazar `D:\dynarent` por la ruta real del repo en cada máquina.
 
 ### 1) Windows Defender — exclusión de ruta
 
-GUI: **Seguridad de Windows → Protección contra virus y amenazas → Administrar la configuración → Exclusiones → Agregar o quitar exclusiones → + Agregar exclusión → Carpeta** → `D:\dinamo_rent_tr\src-tauri\target`.
+GUI: **Seguridad de Windows → Protección contra virus y amenazas → Administrar la configuración → Exclusiones → Agregar o quitar exclusiones → + Agregar exclusión → Carpeta** → `D:\dynarent\src-tauri\target`.
 
 O en PowerShell **como administrador**:
 
 ```powershell
-Add-MpPreference -ExclusionPath 'D:\dinamo_rent_tr\src-tauri\target'
+Add-MpPreference -ExclusionPath 'D:\dynarent\src-tauri\target'
 # Opcional: excluir todo el proyecto (cubre target, node_modules y la BD)
-Add-MpPreference -ExclusionPath 'D:\dinamo_rent_tr'
+Add-MpPreference -ExclusionPath 'D:\dynarent'
 
 # Verificar (requiere admin)
 Get-MpPreference | Select-Object -ExpandProperty ExclusionPath
@@ -251,7 +251,7 @@ Get-MpPreference | Select-Object -ExpandProperty ExclusionPath
 
 ### 2) Windows Search (índice) — carpeta excluida
 
-GUI: **Configuración → Privacidad y seguridad → Búsqueda en Windows → Excluir carpetas → Agregar** → `D:\dinamo_rent_tr`.
+GUI: **Configuración → Privacidad y seguridad → Búsqueda en Windows → Excluir carpetas → Agregar** → `D:\dynarent`.
 
 O por PowerShell (por usuario, sin admin; escribe en el crawl scope del índice):
 
@@ -259,7 +259,7 @@ O por PowerShell (por usuario, sin admin; escribe en el crawl scope del índice)
 $base = 'HKCU:\SOFTWARE\Microsoft\Windows Search\CrawlScopeManager\Windows\DefaultGatherManager\AppScope'
 $guid = [Guid]::NewGuid().ToString('B').ToUpper()
 New-Item -Path "$base\$guid" -Force | Out-Null
-New-ItemProperty -Path "$base\$guid" -Name 'URLOrPath' -Value 'file:///D:\dinamo_rent_tr\' -PropertyType String -Force | Out-Null
+New-ItemProperty -Path "$base\$guid" -Name 'URLOrPath' -Value 'file:///D:\dynarent\' -PropertyType String -Force | Out-Null
 New-ItemProperty -Path "$base\$guid" -Name 'ScopeType' -Value 0 -PropertyType DWord -Force | Out-Null
 New-ItemProperty -Path "$base\$guid" -Name 'Attributes' -Value 0 -PropertyType DWord -Force | Out-Null
 # Reiniciar el índice para que aplique de inmediato (requiere admin):
@@ -279,10 +279,10 @@ cd .. && npm run tauri dev   # build + arranque de la app
 
 ### 4) Flacidez residual (aunque haya exclusiones) — loop de reintentos
 
-Incluso con ambas exclusiones activas, el `os error 32` puede reaparecer **de forma intermitente** en el paso de archive de la lib (el primer `Compiling dinamo-rent` de un build fresco):
+Incluso con ambas exclusiones activas, el `os error 32` puede reaparecer **de forma intermitente** en el paso de archive de la lib (el primer `Compiling dynarent` de un build fresco):
 
 ```
-error: failed to build archive at `...\target\debug\deps\libdinamo_rent_lib.rlib`:
+error: failed to build archive at `...\target\debug\deps\libdynarent_lib.rlib`:
 failed to remove temporary directory: ... (os error 32) at path "...\.tmpXXXX.temp-archive"
 ```
 
@@ -326,7 +326,7 @@ error: script "dev" exited with code 1
 **Solución** (la exclusión de todo el proyecto de las §1/§2 ya cubre `node_modules`; si solo se excluyó `src-tauri\target`, añadir):
 
 ```powershell
-Add-MpPreference -ExclusionPath 'D:\dinamo_rent_tr\node_modules'
+Add-MpPreference -ExclusionPath 'D:\dynarent\node_modules'
 ```
 
 Y limpiar el caché que quedó a medias tras el crash:
@@ -356,7 +356,7 @@ El sistema cifra datos PII de clientes (cédula, teléfono, licencia) con **AES-
 
 ## 📦 Licencias de terceros
 
-Dinamo Rent ERP redistribuye binarios de Firebird 5.0.3 (licencia dual IDPL+IPL) y VCRedist 14.3 (EULA Microsoft) en `src-tauri/resources/firebird/`. El listado completo de dependencias y sus licencias está en:
+Dynarent ERP redistribuye binarios de Firebird 5.0.3 (licencia dual IDPL+IPL) y VCRedist 14.3 (EULA Microsoft) en `src-tauri/resources/firebird/`. El listado completo de dependencias y sus licencias está en:
 
 - **[THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md)**
 
@@ -376,5 +376,5 @@ bash scripts/sanitize-repo.sh --yes
 
 El script:
 - Borra `Firebird-5.0.3.1683-0-windows-x64/` (copia duplicada, el bundle usa `src-tauri/resources/firebird/`).
-- Hace `git rm --cached` de `data/dinamo_rent_v3.fdb`, `data/config.ini`, `Contrato_Dinamo.docx`, `informe_*.xlsx`, `static/preview-shots/*.pdf` (sin borrar del disco).
+- Hace `git rm --cached` de `data/dynarent_v3.fdb`, `data/config.ini`, `Contrato_Dinamo.docx`, `informe_*.xlsx`, `static/preview-shots/*.pdf` (sin borrar del disco).
 - Imprime instrucciones para purgar el historial con `git filter-repo` (necesario tras el incidente de clave expuesta, ver `SECURITY.md` §4).

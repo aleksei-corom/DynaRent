@@ -53,7 +53,7 @@
 			const a = document.createElement('a');
 			a.href = url;
 			const fecha = new Date().toISOString().slice(0, 10);
-			a.download = `dinamo_rent_logs_${fecha}.txt`;
+			a.download = `dynarent_logs_${fecha}.txt`;
 			a.click();
 			URL.revokeObjectURL(url);
 			toast.success('Logs exportados correctamente');
@@ -107,17 +107,11 @@
 				<button class="btn-ghost text-sm" onclick={cargarLogs} disabled={loading}>
 					🔄 Actualizar
 				</button>
-				<button class="btn-ghost text-sm" onclick={copiarAlPortapapeles}>
-					📋 Copiar
-				</button>
+				<button class="btn-ghost text-sm" onclick={copiarAlPortapapeles}> 📋 Copiar </button>
 				<button class="btn-primary text-sm" onclick={exportar} disabled={exportando}>
 					{exportando ? '⏳ Exportando...' : '💾 Exportar archivo'}
 				</button>
-				<button
-					class="btn-ghost text-sm text-peligro"
-					onclick={limpiarLogs}
-					disabled={limpiando}
-				>
+				<button class="btn-ghost text-sm text-peligro" onclick={limpiarLogs} disabled={limpiando}>
 					🗑️ Truncar
 				</button>
 			</div>
@@ -150,9 +144,11 @@
 					⏳ Cargando logs...
 				</div>
 			{:else}
-				<pre class="text-xs font-mono text-text-primary whitespace-pre-wrap break-words max-h-[70vh] overflow-auto bg-fondo rounded p-4">{tab === 'backend'
-					? logsBackend
-					: logsFrontend}</pre>
+				<pre
+					class="text-xs font-mono text-text-primary whitespace-pre-wrap break-words max-h-[70vh] overflow-auto bg-fondo rounded p-4">{tab ===
+					'backend'
+						? logsBackend
+						: logsFrontend}</pre>
 			{/if}
 		</div>
 	</div>

@@ -1,13 +1,13 @@
 [package]
-name = "dinamo-rent"
+name = "dynarent"
 version = "1.0.26"
-description = "Dinamo Rent ERP — Tauri V2 + Rust + Firebird Embedded 5.0"
-authors = ["Dinamo Rent a Car"]
+description = "Dynarent ERP — Tauri V2 + Rust + Firebird Embedded 5.0"
+authors = ["Dynarent"]
 edition = "2021"
-default-run = "dinamo-rent"
+default-run = "dynarent"
 
 [lib]
-name = "dinamo_rent_lib"
+name = "dynarent_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [[bin]]
@@ -89,7 +89,7 @@ log = "0.4"
 #   - `set_global_default()` NO toca el logger de `log`, evitando el crash
 #     "attempted to set a logger after the logging system was already initialized"
 #   - spans estructurados (registrar_pago, cerrar_renta, login)
-#   - `RUST_LOG=info,dinamo_rent_lib=debug` vía EnvFilter
+#   - `RUST_LOG=info,dynarent_lib=debug` vía EnvFilter
 #   - futuro OpenTelemetry/Jaeger sin tocar el código de servicios
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
