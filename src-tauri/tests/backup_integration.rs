@@ -10,6 +10,7 @@
 //!   - aplica la rotación a `max_copies` (las excedentes se eliminan).
 
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use dynarent_lib::core::config::AppConfig;
@@ -19,6 +20,7 @@ use dynarent_lib::services::backup::{
     restaurar_fdb_desde_fbk,
 };
 use rsfbclient::Queryable;
+use serial_test::serial;
 
 /// Encuentra la BD de desarrollo con el nombre actual (dynarent_v3.fdb)
 /// o el anterior (dinamo_rent_v3.fdb) para compatibilidad con CI pre-rebrand.
@@ -57,12 +59,25 @@ impl Drop for LimpiarTemporal {
     }
 }
 
-/// Sufijo único por ejecución (evita colisiones entre tests paralelos)
+/// Sufijo único por ejecución (evita colisiones entre tests paralelos).
+///
+/// OJO: `SystemTime::now()` en Windows tiene resolución de ~15ms
+/// (`GetSystemTimeAsFileTime`), así que dos llamadas dentro de esa ventana
+/// devuelven el mismo `as_secs()`/`subsec_nanos()`. Si dos tests paralelos
+/// llaman `config_con_backup_en_temp()` casi simultáneamente, colisionan en
+/// el mismo `tmp/backup_int_<X>` y el `LimpiarTemporal` del que termina
+/// primero borra el directorio del otro → `Os { code: 3, PATH_NOT_FOUND }`.
+///
+/// El contador atómico garante unicidad real por proceso, sin depender de
+/// la resolución del reloj del SO.
+static UNIQ_COUNTER: AtomicU64 = AtomicU64::new(0);
+
 fn uniq() -> String {
+    let n = UNIQ_COUNTER.fetch_add(1, Ordering::SeqCst);
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| format!("{}_{}", d.as_secs(), d.subsec_nanos()))
-        .unwrap_or_else(|_| "x".into())
+        .map(|d| format!("{}_{}_{}", d.as_secs(), d.subsec_nanos(), n))
+        .unwrap_or_else(|_| format!("x_{n}"))
 }
 
 /// Copia la BD de desarrollo a un directorio temporal; devuelve la config con
@@ -91,6 +106,7 @@ fn config_con_backup_en_temp() -> (Arc<AppConfig>, PathBuf, LimpiarTemporal) {
 /// gbak contra una copia de la BD dev (sin conexiones abiertas sobre la copia)
 /// genera un `.fbk` válido y la rotación conserva `max_copies`.
 #[test]
+#[serial]
 fn backups_automaticos_crean_fbk_y_rotan() {
     let (cfg, tmp, _guard) = config_con_backup_en_temp();
     if !gbak_disponible(&cfg) {
@@ -129,6 +145,7 @@ fn backups_automaticos_crean_fbk_y_rotan() {
 /// `.fbk` de gbak NO es una copia byte a byte del `.fdb`; la vía gbak está
 /// cubierta por el test de arriba y la fidelidad del cifrado por los unitarios.
 #[test]
+#[serial]
 fn backups_cifrados_roundtrip_del_fdb() {
     let (mut cfg, tmp, _guard) = config_con_backup_en_temp();
     let cfg = Arc::make_mut(&mut cfg);
@@ -176,6 +193,7 @@ fn tablas_de_usuario(db_path: &Path, cfg: &Arc<AppConfig>) -> i64 {
 /// temporal + rename) y se valida que el archivo resultante es una BD
 /// Firebird legible con las mismas tablas de usuario.
 #[test]
+#[serial]
 fn restauracion_con_gbak_real_roundtrip_del_fdb() {
     let (cfg, _tmp, _guard) = config_con_backup_en_temp();
     if !gbak_disponible(&cfg) {
@@ -204,6 +222,7 @@ fn restauracion_con_gbak_real_roundtrip_del_fdb() {
 /// descifra (requiere la contraseña) y `restaurar_fdb_desde_fbk` reemplaza
 /// el `.fdb`. Cubre el flujo completo «descifrar si está cifrado» del panel.
 #[test]
+#[serial]
 fn restauracion_de_backup_cifrado_con_gbak_real() {
     let (mut cfg, tmp, _guard) = config_con_backup_en_temp();
     if !gbak_disponible(&cfg) {
