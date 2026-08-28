@@ -20,8 +20,62 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ── Sync bun.lock para PRs de Dependabot ──
+  # Dependabot actualiza `package.json` y `package-lock.json` pero NO regenera
+  # `bun.lock` (limitación conocida: https://github.com/dependabot/dependabot-core/issues/8558).
+  # Sin este paso, `bun install --frozen-lockfile` falla en todos los PRs de
+  # Dependabot/npm_and_yarn/* con "lockfile had changes, but lockfile is frozen".
+  #
+  # Este job solo corre en PRs de Dependabot: regenera `bun.lock` y lo commitea
+  # al PR antes de que corra `validate`. En el resto de branches/PRs se skipped
+  # (sin overhead) y `validate` usa `--frozen-lockfile` normalmente.
+  sync-bun-lock:
+    name: Sync bun.lock (Dependabot)
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout (head ref del PR con token de escritura)
+        uses: actions/checkout@v7
+        with:
+          # head.ref del PR (Dependabot abre PRs en el mismo repo, no forks →
+          # GITHUB_TOKEN puede pushear al branch).
+          ref: ${{ github.event.pull_request.head.ref || github.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Regenerar bun.lock
+        # --no-save: no tocar package.json (Dependabot ya lo actualizó);
+        # solo resincronizar bun.lock con el package.json actual.
+        run: bun install --no-save
+
+      - name: Commit si cambió
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add bun.lock
+          if git diff --cached --quiet; then
+            echo "bun.lock ya estaba sincronizado — nada que commitear"
+          else
+            git commit -m "chore: sync bun.lock con package.json (Dependabot)"
+            git push
+            echo "bun.lock actualizado y pusheado al PR"
+          fi
+
   validate:
     name: Validación (lint + check + tests)
+    # Depende de sync-bun-lock para que el checkout tenga el lockfile sincronizado.
+    # `if: always()` + check de result permite que validate corra tanto si
+    # sync-bun-lock se ejecutó (success) como si se skipped (PRs no-Dependabot).
+    needs: sync-bun-lock
+    if: always() && (needs.sync-bun-lock.result == 'success' || needs.sync-bun-lock.result == 'skipped')
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
