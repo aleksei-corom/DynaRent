@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { check, type Update } from '@tauri-apps/plugin-updater';
 	import { relaunch } from '@tauri-apps/plugin-process';
 	import { toast } from '$lib/stores/toast.svelte';
@@ -9,10 +9,11 @@
 	// tauri.conf.json → plugins.updater) si hay una versión más nueva y, si
 	// existe, pide permiso para descargarla e instalarla.
 	//
-	// Dos disparadores:
+	// Tres disparadores:
 	//   1. Automático al arrancar la app (best-effort: sin red o sin runtime
 	//      Tauri el chequeo se omite en silencio — la app sigue funcionando).
-	//   2. Manual con el botón «Buscar actualización» de la barra superior:
+	//   2. Periódico cada 30 minutos mientras la app esté abierta.
+	//   3. Manual con el botón «Buscar actualización» de la barra superior:
 	//      el layout pasa la prop onReady y el componente le entrega la función
 	//      buscar() en el mount (alternativa tipada a $expose, que no está
 	//      declarado en los tipos de este Svelte).
@@ -28,6 +29,10 @@
 	let comprobando = $state(false);
 
 	const abrir = $derived(update !== null);
+
+	// Intervalo de chequeo periódico: cada 30 minutos.
+	const INTERVALO_MS = 30 * 60 * 1000;
+	let intervaloId: ReturnType<typeof setInterval> | null = null;
 
 	async function ejecutarCheck(conFeedback: boolean): Promise<void> {
 		if (comprobando) return;
@@ -54,7 +59,22 @@
 		onReady?.(() => ejecutarCheck(true));
 		// Pequeño retraso: no competir con la validación de sesión del arranque.
 		const timer = setTimeout(() => void ejecutarCheck(false), 3000);
-		return () => clearTimeout(timer);
+		// Chequeo periódico en background cada 30 minutos.
+		intervaloId = setInterval(() => {
+			// Solo chequear si no hay un modal abierto (evita sobrescribir una
+			// actualización que el usuario ya está evaluando).
+			if (!update) {
+				void ejecutarCheck(false);
+			}
+		}, INTERVALO_MS);
+		return () => {
+			clearTimeout(timer);
+			if (intervaloId) clearInterval(intervaloId);
+		};
+	});
+
+	onDestroy(() => {
+		if (intervaloId) clearInterval(intervaloId);
 	});
 
 	function masTarde() {
@@ -79,8 +99,9 @@
 					}
 				}
 			});
-			// En Windows la app se cierra sola al instalar; el relaunch deja la
-			// nueva versión arrancada.
+			// Descarga completada: reiniciar la aplicación para aplicar la
+			// actualización. En Windows, NSIS reemplaza los archivos y el
+			// relaunch arranca la nueva versión automáticamente.
 			await relaunch();
 		} catch (e) {
 			error = String(e);

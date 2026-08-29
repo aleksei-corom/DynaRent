@@ -23,7 +23,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests"
+      "csp": "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost https://github.com https://*.githubusercontent.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests"
     }
   },
   "bundle": {
@@ -50,7 +50,7 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDRCQjk2OUJDN0IwRUQ1MkYKUldRdjFRNTd2R201UzlISy9QNzFHaXdqMVJ4ZTVHV0ZqSURONk9LeFBiWUluSmRoU2dUb3dLcm8K",
       "endpoints": [
-        "https://github.com/CORJAR-Computers/dynarent/releases/latest/download/latest.json"
+        "https://github.com/aleksei-corom/DynaRent/releases/latest/download/latest.json"
       ]
     }
   }
