@@ -42,6 +42,23 @@ jobs:
         with:
           workspaces: src-tauri
 
+      # ── Cache de las tools de bundling de Tauri (NSIS, WiX, WebView2) ──
+      # `tauri build` descarga estas herramientas (~200 MB) desde
+      # https://github.com/tauri-apps/binary-releases/releases en la PRIMERA
+      # corrida y las guarda en %USERPROFILE%\.tauri. Sin cache, cada release
+      # las baja de nuevo y GitHub devuelve 504 con frecuencia bajo carga →
+      # "failed to bundle project: http status: 504".
+      # Con cache, un release hit reutiliza las tools del anterior (0 descargas)
+      # y el 504 deja de ser posible. restore-keys permite reusar tools aunque
+      # cambie el hash del lockfile (solo se invalida al hacer upgrade del CLI).
+      - name: Cache Tauri bundler tools (~/.tauri)
+        uses: actions/cache@v4
+        with:
+          path: ~\.tauri
+          key: tauri-tools-${{ runner.os }}-tauri2-${{ hashFiles('**/bun.lock') }}
+          restore-keys: |
+            tauri-tools-${{ runner.os }}-tauri2-
+
       - name: Install dependencies (bun)
         run: bun install --frozen-lockfile
 
@@ -92,12 +109,41 @@ jobs:
             echo 'CHANGELOG_EOF'
           } >> "$GITHUB_OUTPUT"
 
-      # Firma de los bundles del updater: con createUpdaterArtifacts activo,
-      # tauri build genera los .sig y tauri-action sube además latest.json
-      # (el endpoint estático que la app consulta para auto-actualizarse).
-      # La clave privada vive SOLO en el secret del repo (ver RELEASE_CHECKLIST.md
-      # §bump y el Handsoff §6); nunca se commitea.
-      - name: Build y publicar release
+      # ── Build y publicar release con reintentos por 504 de GitHub ──
+      # `tauri-action` (y `tauri build` internamente) NO reintenta las descargas
+      # de NSIS/WiX/WebView2 desde github.com/tauri-apps/binary-releases: un
+      # único 504 Gateway Timeout aborta el release completo con
+      # "failed to bundle project: http status: 504".
+      #
+      # Estrategia en dos intentos (patrón estándar de retry para actions):
+      #   1. Intento 1 con continue-on-error: si falla por 504 (o cualquier
+      #      otro error transitorio de red), el job continúa al paso 2.
+      #   2. Si el intento 1 falló, reintenta con el mismo action. El cache de
+      #      ~/.tauri (arriba) suele haber descargado las tools parcialmente en
+      #      el intento 1, así que el intento 2 encuentra más datos en disco.
+      #   3. Si ambos fallan, el job falla explícitamente con exit 1.
+      #
+      # tauri-action usa createOrUpdateRelease internamente, así que un intento
+      # parcial previo (release creado pero sin assets) se actualiza, no se
+      # duplica. Los assets se reemplazan si ya existen.
+      - name: Build y publicar release (intento 1)
+        id: build_1
+        uses: tauri-apps/tauri-action@v1
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Dynarent ERP ${{ github.ref_name }}'
+          releaseBody: ${{ steps.changelog.outputs.changelog }}
+          releaseDraft: false
+          prerelease: false
+
+      - name: Build y publicar release (intento 2 — retry por 504)
+        id: build_2
+        if: steps.build_1.outcome == 'failure'
         uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -109,3 +155,12 @@ jobs:
           releaseBody: ${{ steps.changelog.outputs.changelog }}
           releaseDraft: false
           prerelease: false
+
+      # Si ambos intentos fallaron, el job debe salir con error. Sin este
+      # paso, GitHub marcaría el job como "success" porque el último step
+      # con `if:` que se skipped cuenta como neutral.
+      - name: Fallar si ambos intentos de build fallaron
+        if: steps.build_1.outcome == 'failure' && steps.build_2.outcome == 'failure'
+        run: |
+          echo "::error::El build de Tauri falló en ambos intentos (504 de GitHub al descargar NSIS/WiX). Revisa el log del intento 2 arriba."
+          exit 1
