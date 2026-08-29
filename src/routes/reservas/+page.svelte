@@ -922,6 +922,14 @@
 					<FormField label="Horas extras" dense>
 						<input class="input" type="number" min="0" step="1" bind:value={form.horasExtras} />
 					</FormField>
+					<FormField label="Costo lavado" hint="COP" dense>
+						<input
+							class="input"
+							inputmode="decimal"
+							placeholder="25000"
+							bind:value={form.costoLavado}
+						/>
+					</FormField>
 					<FormField label="Abono" hint="COP" dense>
 						<input class="input" inputmode="decimal" placeholder="100000" bind:value={form.abono} />
 					</FormField>
