@@ -25,6 +25,8 @@ pub struct EmpresaConfig {
     pub ciudad: Option<String>,
     pub logo: Option<String>,
     pub pais: Option<String>,
+    pub moneda: Option<String>,
+    pub locale: Option<String>,
 }
 
 /// Datos recibidos al guardar (logo como data URL o null para quitar).
@@ -39,6 +41,8 @@ pub struct EmpresaConfigDatos {
     pub web: Option<String>,
     pub ciudad: Option<String>,
     pub pais: Option<String>,
+    pub moneda: Option<String>,
+    pub locale: Option<String>,
     /// Data URL del logo (`data:<mime>;base64,<b64>`) o null = sin logo.
     pub logo: Option<String>,
 }
@@ -66,10 +70,13 @@ pub fn logo_mime(ext: &str) -> Option<&'static str> {
 }
 
 /// Orden de columnas del SELECT (alineado con `EmpresaRow`)
-pub const SELECT_COLS: &str = "NOMBRE, NIT, DIRECCION, TELEFONO, EMAIL, WEB, CIUDAD, LOGO, PAIS";
+pub const SELECT_COLS: &str =
+    "NOMBRE, NIT, DIRECCION, TELEFONO, EMAIL, WEB, CIUDAD, LOGO, PAIS, MONEDA, LOCALE";
 
 #[allow(clippy::type_complexity)]
 pub type EmpresaRow = (
+    Option<String>,
+    Option<String>,
     Option<String>,
     Option<String>,
     Option<String>,
@@ -98,8 +105,8 @@ impl EmpresaRepository {
         logo_archivo: Option<&str>,
     ) -> Result<(), AppError> {
         let sql = "UPDATE OR INSERT INTO EMPRESA_CONFIG \
-                   (ID, NOMBRE, NIT, DIRECCION, TELEFONO, EMAIL, WEB, CIUDAD, PAIS, LOGO, UPDATED_AT) \
-                   VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP) \
+                   (ID, NOMBRE, NIT, DIRECCION, TELEFONO, EMAIL, WEB, CIUDAD, PAIS, MONEDA, LOCALE, LOGO, UPDATED_AT) \
+                   VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP) \
                    MATCHING (ID)";
         conn.execute(
             sql,
@@ -112,6 +119,8 @@ impl EmpresaRepository {
                 cfg.web.clone(),
                 cfg.ciudad.clone(),
                 cfg.pais.clone(),
+                cfg.moneda.clone(),
+                cfg.locale.clone(),
                 logo_archivo.map(|s| s.to_string()),
             ),
         )?;

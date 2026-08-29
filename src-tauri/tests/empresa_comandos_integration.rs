@@ -168,6 +168,8 @@ fn setup_inicial_roundtrip_con_pais_y_vista_publica() {
                 web: previa.web,
                 ciudad: previa.ciudad,
                 pais: previa.pais,
+                moneda: previa.moneda,
+                locale: previa.locale,
                 logo: previa.logo,
             },
             "test",
@@ -210,12 +212,16 @@ fn setup_inicial_roundtrip_con_pais_y_vista_publica() {
             web: Some("www.test.com".into()),
             ciudad: Some("Bogotá".into()),
             pais: Some("Colombia".into()),
+            moneda: Some("COP".into()),
+            locale: Some("es-CO".into()),
             logo: None,
         },
     )
     .expect("guardar con país");
 
     assert_eq!(guardado.pais.as_deref(), Some("Colombia"));
+    assert_eq!(guardado.moneda.as_deref(), Some("COP"));
+    assert_eq!(guardado.locale.as_deref(), Some("es-CO"));
     assert_eq!(guardado.nombre.as_deref(), Some("DynaRent Test SAS"));
     assert_eq!(guardado.telefono.as_deref(), Some("310 123 4567"));
 
@@ -239,6 +245,8 @@ fn setup_inicial_roundtrip_con_pais_y_vista_publica() {
             web: None,
             ciudad: Some("Caracas".into()),
             pais: Some("Venezuela".into()),
+            moneda: Some("VES".into()),
+            locale: Some("es-VE".into()),
             logo: None,
         },
     )
@@ -246,6 +254,8 @@ fn setup_inicial_roundtrip_con_pais_y_vista_publica() {
 
     let leido2 = obtener_empresa(st.clone(), sid.clone()).expect("obtener tras cambio");
     assert_eq!(leido2.pais.as_deref(), Some("Venezuela"));
+    assert_eq!(leido2.moneda.as_deref(), Some("VES"));
+    assert_eq!(leido2.locale.as_deref(), Some("es-VE"));
     assert_eq!(leido2.telefono.as_deref(), Some("414 555 0101"));
     assert_eq!(leido2.ciudad.as_deref(), Some("Caracas"));
 

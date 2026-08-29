@@ -9,6 +9,7 @@
 
 import { empresaApi, setupApi, type EmpresaConfig } from '$lib/api';
 import { codigoPais } from '$lib/utils/geografia';
+import { setCurrency } from '$lib/utils/format';
 
 /** Branding por defecto cuando la empresa aún no configuró nada. */
 export const FALLBACK_NOMBRE = 'DynaRent';
@@ -54,6 +55,8 @@ class EmpresaStore {
 	web = $state<string | null>(null);
 	ciudad = $state<string | null>(null);
 	pais = $state<string | null>(null);
+	moneda = $state<string | null>(null);
+	locale = $state<string | null>(null);
 	completaCargada = $state(false);
 
 	// Setup inicial: `null` = aún sin consultar; `false` = pendiente (el
@@ -80,6 +83,16 @@ class EmpresaStore {
 	/** País de la empresa: el configurado en el setup (/empresa) o el fallback. */
 	get paisMostrar(): string {
 		return this.pais?.trim() || FALLBACK_PAIS;
+	}
+
+	/** Moneda ISO 4217 activa (fallback: COP). */
+	get monedaMostrar(): string {
+		return this.moneda?.trim() || 'COP';
+	}
+
+	/** Locale activo (fallback: es-CO). */
+	get localeMostrar(): string {
+		return this.locale?.trim() || 'es-CO';
 	}
 
 	get emailMostrar(): string {
@@ -180,8 +193,12 @@ class EmpresaStore {
 		this.web = cfg.web;
 		this.ciudad = cfg.ciudad;
 		this.pais = cfg.pais;
+		this.moneda = cfg.moneda;
+		this.locale = cfg.locale;
 		this.cargado = true;
 		this.completaCargada = true;
+		// Sincronizar format.ts con la moneda activa
+		setCurrency(this.monedaMostrar, this.localeMostrar);
 	}
 }
 

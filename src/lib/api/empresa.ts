@@ -11,6 +11,10 @@ export interface EmpresaConfig {
 	web: string | null;
 	ciudad: string | null;
 	pais: string | null;
+	/** Código ISO 4217 de la moneda (ej: 'COP', 'USD') */
+	moneda: string | null;
+	/** Locale para formato (ej: 'es-CO', 'en-US') */
+	locale: string | null;
 	/** Data URL del logo (data:image/...;base64,...) o null */
 	logo: string | null;
 }
@@ -25,6 +29,8 @@ export interface EmpresaConfigDatos {
 	web?: string | null;
 	ciudad?: string | null;
 	pais?: string | null;
+	moneda?: string | null;
+	locale?: string | null;
 	logo?: string | null;
 }
 

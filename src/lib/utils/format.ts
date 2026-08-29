@@ -1,26 +1,79 @@
-// format.ts — Formato de moneda COP y fechas
+// format.ts — Formato de moneda dinámico y fechas
+//
+// La moneda y el locale se leen del store de empresa (EMPRESA_CONFIG).
+// Por defecto COP / es-CO (comportamiento original). La función
+// `formatMoney()` es la API pública; `formatCOP()` se mantiene como
+// alias deprecated para no romper el código existente.
 
-const currencyFormatter = new Intl.NumberFormat('es-CO', {
-	style: 'currency',
-	currency: 'COP',
-	minimumFractionDigits: 0,
-	maximumFractionDigits: 0
-});
+import { monedaPorCodigo } from './monedas';
 
-const currencyFormatterDecimal = new Intl.NumberFormat('es-CO', {
-	style: 'currency',
-	currency: 'COP',
-	minimumFractionDigits: 2,
-	maximumFractionDigits: 2
-});
+/** Estado compartido de moneda/locale (se setea desde empresa store) */
+let _currencyCode = 'COP';
+let _locale = 'es-CO';
+let _decimals = false;
 
-/** Formatea un monto como moneda COP (sin decimales por defecto) */
-export function formatCOP(value: number | string | null | undefined, decimals = false): string {
+/**
+ * Actualiza la moneda y locale activos. Llamar desde el store de empresa
+ * cuando cambia la configuración.
+ */
+export function setCurrency(code: string, locale?: string): void {
+	const info = monedaPorCodigo(code);
+	_currencyCode = info?.code ?? code;
+	_locale = locale ?? info?.locale ?? 'es-CO';
+	_decimals = info?.decimals ?? false;
+	// Invalidar formateadores cacheados
+	_intlCache.clear();
+}
+
+/** Devuelve el código de moneda activo */
+export function getCurrencyCode(): string {
+	return _currencyCode;
+}
+
+/** Devuelve el locale activo */
+export function getLocale(): string {
+	return _locale;
+}
+
+// ── Cache de Intl.NumberFormat por "locale-currency-decimals" ──
+const _intlCache = new Map<string, Intl.NumberFormat>();
+
+function getFormatter(decimals: boolean): Intl.NumberFormat {
+	const key = `${_locale}|${_currencyCode}|${decimals}`;
+	let fmt = _intlCache.get(key);
+	if (!fmt) {
+		fmt = new Intl.NumberFormat(_locale, {
+			style: 'currency',
+			currency: _currencyCode,
+			minimumFractionDigits: decimals ? 2 : 0,
+			maximumFractionDigits: decimals ? 2 : 0
+		});
+		_intlCache.set(key, fmt);
+	}
+	return fmt;
+}
+
+/**
+ * Formatea un monto como moneda activa (COP por defecto).
+ * Si `decimals` es true muestra 2 decimales; si no, redondea a entero.
+ */
+export function formatMoney(value: number | string | null | undefined, decimals?: boolean): string {
 	if (value === null || value === undefined || value === '') return '$0';
 	const num = typeof value === 'string' ? parseFloat(value) : value;
 	if (Number.isNaN(num)) return '$0';
-	return decimals ? currencyFormatterDecimal.format(num) : currencyFormatter.format(num);
+	const useDecimals = decimals ?? _decimals;
+	return getFormatter(useDecimals).format(num);
 }
+
+/**
+ * @deprecated Usar `formatMoney()` en su lugar.
+ * Se mantiene como alias por compatibilidad con el código existente.
+ */
+export function formatCOP(value: number | string | null | undefined, decimals = false): string {
+	return formatMoney(value, decimals);
+}
+
+// ── Fechas ──
 
 const dateFormatter = new Intl.DateTimeFormat('es-CO', {
 	year: 'numeric',

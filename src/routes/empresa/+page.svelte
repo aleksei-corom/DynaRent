@@ -6,6 +6,8 @@
 	import { sid } from '$lib/stores/session.svelte';
 	import { guardRole, guardSesion, haySesion } from '$lib/utils/guards';
 	import FormField from '$lib/components/FormField.svelte';
+	import { PAISES_BASE } from '$lib/utils/geografia';
+	import { MONEDAS, monedaPorPais } from '$lib/utils/monedas';
 
 	let cargando = $state(true);
 	let guardando = $state(false);
@@ -18,7 +20,10 @@
 		telefono: '',
 		email: '',
 		web: '',
-		ciudad: ''
+		ciudad: '',
+		pais: '',
+		moneda: 'COP',
+		locale: 'es-CO'
 	});
 
 	// Logo: data URL (persistida) mientras no se cambie; null = sin logo.
@@ -37,6 +42,9 @@
 			form.email = cfg.email ?? '';
 			form.web = cfg.web ?? '';
 			form.ciudad = cfg.ciudad ?? '';
+			form.pais = cfg.pais ?? '';
+			form.moneda = cfg.moneda ?? 'COP';
+			form.locale = cfg.locale ?? 'es-CO';
 			logoDataUrl = cfg.logo;
 		} catch (e) {
 			error =
@@ -77,6 +85,15 @@
 		logoDataUrl = null;
 	}
 
+	/** Al cambiar el país, auto-seleccionar moneda y locale. */
+	function onPaisChange() {
+		const m = monedaPorPais(form.pais);
+		if (m) {
+			form.moneda = m.code;
+			form.locale = m.locale;
+		}
+	}
+
 	async function guardar() {
 		error = '';
 		guardando = true;
@@ -89,6 +106,9 @@
 				email: form.email.trim() || null,
 				web: form.web.trim() || null,
 				ciudad: form.ciudad.trim() || null,
+				pais: form.pais.trim() || null,
+				moneda: form.moneda.trim() || null,
+				locale: form.locale.trim() || null,
 				logo: logoDataUrl
 			});
 			// Refrescar branding en caliente (login / menú lateral / impresiones).
@@ -271,6 +291,21 @@
 				</div>
 				<FormField label="Ciudad">
 					<input class="input" placeholder="Ej: Bogotá" bind:value={form.ciudad} maxlength="100" />
+				</FormField>
+				<FormField label="País">
+					<select class="input" bind:value={form.pais} onchange={onPaisChange}>
+						<option value="">— Seleccionar —</option>
+						{#each PAISES_BASE as p}
+							<option value={p}>{p}</option>
+						{/each}
+					</select>
+				</FormField>
+				<FormField label="Moneda" hint="ISO 4217">
+					<select class="input" bind:value={form.moneda}>
+						{#each MONEDAS as m}
+							<option value={m.code}>{m.code} — {m.symbol} ({m.paises[0]})</option>
+						{/each}
+					</select>
 				</FormField>
 				<FormField label="Email">
 					<input

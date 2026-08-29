@@ -46,17 +46,21 @@ impl EmpresaService {
     ) -> Result<EmpresaConfig, AppError> {
         let row = EmpresaRepository::obtener(conn)?;
         Ok(match row {
-            Some((nombre, nit, dir, tel, email, web, ciudad, logo, pais)) => EmpresaConfig {
-                nombre,
-                nit,
-                direccion: dir,
-                telefono: tel,
-                email,
-                web,
-                ciudad,
-                logo: Self::logo_a_data_url(data_dir, logo.as_deref()),
-                pais,
-            },
+            Some((nombre, nit, dir, tel, email, web, ciudad, logo, pais, moneda, locale)) => {
+                EmpresaConfig {
+                    nombre,
+                    nit,
+                    direccion: dir,
+                    telefono: tel,
+                    email,
+                    web,
+                    ciudad,
+                    logo: Self::logo_a_data_url(data_dir, logo.as_deref()),
+                    pais,
+                    moneda,
+                    locale,
+                }
+            }
             None => EmpresaConfig::default(),
         })
     }
@@ -74,6 +78,8 @@ impl EmpresaService {
         cfg.web = None;
         cfg.ciudad = None;
         cfg.pais = None;
+        cfg.moneda = None;
+        cfg.locale = None;
         Ok(cfg)
     }
 
@@ -103,6 +109,8 @@ impl EmpresaService {
         let web = limpiar(&datos.web, 120);
         let ciudad = limpiar(&datos.ciudad, 100);
         let pais = limpiar(&datos.pais, 100);
+        let moneda = limpiar(&datos.moneda, 10);
+        let locale = limpiar(&datos.locale, 10);
 
         // ── Logo: data URL -> archivo (o eliminar si viene null/vacío) ──
         // Borra siempre los logos previos `empresa.*` para no dejar huérfanos.
@@ -174,6 +182,8 @@ impl EmpresaService {
                 web: web.clone(),
                 ciudad: ciudad.clone(),
                 pais: pais.clone(),
+                moneda: moneda.clone(),
+                locale: locale.clone(),
                 logo: None,
             },
             logo_archivo.as_deref(),
@@ -199,6 +209,8 @@ impl EmpresaService {
                 .as_deref()
                 .and_then(|a| Self::logo_a_data_url(data_dir, Some(a))),
             pais,
+            moneda,
+            locale,
         })
     }
 }
