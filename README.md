@@ -1,28 +1,29 @@
 # 🖥️ Dynarent ERP - Sistema de Gestión de Flota (Tauri V2)
 
 > Sistema de gestión de flota para renta de vehículos. Administración integral: flota, clientes, rentas, reservas, finanzas, taller y más.
-> **Nueva versión reescrita** utilizando Tauri V2, Rust, SvelteKit y Tailwind CSS.
+> **Reescrito** utilizando Tauri V2, Rust, SvelteKit y Tailwind CSS.
 
 ---
 
 ## ⬇️ Descarga e instalación (usuarios finales)
 
-> **Última versión estable: [v1.0.21](https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.21)** — con el **auto-update** activo desde la v1.0.14 (las v1.0.3–v1.0.13 no pudieron auto-actualizarse) y novedades financieras: **comisión por renta** (checkbox + valor; neto = total − comisión) visible en el informe mensual, el balance, el listado de rentas y la timeline por vehículo; y **comparendos con procedencia persistente** (SIMIT/Manual), filtros «No confirmadas por SIMIT» y «Solo nuevos de la última sincronización» (combinables) con el último resultado del agente guardado en la BD (sobrevive al reinicio). Construida y validada por CI.
+> **Última versión estable: [v1.0.30](https://github.com/aleksei-corom/DynaRent/releases/tag/v1.0.30)** — con auto-update activo, modo de instalación flexible (per-user o per-machine), 30 mejoras técnicas aplicadas, fixes de seguridad y accesibilidad, y CI validando cada commit.
 
 ### 1. Descargar el instalador
 
-Ve a la página de [releases de GitHub](https://github.com/CORJAR-Computers/dynarent/releases) y descarga de la **v1.0.21**:
+Ve a la página de [releases de GitHub](https://github.com/aleksei-corom/DynaRent/releases) y descarga la **v1.0.30**:
 
 | Instalador | Cuándo usarlo |
 |---|---|
-| `Dynarent_1.0.21_x64-setup.exe` (NSIS, ~21 MB) | **Recomendado** — instalación asistida con atajo de escritorio |
-| `Dynarent_1.0.21_x64_en-US.msi` (MSI, ~33 MB) | Despliegue empresarial / GPO (instalación silenciosa con `msiexec`) |
+| `DynaRent_1.0.30_x64-setup.exe` (NSIS, ~21 MB) | **Recomendado** — instalación asistida con selección de modo (per-user / per-machine) |
+| `DynaRent_1.0.30_x64_en-US.msi` (MSI, ~33 MB) | Despliegue empresarial / GPO (instalación silenciosa con `msiexec`) |
 
-> ⚠️ **No uses la v1.0.0** (descontinuada): en equipos nuevos sin BD previa se colgaba antes de llegar al Login. Si ya la tienes instalada **con datos**, no necesitas desinstalar — la v1.0.21 abre tu BD actual tal cual.
+> ⚠️ **No uses la v1.0.0** (descontinuada): en equipos nuevos sin BD previa se colgaba antes de llegar al Login. Si ya la tienes instalada **con datos**, no necesitas desinstalar — la v1.0.30 abre tu BD actual tal cual.
 
 ### 2. Instalar
 
 - Ejecuta el `.exe` (o despliega el `.msi`) en el equipo objetivo. **Windows x64**.
+- El instalador NSIS te ofrecerá elegir entre **Solo para mí** (%LOCALAPPDATA%) o **Para todos los usuarios** (Program Files).
 - En el primer arranque la app crea automáticamente en `%APPDATA%\com.corjar.dynarent\`:
   - `config.ini` — configuración inicial.
   - `dynarent_v3.fdb` — la base de datos Firebird Embedded (portable, no requiere instalación de servidor).
@@ -37,37 +38,37 @@ En una instalación nueva el usuario por defecto es:
 | Usuario | `admin` |
 | Contraseña | `admin123` |
 
-La app pedirá **cambiar la contraseña** en el primer ingreso. En una instalación que ya tenía BD (actualización desde v1.0.0), se conservan tus usuarios y datos tal cual.
+La app pedirá **cambiar la contraseña** en el primer ingreso. En una instalación que ya tenía BD (actualización desde versiones anteriores), se conservan tus usuarios y datos tal cual.
 
 ### 4. Actualizar desde versiones anteriores
 
-Solo instala la v1.0.21 encima (o desinstala y reinstala conservando `%APPDATA%\com.corjar.dynarent\`): el arranque es idempotente y aplica únicamente las migraciones pendientes. **No se pierde ningún dato.**
+Solo instala la v1.0.30 encima (o desinstala y reinstala conservando `%APPDATA%\com.corjar.dynarent\`): el arranque es idempotente y aplica únicamente las migraciones pendientes. **No se pierde ningún dato.**
 
 ---
 
 ## 📋 Configuración Rápida
 
 ### 1. Requisitos Previos
-- [Node.js](https://nodejs.org/) (v18+)
+- [Node.js](https://nodejs.org/) (v18+) o [Bun](https://bun.sh/) (recomendado)
 - [Rust](https://www.rust-lang.org/) (1.70+)
 - Dependencias de sistema operativo para compilar Tauri (ver [documentación oficial](https://v2.tauri.app/start/prerequisites/)).
 
 ### 2. Instalar dependencias del Frontend
 En la raíz del proyecto:
 ```bash
-npm install
+bun install
 ```
 
 ### 3. Ejecutar aplicación en modo desarrollo
 Este comando iniciará el servidor de desarrollo del frontend (Vite) y lanzará la aplicación de escritorio de Tauri en modo debug:
 ```bash
-npm run tauri dev
+bun run tauri dev
 ```
 
 ### 4. Compilar para producción
 Para generar el instalador y el ejecutable final:
 ```bash
-npm run tauri build
+bun run tauri build
 ```
 
 ---
@@ -81,27 +82,38 @@ npm run tauri build
 | **Acceso a datos** | `rsfbclient` (consultas explícitas) |
 | **Base de datos** | **Firebird Embedded 5.0** (archivo portable `.fdb`) |
 | **Proceso de escritorio** | Tauri V2 (WebView2 en Windows) |
+| **Gestor de paquetes** | Bun |
+| **CI/CD** | GitHub Actions (lint, clippy, tsc, svelte-check, vitest, cargo audit) |
 
 ---
 
 ## 📂 Estructura del Proyecto
 
 ```
-Dinamo_Rent_tr/
+DynaRent/
 ├── data/                   # Archivos de configuración (config.ini)
 ├── src/                    # Frontend (SvelteKit + Tailwind)
 │   ├── routes/             # Vistas de la aplicación (Dashboard, Rentas, Flota, etc.)
 │   ├── lib/                # Componentes Svelte, utils de UI y estilos
+│   │   ├── api/            # Módulos de API (capa de abstracción sobre invoke)
+│   │   ├── stores/         # Stores reactivos Svelte
+│   │   └── components/     # Componentes reutilizables
 │   └── app.html            # Template HTML principal
 ├── src-tauri/              # Backend (Rust + Tauri V2)
 │   ├── src/
+│   │   ├── commands/       # Comandos Tauri (puntos de entrada IPC)
 │   │   ├── services/       # Lógica de negocio
 │   │   ├── repositories/   # Acceso a BD (rsfbclient)
-│   │   └── main.rs         # Punto de entrada Tauri y registro de comandos
+│   │   ├── core/           # Crypto, RBAC, migraciones, validadores
+│   │   └── lib.rs          # Registro de comandos y setup Tauri
+│   ├── migrations/         # Scripts SQL de esquema (0001–0027)
+│   ├── tests/              # Tests de integración
 │   ├── Cargo.toml          # Dependencias de Rust
-│   └── tauri.conf.json     # Configuración de la ventana y permisos de Tauri
+│   └── tauri.conf.json     # Configuración de Tauri (ventana, NSIS, updater)
+├── .github/workflows/      # CI (lint + check + tests + cargo audit + release)
+├── dynarent-patches/       # Parches de mejoras aplicados secuencialmente
 ├── package.json            # Dependencias Node.js / scripts
-└── PLAN_IMPLEMENTACION_TAURI.md # Plan de arquitectura y migración
+└── bun.lock                # Lockfile de Bun
 ```
 
 ---
@@ -112,12 +124,13 @@ Dinamo_Rent_tr/
 |-----------|-----------|
 | **[PLAN_IMPLEMENTACION_TAURI.md](PLAN_IMPLEMENTACION_TAURI.md)** | 📋 Plan completo de arquitectura y migración técnica desde Python a Tauri |
 | **[Handsoff.md](Handsoff.md)** | 🤖 Registro de decisiones, automatizaciones y guías de desarrollo |
-| **[INSTALACION_OPERACIONES.md](INSTALACION_OPERACIONES.md)** | 🚀 Guía de instalación de la v1.0.21 para operaciones: enlaces a los assets, credenciales iniciales y verificación |
+| **[INSTALACION_OPERACIONES.md](INSTALACION_OPERACIONES.md)** | 🚀 Guía de instalación de la v1.0.30 para operaciones: enlaces a los assets, credenciales iniciales y verificación |
 | **[DEPLOYMENT_CLIENTES.md](DEPLOYMENT_CLIENTES.md)** | 🖥️ Plan de despliegue en equipos de clientes: instalación silenciosa, verificación post-instalación y rollback |
 | **[RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)** | 🚢 Checklist para publicar una release: bump de versión, tag, verificación de assets y anuncio |
 | **[SECURITY.md](SECURITY.md)** | 🔐 Manejo de secretos, rotación de clave PII y reporte de vulnerabilidades |
 | **[RESUMEN_EJECUTIVO.md](RESUMEN_EJECUTIVO.md)** | 📊 Resumen ejecutivo del estado del proyecto: releases, CI y herramientas de operación |
 | **[ANUNCIO_RELEASE_TEMPLATE.md](ANUNCIO_RELEASE_TEMPLATE.md)** | 📣 Plantilla de anuncio de release para Slack/Teams (reutilizable) |
+| **[PLAN_FACTURACION_ELECTRONICA.md](PLAN_FACTURACION_ELECTRONICA.md)** | 📄 Plan del módulo de facturación electrónica DIAN Colombia |
 
 *(Para documentación histórica sobre la lógica de negocio subyacente, consultar el repositorio original de la versión Python+PySide6).*
 
@@ -129,11 +142,12 @@ Dinamo_Rent_tr/
 - **Datos Sensibles (PII):** Cifrado en reposo para datos de clientes y licencias utilizando **AES-256-GCM** gestionado desde Rust.
 - **Autorización:** Control de Acceso por Roles (RBAC) aplicado de forma estricta en los Comandos de Tauri.
 - **Sin Motor de BD Expuesto:** Firebird Embedded 5.0 opera dentro del mismo proceso sin puertos de red abiertos.
+- **Seguridad en CI:** `cargo audit` ejecutado en cada PR; `bun.lock` sincronizado automáticamente para PRs de Dependabot.
+- **Branch Protection:** `main` requiere CI verde para merge; force push y delete bloqueados.
 
 ---
 
-**Versión estable**: 1.0.21 (construida y validada por CI — ver [releases](https://github.com/CORJAR-Computers/dynarent/releases)). La versión legacy de la migración Tauri V2 era 4.0.0-beta; desde la **v1.0.0** el versionado sigue el semver del proyecto (1.0.x).
-
+**Versión estable**: 1.0.30 (construida y validada por CI — ver [releases](https://github.com/aleksei-corom/DynaRent/releases)). La versión legacy de la migración Tauri V2 era 4.0.0-beta; desde la **v1.0.0** el versionado sigue el semver del proyecto (1.0.x).
 
 ---
 
@@ -159,7 +173,7 @@ bun run tauri dev
 
 > ℹ️ Alternativamente las credenciales pueden pasarse por variables de entorno (ver `.env.example`) sin tocar `config.ini`.
 
-> 🪝 **Scripts del proyecto y hook de pre-commit**: todos los comandos se ejecutan con `bun run <script>` — `dev`, `build`, `check`, `test`, `lint`, `tauri`, `check:simit`, `watch:simit`, `smoke:app`, `verificar:paginacion` — y el hook de husky ejecuta `bun run lint` (eslint sobre `src`) en cada `git commit`. `bun` queda en el PATH de usuario al instalarlo; si algún comando falla con `bun: command not found`, abre una **terminal nueva** (el PATH se refresca al iniciarla) o añade `C:\Users\WinterOS\.bun\bin` al PATH de usuario. En casos excepcionales se puede omitir el hook con `git commit --no-verify`. Los scripts `.mjs` de `scripts/` (`check-simit`, `watch-simit`, `smoke-test-app`, `verificar-paginacion`) se ejecutan con `node` directo (`node scripts/check-simit.mjs`) y **no** requieren bun.
+> 🪝 **Scripts del proyecto y hook de pre-commit**: todos los comandos se ejecutan con `bun run <script>` — `dev`, `build`, `check`, `test`, `lint`, `tauri`, `check:simit`, `watch:simit`, `smoke:app`, `verificar:paginacion` — y el hook de husky ejecuta `bun run lint` (eslint sobre `src`) en cada `git commit`. `bun` queda en el PATH de usuario al instalarlo; si algún comando falla con `bun: command not found`, abre una **terminal nueva** (el PATH se refresca al iniciarla) o añade `C:\Users\<tu-usuario>\.bun\bin` al PATH de usuario. En casos excepcionales se puede omitir el hook con `git commit --no-verify`. Los scripts `.mjs` de `scripts/` (`check-simit`, `watch-simit`, `smoke-test-app`, `verificar-paginacion`) se ejecutan con `node` directo (`node scripts/check-simit.mjs`) y **no** requieren bun.
 
 ---
 
@@ -199,8 +213,13 @@ La base de datos es un `.fdb` portable de **Firebird Embedded 5.0**. El esquema 
 | `0019_renta_cobra_iva.sql` | Flag `COBRA_IVA` por renta (checkbox; default 1 conserva el comportamiento de las existentes) |
 | `0020_renta_valor_gasolina.sql` | Cargo por gasolina en la renta (`VALOR_GASOLINA`, default 0) |
 | `0021_comparendo_origen_simit.sql` | Procedencia persistente (`origen` 'SIMIT'/'Manual') + `ultimo_visto_simit` + índice |
+| `0021_empresa_pais.sql` | País de la empresa en `EMPRESA_CONFIG` (selector con catálogo geográfico) |
 | `0022_agente_simit_ultimo_resultado.sql` | Último resultado del Agente SIMIT persistido (el filtro «Solo nuevos» sobrevive al reinicio) |
 | `0023_renta_comision.sql` | Comisión por renta (`TIENE_COMISION`/`COMISION`/`VALOR_NETO`) + backfill `valor_neto = total` |
+| `0024_extensiones_renta.sql` | Extensiones de renta: prórrogas con fechas y cálculo automático de días/horas extra |
+| `0025_audit_inmutable.sql` | Tabla de auditoría inmutable: registros append-only con hash de integridad |
+| `0026_cobrar_horas_extra.sql` | Configuración de cobro por horas extra (flag global + valor por hora) |
+| `0027_soft_delete_entities.sql` | Soft deletes extendidos a entidades adicionales (empresa, usuarios, reservas) |
 
 ### Esquema canónico de índices (tras 0010-0013)
 
@@ -232,18 +251,18 @@ Principio de la consolidación: **una columna de búsqueda = un solo índice** �
 
 **Síntoma**: `error: failed to build archive at ...rlib ... (os error 32)` al compilar con cargo (típicamente en el crate `tauri`) dentro de `src-tauri\target`. La causa: Windows Defender (escaneo en tiempo real) y/o el índice de búsqueda (`SearchIndexer`) abren los archivos temporales `.tmp*.temp-archive` que `rustc` crea y borra, bloqueándolos un instante.
 
-**Solución**: excluir la carpeta del proyecto de ambos componentes. Reemplazar `D:\dynarent` por la ruta real del repo en cada máquina.
+**Solución**: excluir la carpeta del proyecto de ambos componentes. Reemplazar `D:\DynaRent` por la ruta real del repo en cada máquina.
 
 ### 1) Windows Defender — exclusión de ruta
 
-GUI: **Seguridad de Windows → Protección contra virus y amenazas → Administrar la configuración → Exclusiones → Agregar o quitar exclusiones → + Agregar exclusión → Carpeta** → `D:\dynarent\src-tauri\target`.
+GUI: **Seguridad de Windows → Protección contra virus y amenazas → Administrar la configuración → Exclusiones → Agregar o quitar exclusiones → + Agregar exclusión → Carpeta** → `D:\DynaRent\src-tauri\target`.
 
 O en PowerShell **como administrador**:
 
 ```powershell
-Add-MpPreference -ExclusionPath 'D:\dynarent\src-tauri\target'
+Add-MpPreference -ExclusionPath 'D:\DynaRent\src-tauri\target'
 # Opcional: excluir todo el proyecto (cubre target, node_modules y la BD)
-Add-MpPreference -ExclusionPath 'D:\dynarent'
+Add-MpPreference -ExclusionPath 'D:\DynaRent'
 
 # Verificar (requiere admin)
 Get-MpPreference | Select-Object -ExpandProperty ExclusionPath
@@ -251,7 +270,7 @@ Get-MpPreference | Select-Object -ExpandProperty ExclusionPath
 
 ### 2) Windows Search (índice) — carpeta excluida
 
-GUI: **Configuración → Privacidad y seguridad → Búsqueda en Windows → Excluir carpetas → Agregar** → `D:\dynarent`.
+GUI: **Configuración → Privacidad y seguridad → Búsqueda en Windows → Excluir carpetas → Agregar** → `D:\DynaRent`.
 
 O por PowerShell (por usuario, sin admin; escribe en el crawl scope del índice):
 
@@ -259,7 +278,7 @@ O por PowerShell (por usuario, sin admin; escribe en el crawl scope del índice)
 $base = 'HKCU:\SOFTWARE\Microsoft\Windows Search\CrawlScopeManager\Windows\DefaultGatherManager\AppScope'
 $guid = [Guid]::NewGuid().ToString('B').ToUpper()
 New-Item -Path "$base\$guid" -Force | Out-Null
-New-ItemProperty -Path "$base\$guid" -Name 'URLOrPath' -Value 'file:///D:\dynarent\' -PropertyType String -Force | Out-Null
+New-ItemProperty -Path "$base\$guid" -Name 'URLOrPath' -Value 'file:///D:\DynaRent\' -PropertyType String -Force | Out-Null
 New-ItemProperty -Path "$base\$guid" -Name 'ScopeType' -Value 0 -PropertyType DWord -Force | Out-Null
 New-ItemProperty -Path "$base\$guid" -Name 'Attributes' -Value 0 -PropertyType DWord -Force | Out-Null
 # Reiniciar el índice para que aplique de inmediato (requiere admin):
@@ -272,7 +291,7 @@ Con ambas exclusiones aplicadas, el ciclo completo debe compilar sin el error:
 
 ```bash
 cd src-tauri && cargo test   # build de tests + suite completa
-cd .. && npm run tauri dev   # build + arranque de la app
+cd .. && bun run tauri dev   # build + arranque de la app
 ```
 
 > ℹ️ **Nota**: un `os error 32` en un *note* del directorio incremental (`target/debug/incremental`) es **no fatal** (cargo solo descarta ese caché y sigue); suele ser el índice tocando el directorio justo tras compilar. Para silenciarlo: `CARGO_INCREMENTAL=0 cargo build` (o `cargo test`).
@@ -280,18 +299,6 @@ cd .. && npm run tauri dev   # build + arranque de la app
 ### 4) Flacidez residual (aunque haya exclusiones) — loop de reintentos
 
 Incluso con ambas exclusiones activas, el `os error 32` puede reaparecer **de forma intermitente** en el paso de archive de la lib (el primer `Compiling dynarent` de un build fresco):
-
-```
-error: failed to build archive at `...\target\debug\deps\libdynarent_lib.rlib`:
-failed to remove temporary directory: ... (os error 32) at path "...\.tmpXXXX.temp-archive"
-```
-
-**Diagnóstico verificado (09-08, a fondo):**
-
-- Las exclusiones de Defender **sí están aplicadas** — se confirma con el evento **5007** del registro de Windows Defender al añadirlas (verificarlo con `Get-MpPreference` **requiere admin**; un shell normal las muestra vacías/denegadas, lo cual **no** significa que falten).
-- **No hay otro antivirus** activo (Defender es el único, escaneo on-access ON) y ningún escaneo programado coincidía con los fallos.
-- La causa es un **lock transitorio** de Defender (escaneo on-access/nube) sobre archivos recién escritos durante **ráfagas de escritura intensas** (el fallo se reproduce con una sonda de churn de archivos; en condiciones calmadas no: martillo de 11 rebuilds forzados = **0 fallos**). No es un error de configuración.
-- **Lo que NO lo arregla (probado):** `--jobs 1`, redirigir `TMP`/`TEMP`, ni `CARGO_HOME`. No existe variable de entorno para el temp-archive: `rustc` lo crea siempre en el directorio de salida (`target/debug/deps`).
 
 **Workaround probado — loop de reintentos** (el fallo es raro y nunca persistente; el reintento limpio completa):
 
@@ -306,27 +313,12 @@ for i in 1 2 3 4 5; do
 done
 ```
 
-- `CARGO_INCREMENTAL=0`: silencia además los avisos no fatales del directorio incremental.
-- La limpieza de `.tmp*.temp-archive` + `sleep` deja que el lock transitorio se libere antes del reintento.
-- En la práctica el fallo aparece como mucho 2-3 veces seguidas (suele ser tras un build fresco después de inactividad) y el intento siguiente completa la suite.
-
 ### 5) Vite dev server — crash del optimizer (`EBUSY` en `node_modules/.vite`)
 
-**Síntoma**: `bun run dev` (o `npm run dev`) crashea al **re-optimizar dependencias** (cambio de `bun.lock`, caché borrada o primer arranque tras clonar) con:
-
-```
-Error: EBUSY: resource busy or locked, rename '...node_modules\.vite\deps_ssr_temp_*' -> '...node_modules\.vite\deps_ssr'
-error: script "dev" exited with code 1
-```
-
-**Causa**: el optimizer de Vite escribe las dependencias pre-compiladas en un directorio temporal y lo **renombra** al final; Windows Defender / `SearchIndexer` abren archivos del árbol `node_modules\.vite` un instante y el `rename` falla con `EBUSY`. Es **el mismo mecanismo** del `os error 32` de cargo (§1/§2), pero sobre el caché de Vite en lugar de `target`.
-
-> **Segundo disparador (confirmado en pruebas)**: el `rename` también falla si se **relanza `bun run dev` inmediatamente después de matar el proceso anterior** (p. ej. `taskkill //F`, Ctrl+C y relanzar al instante, o cerrar y reabrir la terminal). Los workers de esbuild del Vite anterior mantienen handles abiertos sobre el árbol `.vite` durante unos segundos y bloquean el `rename` del optimizer del nuevo proceso. Con un arranque "en frío" (esperando a que mueran los procesos previos) el crash **no** se reproduce.
-
-**Solución** (la exclusión de todo el proyecto de las §1/§2 ya cubre `node_modules`; si solo se excluyó `src-tauri\target`, añadir):
+**Solución**: la exclusión de todo el proyecto de las §1/§2 ya cubre `node_modules`; si solo se excluyó `src-tauri\target`, añadir:
 
 ```powershell
-Add-MpPreference -ExclusionPath 'D:\dynarent\node_modules'
+Add-MpPreference -ExclusionPath 'D:\DynaRent\node_modules'
 ```
 
 Y limpiar el caché que quedó a medias tras el crash:
@@ -334,8 +326,6 @@ Y limpiar el caché que quedó a medias tras el crash:
 ```bash
 rm -rf node_modules/.vite && bun run dev
 ```
-
-**Workaround sin admin**: borrar `node_modules/.vite` y reintentar; la re-optimización completa en el 2º/3er intento (el error no es persistente, solo coincide con la ráfaga de escritura del optimizer). El crash **solo aparece con re-optimización forzada**; con el caché sano, `bun run dev` arranca normal.
 
 **Al relanzar Vite**: tras matar el proceso anterior (Ctrl+C, `taskkill` o cierre de terminal), espera **2-5 segundos** antes de lanzar `bun run dev` de nuevo para que los workers de esbuild liberen los handles de `node_modules/.vite` — o verifica que no quede ningún proceso del proyecto con `tasklist | findstr bun`.
 
