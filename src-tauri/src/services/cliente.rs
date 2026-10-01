@@ -345,3 +345,103 @@ fn validar(d: &ClienteDatos, cfg: &Arc<AppConfig>) -> Result<(), AppError> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn dummy_config() -> Arc<AppConfig> {
+        Arc::new(AppConfig::default())
+    }
+
+    #[test]
+    fn normalizar_calcula_nombre_completo_y_mayusculas() {
+        let mut d = ClienteDatos {
+            nombres: "juan carlos".into(),
+            apellidos: Some("perez gomez".into()),
+            ciudad: Some("bogota".into()),
+            ..Default::default()
+        };
+        normalizar(&mut d);
+        assert_eq!(d.nombres, "JUAN CARLOS");
+        assert_eq!(d.apellidos, Some("PEREZ GOMEZ".into()));
+        assert_eq!(d.nombre_completo, "JUAN CARLOS PEREZ GOMEZ");
+        assert_eq!(d.ciudad, Some("BOGOTA".into()));
+        assert_eq!(d.estado, "Activo");
+    }
+
+    #[test]
+    fn validar_rechaza_nombres_vacios_o_muy_largos() {
+        let cfg = dummy_config();
+        let mut d = ClienteDatos::default();
+        assert!(validar(&d, &cfg).is_err());
+
+        d.nombres = "a".repeat(101);
+        assert!(validar(&d, &cfg).is_err());
+    }
+
+    #[test]
+    fn validar_rechaza_email_invalido() {
+        let cfg = dummy_config();
+        let d = ClienteDatos {
+            nombres: "CARLOS".into(),
+            email: Some("invalido-sin-arroba".into()),
+            ..Default::default()
+        };
+        assert!(validar(&d, &cfg).is_err());
+    }
+
+    #[test]
+    fn validar_rechaza_xss_en_campos_texto() {
+        let cfg = dummy_config();
+        let d = ClienteDatos {
+            nombres: "<script>alert(1)</script>".into(),
+            ..Default::default()
+        };
+        assert!(validar(&d, &cfg).is_err());
+    }
+
+    #[test]
+    fn cifrado_y_descifrado_pii_roundtrip() {
+        let cipher = PiiCipher::new("secret-key-32-chars-long-12345678");
+        let mut datos = ClienteDatos {
+            nombres: "CARLOS".into(),
+            celular: Some("3001234567".into()),
+            email: Some("carlos@example.com".into()),
+            ..Default::default()
+        };
+        cifrar(&cipher, &mut datos).expect("Cifrado PII exitoso");
+        assert!(datos.celular.as_ref().unwrap().starts_with("v1:"));
+        assert!(datos.email.as_ref().unwrap().starts_with("v1:"));
+
+        let row_cliente = Cliente {
+            id: 1,
+            tipo_doc: None,
+            no_doc: None,
+            nombres: datos.nombres.clone(),
+            apellidos: None,
+            nombre_completo: datos.nombres.clone(),
+            celular: datos.celular,
+            celular2: None,
+            email: datos.email,
+            ciudad: None,
+            estado_region: None,
+            pais: None,
+            nacionalidad: None,
+            dir_residencia: None,
+            dir_temporal: None,
+            hotel: None,
+            habitacion: None,
+            no_licencia: None,
+            tipo_licencia: None,
+            vencimiento_licencia: None,
+            estado: "Activo".into(),
+            created_at: None,
+            updated_at: None,
+        };
+        let descifrado = descifrar(&cipher, row_cliente);
+        assert_eq!(descifrado.cliente.celular, Some("3001234567".into()));
+        assert_eq!(descifrado.cliente.email, Some("carlos@example.com".into()));
+        assert!(!descifrado.pii_oculto);
+    }
+}

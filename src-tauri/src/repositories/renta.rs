@@ -6,6 +6,7 @@
 
 use rsfbclient::{Execute, IntoParam, ParamsType, Queryable};
 
+use crate::core::decimal_string::{decimal_string, option_decimal_string};
 use crate::core::error::AppError;
 use crate::core::PooledConnection;
 // Helpers centralizados (Bloque 4 / TAREA 4.2): antes estaban duplicados
@@ -143,7 +144,7 @@ pub struct Renta {
 /// Contrato TypeScript generado por ts-rs en `src/lib/types/generated/RentaDatos.ts`
 /// (Bloque 4 / TAREA 4.3). El frontend usa este tipo para construir el body
 /// del command `crear_renta` / `actualizar_renta` (ver `src/lib/api.ts`).
-#[derive(Debug, Clone, Default, serde::Deserialize, TS)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, TS)]
 #[serde(default, rename_all = "camelCase")]
 #[ts(export, export_to = "../src/lib/types/generated/")]
 pub struct RentaDatos {
@@ -160,20 +161,33 @@ pub struct RentaDatos {
     pub ubicacion_retorno: Option<String>,
     pub dias_calculados: i64,
     pub horas_extras: i64,
+    #[serde(deserialize_with = "decimal_string")]
     pub valor_dia: String,
+    #[serde(deserialize_with = "decimal_string")]
     pub valor_hora_extra: String,
+    #[serde(deserialize_with = "decimal_string")]
     pub valor_dia_extra: String,
+    #[serde(deserialize_with = "decimal_string")]
     pub costo_lavado: String,
+    #[serde(deserialize_with = "decimal_string")]
     pub costo_silla: String,
+    #[serde(deserialize_with = "decimal_string")]
     pub costo_retorno: String,
+    #[serde(deserialize_with = "decimal_string")]
     pub costo_domicilio: String,
+    #[serde(deserialize_with = "decimal_string")]
     pub costo_cables: String,
+    #[serde(deserialize_with = "decimal_string")]
     pub costo_inversor: String,
     /// Valor de gasolina a cobrar (cliente entrega/recibe sin tanquear)
+    #[serde(deserialize_with = "decimal_string")]
     pub valor_gasolina: String,
+    #[serde(deserialize_with = "decimal_string")]
     pub descuento: String,
     /// Campos calculados por el servicio (subtotal/impuestos/total/saldo)
+    #[serde(deserialize_with = "decimal_string")]
     pub subtotal: String,
+    #[serde(deserialize_with = "decimal_string")]
     pub impuestos: String,
     /// ¿Cobra IVA? (checkbox del formulario; el servicio lo aplica al calcular)
     pub cobra_iva: bool,
@@ -182,31 +196,43 @@ pub struct RentaDatos {
     /// ¿Cobra horas extras al cierre? (checkbox del formulario; false = cortesía)
     pub cobrar_horas_extra: bool,
     /// Valor de la comisión a restar del total (neto = total − comisión)
+    #[serde(deserialize_with = "decimal_string")]
     pub comision: String,
     /// Valor neto (calculado por el servicio: total − comisión)
+    #[serde(deserialize_with = "decimal_string")]
     pub valor_neto: String,
+    #[serde(deserialize_with = "decimal_string")]
     pub total: String,
+    #[serde(deserialize_with = "decimal_string")]
     pub abono: String,
+    #[serde(deserialize_with = "decimal_string")]
     pub saldo_pendiente: String,
     pub observaciones: Option<String>,
+    #[serde(deserialize_with = "decimal_string")]
     pub km_salida: String,
     pub tanque_salida: Option<String>,
     pub id_reserva: Option<i64>,
 }
 
 /// Datos del cierre de una renta (devolución real y totales)
-#[derive(Debug, Clone, Default, serde::Deserialize)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct RentaCierreDatos {
     pub fecha_devolucion_real: Option<String>,
     pub hora_devolucion_real: Option<String>,
+    #[serde(deserialize_with = "option_decimal_string")]
     pub km_final: Option<String>,
     pub tanque_final: Option<String>,
     /// Ajustes del cierre (si se recalculan)
     pub dias_calculados: Option<i64>,
     pub horas_extras: Option<i64>,
+    #[serde(deserialize_with = "option_decimal_string")]
     pub valor_dia: Option<String>,
+    #[serde(deserialize_with = "option_decimal_string")]
     pub valor_hora_extra: Option<String>,
+    #[serde(deserialize_with = "option_decimal_string")]
+    pub valor_dia_extra: Option<String>,
+    #[serde(deserialize_with = "option_decimal_string")]
     pub descuento: Option<String>,
     pub observaciones: Option<String>,
 }
@@ -214,25 +240,33 @@ pub struct RentaCierreDatos {
 /// Datos para editar una renta cerrada (corrección de errores de digitación)
 /// Solo permite campos financieros que afectan los totales. Los campos de
 /// identificación (placa, cliente) y abono no son editables.
-#[derive(Debug, Clone, Default, serde::Deserialize)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct RentaCierreEditDatos {
     /// Valor diario de la renta (corrección de digitación)
+    #[serde(deserialize_with = "option_decimal_string")]
     pub valor_dia: Option<String>,
     /// Valor hora extra (corrección de digitación)
+    #[serde(deserialize_with = "option_decimal_string")]
     pub valor_hora_extra: Option<String>,
+    /// Valor día extra / extensiones acumuladas (corrección de digitación)
+    #[serde(deserialize_with = "option_decimal_string")]
+    pub valor_dia_extra: Option<String>,
+    /// Si cobra o no horas extras (corrección de digitación)
+    pub cobrar_horas_extra: Option<bool>,
     /// Días calculados (corrección de digitación)
     pub dias_calculados: Option<i64>,
     /// Horas extras (corrección de digitación)
     pub horas_extras: Option<i64>,
     /// Descuento aplicado (corrección de digitación)
+    #[serde(deserialize_with = "option_decimal_string")]
     pub descuento: Option<String>,
     /// Observaciones sobre la corrección (obligatorio para auditoría)
     pub observaciones: Option<String>,
 }
 
 /// Datos para extender una renta activa (agregar horas o días extras)
-#[derive(Debug, Clone, Default, serde::Deserialize)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ExtensionDatos {
     /// Tipo de extensión: "horas" o "dias"
@@ -240,15 +274,17 @@ pub struct ExtensionDatos {
     /// Cantidad de horas o días a agregar
     pub cantidad: i64,
     /// Valor unitario (hora o día extra)
+    #[serde(deserialize_with = "decimal_string")]
     pub valor: String,
     /// Observaciones sobre la extensión
     pub observaciones: Option<String>,
 }
 
 /// Datos de un pago
-#[derive(Debug, Clone, Default, serde::Deserialize)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct PagoDatos {
+    #[serde(deserialize_with = "decimal_string")]
     pub monto: String,
     pub metodo_pago: String,
     pub concepto: String,
@@ -256,10 +292,12 @@ pub struct PagoDatos {
 }
 
 /// Datos de una inspección
-#[derive(Debug, Clone, Default, serde::Deserialize)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct InspeccionDatos {
     pub tipo: String,
+    pub fecha: String,
+    #[serde(deserialize_with = "decimal_string")]
     pub kilometraje: String,
     pub nivel_gasolina: String,
     pub limpieza: Option<String>,
@@ -997,4 +1035,73 @@ fn km_limpio(v: &str) -> String {
     v.parse::<f64>()
         .map(|n| format!("{n}"))
         .unwrap_or_else(|_| v.trim().to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ExtensionDatos, InspeccionDatos, PagoDatos, RentaCierreDatos};
+
+    /// Regresión del incidente del 2026-09-16: `extender_renta` con
+    /// `"valor": 150000` (número JSON) fallaba con
+    /// `invalid type: integer 150000, expected a string` y bloqueaba la
+    /// operación de cobro. El deserializador tolerante debe aceptarlo.
+    #[test]
+    fn extension_datos_acepta_valor_como_numero_json() {
+        // Payload exacto reportado por el incidente.
+        let d: ExtensionDatos =
+            serde_json::from_str(r#"{"tipo":"horas","cantidad":1,"valor":150000}"#)
+                .expect("el número JSON debe aceptarse como string");
+        assert_eq!(d.tipo, "horas");
+        assert_eq!(d.cantidad, 1);
+        assert_eq!(d.valor, "150000");
+    }
+
+    #[test]
+    fn pago_datos_acepta_monto_como_numero_json() {
+        let d: PagoDatos =
+            serde_json::from_str(r#"{"monto":200000,"metodoPago":"Efectivo","concepto":"Abono"}"#)
+                .expect("el número JSON debe aceptarse como string");
+        assert_eq!(d.monto, "200000");
+    }
+
+    #[test]
+    fn inspeccion_datos_acepta_kilometraje_como_numero_json() {
+        let d: InspeccionDatos = serde_json::from_str(
+            r#"{"tipo":"Salida","fecha":"2026-08-20","kilometraje":42100,"nivelGasolina":"Lleno","tieneRepuesto":true,"tieneGatoCruceta":true,"tieneKitCarretera":true,"tieneDocumentos":true}"#,
+        )
+        .expect("el número JSON debe aceptarse como string");
+        assert_eq!(d.kilometraje, "42100");
+    }
+
+    #[test]
+    fn cierre_datos_acepta_km_final_como_numero_json() {
+        let d: RentaCierreDatos =
+            serde_json::from_str(r#"{"kmFinal":43100}"#).expect("el número JSON debe aceptarse");
+        assert_eq!(d.km_final.as_deref(), Some("43100"));
+    }
+
+    #[test]
+    fn extension_datos_acepta_null_y_ausente() {
+        // `null` explícito → "" (la validación del servicio produce el mensaje)
+        let d: ExtensionDatos =
+            serde_json::from_str(r#"{"tipo":"horas","cantidad":1,"valor":null}"#)
+                .expect("null debe aceptarse");
+        assert_eq!(d.valor, "");
+        // Campo ausente → "" vía #[serde(default)]
+        let d2: ExtensionDatos = serde_json::from_str(r#"{}"#).expect("ausente debe aceptarse");
+        assert_eq!(d2.valor, "");
+        // Y la validación de negocio sigue rechazando el vacío:
+        assert!(d2.valor.parse::<rust_decimal::Decimal>().is_err());
+    }
+
+    #[test]
+    fn tipos_no_numericos_siguen_rechazandose() {
+        let err =
+            serde_json::from_str::<ExtensionDatos>(r#"{"tipo":"horas","cantidad":1,"valor":true}"#)
+                .expect_err("un booleano no es un monto");
+        assert!(
+            err.to_string().contains("monto monetario"),
+            "mensaje inesperado: {err}"
+        );
+    }
 }

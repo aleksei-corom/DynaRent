@@ -22,7 +22,7 @@
 	import { sid, session } from '$lib/stores/session.svelte';
 	import { businessLists } from '$lib/stores/business.svelte';
 	import { toast } from '$lib/stores/toast.svelte';
-	import { formatCOP, formatContrato, formatDate } from '$lib/utils/format';
+	import { formatCOP, formatContrato, formatDate, formatLocalDateISO } from '$lib/utils/format';
 	import { calcularDiasHoras } from '$lib/utils/calcularDiasHoras';
 	import { guardSesion, haySesion } from '$lib/utils/guards';
 	import DataTable from '$lib/components/DataTable.svelte';
@@ -34,6 +34,13 @@
 	import OrdenRenta from '$lib/components/reports/OrdenRenta.svelte';
 	import ContratoRenta from '$lib/components/reports/ContratoRenta.svelte';
 	import AvisoImpresion from '$lib/components/AvisoImpresion.svelte';
+	import Icon from '$lib/components/Icon.svelte';
+	import ModalCierreRenta from './components/ModalCierreRenta.svelte';
+	import ModalCambiarAuto from './components/ModalCambiarAuto.svelte';
+	import ModalPagoRenta from './components/ModalPagoRenta.svelte';
+	import ModalInspeccionRenta from './components/ModalInspeccionRenta.svelte';
+	import ModalEditarCerrada from './components/ModalEditarCerrada.svelte';
+	import ModalExtenderRenta from './components/ModalExtenderRenta.svelte';
 	import { imprimirDocumento } from '$lib/utils/imprimir';
 	import { useDebouncedEffect } from '$lib/utils/debounce.svelte';
 	import { page } from '$app/state';
@@ -143,8 +150,10 @@
 
 	function defaultForm(): RentaDatos {
 		const hoy = new Date();
-		const maniana = new Date(hoy.getTime() + 86400000);
-		const iso = (d: Date) => d.toISOString().slice(0, 10);
+		const maniana = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + 1);
+		// Local, no UTC: `toISOString()` salta al día siguiente en zonas con
+		// offset negativo (Colombia UTC-5) después de las 7:00 PM.
+		const iso = (d: Date) => formatLocalDateISO(d);
 		return {
 			placa: null,
 			idCliente: null,
@@ -184,7 +193,9 @@
 
 	function defaultCierre(): RentaCierreDatos {
 		const hoy = new Date();
-		const iso = (d: Date) => d.toISOString().slice(0, 10);
+		// Local, no UTC: `toISOString()` salta al día siguiente en zonas con
+		// offset negativo (Colombia UTC-5) después de las 7:00 PM.
+		const iso = (d: Date) => formatLocalDateISO(d);
 		return {
 			fechaDevolucionReal: iso(hoy),
 			horaDevolucionReal: '',
@@ -194,6 +205,8 @@
 			horasExtras: null,
 			valorDia: '',
 			valorHoraExtra: '',
+			valorDiaExtra: '',
+			cobrarHorasExtra: true,
 			descuento: '',
 			observaciones: ''
 		};
@@ -304,8 +317,8 @@
 			cierre.horaDevolucionReal ?? ''
 		);
 		cierre.diasCalculados = dias;
-		// Solo cobrar horas extras si la renta tiene cobrarHorasExtra activado
-		cierre.horasExtras = r.cobrarHorasExtra ? horas : 0;
+		// Respetar decisión del operador o el flag de la renta
+		cierre.horasExtras = (cierre.cobrarHorasExtra ?? r.cobrarHorasExtra) ? horas : 0;
 	}
 
 	function onClienteChange(v: string) {
@@ -447,6 +460,7 @@
 			descuento: r.descuento,
 			cobraIva: r.cobraIva,
 			tieneComision: r.tieneComision,
+			cobrarHorasExtra: r.cobrarHorasExtra ?? true,
 			comision: r.comision,
 			abono: r.abono,
 			observaciones: r.observaciones ?? '',
@@ -481,8 +495,8 @@
 			horasExtras: r.horasExtras,
 			valorDia: r.valorDia,
 			valorHoraExtra: r.valorHoraAdic,
-			abono: r.abono,
 			costoLavado: r.costoLavado,
+			abono: r.abono,
 			observaciones: r.observaciones ?? '',
 			kmSalida: auto ? String(auto.kilometraje ?? '') : '',
 			tanqueSalida: 'Lleno',
@@ -508,6 +522,10 @@
 			formError = 'La fecha de retorno no puede ser anterior a la recogida.';
 			return;
 		}
+		// Si se agregaron horas extras y valor por hora extra, asegurar cobrarHorasExtra = true
+		if (Number(form.horasExtras) > 0 && (parseFloat(form.valorHoraExtra) || 0) > 0) {
+			form.cobrarHorasExtra = true;
+		}
 		guardando = true;
 		try {
 			if (editando && editandoId !== null) {
@@ -532,6 +550,10 @@
 		cerrarRenta = r;
 		cierre = defaultCierre();
 		cierre.kmFinal = r.kmSalida;
+		cierre.valorDia = r.valorDia;
+		cierre.valorHoraExtra = r.valorHoraExtra;
+		cierre.valorDiaExtra = r.valorDiaExtra;
+		cierre.cobrarHorasExtra = r.cobrarHorasExtra ?? true;
 		cierreError = '';
 		calcularCierre();
 	}
@@ -672,6 +694,8 @@
 		editCerrada = {
 			valorDia: r.valorDia,
 			valorHoraExtra: r.valorHoraExtra,
+			valorDiaExtra: r.valorDiaExtra,
+			cobrarHorasExtra: r.cobrarHorasExtra ?? true,
 			diasCalculados: r.diasCalculados,
 			horasExtras: r.horasExtras,
 			descuento: r.descuento,
@@ -697,6 +721,11 @@
 					editCerrada.valorHoraExtra !== '' && editCerrada.valorHoraExtra != null
 						? String(editCerrada.valorHoraExtra)
 						: undefined,
+				valorDiaExtra:
+					editCerrada.valorDiaExtra !== '' && editCerrada.valorDiaExtra != null
+						? String(editCerrada.valorDiaExtra)
+						: undefined,
+				cobrarHorasExtra: editCerrada.cobrarHorasExtra,
 				diasCalculados: editCerrada.diasCalculados,
 				horasExtras: editCerrada.horasExtras,
 				descuento:
@@ -932,7 +961,7 @@
 						<p class="text-[10px] text-text-secondary tabular-nums">Id {r.id}</p>
 					</div>
 				{:else if col.key === 'cliente'}
-					<div class="max-w-[200px]">
+					<div class="max-w-50">
 						<p class="font-semibold text-text-primary truncate">{r.nombreCliente}</p>
 						{#if r.nacionalidad}
 							<p class="text-xs text-text-secondary truncate">{r.nacionalidad}</p>
@@ -940,7 +969,7 @@
 					</div>
 				{:else if col.key === 'vehiculo'}
 					<div>
-						<p class="text-text-primary truncate max-w-[160px]">{r.vehiculo || '—'}</p>
+						<p class="text-text-primary truncate max-w-40">{r.vehiculo || '—'}</p>
 						<p class="text-xs text-text-secondary font-mono">{r.placa || 'Sin placa'}</p>
 					</div>
 				{:else if col.key === 'itinerario'}
@@ -1006,206 +1035,92 @@
 						<button
 							class="p-2 rounded-lg text-text-secondary hover:text-primary hover:bg-primary/10 transition-colors"
 							title="Imprimir orden de renta"
+							aria-label={`Imprimir orden de renta #${r.id}`}
 							onclick={() => abrirImprimir(r)}
 						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="w-4 h-4"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-								stroke-width="1.8"
-								><path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5z"
-								/></svg
-							>
+							<Icon name="printer" class="w-4 h-4" />
 						</button>
 						{#if rentaActiva(r)}
 							<button
 								class="p-2 rounded-lg text-text-secondary hover:text-primary hover:bg-primary/10 transition-colors"
 								title="Registrar pago"
+								aria-label={`Registrar pago para renta #${r.id}`}
 								onclick={() => abrirPago(r)}
 							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="w-4 h-4"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									stroke-width="1.8"
-									><path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z"
-									/></svg
-								>
+								<Icon name="gastos" class="w-4 h-4" />
 							</button>
 							<button
 								class="p-2 rounded-lg text-text-secondary hover:text-primary hover:bg-primary/10 transition-colors"
 								title="Cambiar vehículo sin cerrar la renta"
+								aria-label={`Cambiar vehículo de renta #${r.id}`}
 								onclick={() => abrirCambiarAuto(r)}
 							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="w-4 h-4"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									stroke-width="1.8"
-									><path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"
-									/></svg
-								>
+								<Icon name="arrows-right-left" class="w-4 h-4" />
 							</button>
 							<button
 								class="p-2 rounded-lg text-text-secondary hover:text-primary hover:bg-primary/10 transition-colors"
 								title="Cerrar renta (devolución)"
+								aria-label={`Cerrar renta #${r.id}`}
 								onclick={() => abrirCierre(r)}
 							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="w-4 h-4"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									stroke-width="1.8"
-									><path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-									/></svg
-								>
+								<Icon name="check" class="w-4 h-4" />
 							</button>
 							<button
 								class="p-2 rounded-lg text-text-secondary hover:text-exito hover:bg-exito/10 transition-colors"
 								title="Extender renta (agregar horas/días)"
+								aria-label={`Extender renta #${r.id}`}
 								onclick={() => abrirExtender(r)}
 							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="w-4 h-4"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									stroke-width="1.8"
-									><path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d="M12 4.5v15m7.5-7.5h-15"
-									/></svg
-								>
+								<Icon name="plus" class="w-4 h-4" />
 							</button>
 						{/if}
 						<button
 							class="p-2 rounded-lg text-text-secondary hover:text-primary hover:bg-primary/10 transition-colors"
 							title="Registrar inspección"
+							aria-label={`Registrar inspección para renta #${r.id}`}
 							onclick={() => abrirInspeccion(r, 'Salida')}
 						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="w-4 h-4"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-								stroke-width="1.8"
-								><path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"
-								/><path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-								/></svg
-							>
+							<Icon name="eye" class="w-4 h-4" />
 						</button>
 						<button
 							class="p-2 rounded-lg text-text-secondary hover:text-primary hover:bg-primary/10 transition-colors"
 							title="Editar"
+							aria-label={`Editar renta #${r.id}`}
 							onclick={() => abrirEditar(r)}
 						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="w-4 h-4"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-								stroke-width="1.8"
-								><path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.862 4.487zm0 0L19.5 7.125"
-								/></svg
-							>
+							<Icon name="pencil" class="w-4 h-4" />
 						</button>
 						{#if r.estado === 'Cerrada' && puedeEliminar}
 							<button
 								class="p-2 rounded-lg text-text-secondary hover:text-alerta hover:bg-alerta/10 transition-colors"
 								title="Editar renta cerrada (corregir digitación)"
+								aria-label={`Editar renta cerrada #${r.id}`}
 								onclick={() => abrirEditarCerrada(r)}
 							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="w-4 h-4"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									stroke-width="1.8"
-									><path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d="M11.42 15.17l-5.1-5.1m0 0L11.42 4.97m-5.1 5.1H21M3 3h18v18H3V3z"
-									/></svg
-								>
+								<Icon name="pencil" class="w-4 h-4" />
 							</button>
 						{/if}
 						{#if rentaActiva(r)}
 							<button
 								class="p-2 rounded-lg text-text-secondary hover:text-alerta hover:bg-alerta/10 transition-colors"
 								title="Cancelar renta"
+								aria-label={`Cancelar renta #${r.id}`}
 								onclick={() => {
 									cancelarId = r.id;
 									cancelarNombre = r.nombreCliente;
 								}}
 							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="w-4 h-4"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									stroke-width="1.8"
-									><path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-									/></svg
-								>
+								<Icon name="x" class="w-4 h-4" />
 							</button>
 						{/if}
 						{#if puedeEliminar}
 							<button
 								class="p-2 rounded-lg text-text-secondary hover:text-peligro hover:bg-peligro/10 transition-colors"
 								title="Eliminar"
+								aria-label={`Eliminar renta #${r.id}`}
 								onclick={() => (eliminarId = r.id)}
 							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="w-4 h-4"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									stroke-width="1.8"
-									><path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
-									/></svg
-								>
+								<Icon name="trash" class="w-4 h-4" />
 							</button>
 						{/if}
 					</div>
@@ -1650,7 +1565,7 @@
 					<span class="text-xs text-text-secondary">(se resta del total → valor neto)</span>
 				</label>
 				{#if form.tieneComision}
-					<div class="mt-2 max-w-[240px]">
+					<div class="mt-2 max-w-60">
 						<FormField label="Valor comisión" hint="COP" dense>
 							<input
 								class="input"
@@ -1687,7 +1602,7 @@
 					</div>
 					<!-- Total destacado -->
 					<div
-						class="rounded-lg bg-gradient-to-br from-primary to-primary-hover px-3 py-2.5 text-white mb-2"
+						class="rounded-lg bg-linear-to-br from-primary to-primary-hover px-3 py-2.5 text-white mb-2"
 					>
 						<p class="text-[10px] uppercase tracking-wide opacity-80 font-semibold">
 							Total estimado
@@ -1766,7 +1681,7 @@
 						Observaciones
 					</span>
 					<textarea
-						class="input flex-1 min-h-[60px] resize-none text-xs"
+						class="input flex-1 min-h-15 resize-none text-xs"
 						placeholder="Aparecen en el documento imprimible…"
 						bind:value={form.observaciones}
 						maxlength="2000"
@@ -1825,664 +1740,87 @@
 	{/snippet}
 </Modal>
 <!-- Modal cierre -->
-<Modal
+<!-- Modal cierre -->
+<ModalCierreRenta
 	open={cerrandoId !== null}
-	title={cerrandoId !== null ? `Cerrar renta #${cerrandoId}` : ''}
-	subtitle="Registra la devolución real; el sistema recalcula los totales."
+	rentaId={cerrandoId}
+	bind:cierre
+	{cierreError}
+	{cerrando}
+	nivelTanqueList={lists?.nivelTanque ?? ['Lleno', '3/4', '1/2', '1/4', 'Vacío']}
+	onCalcular={calcularCierre}
+	onConfirmar={confirmarCierre}
 	onClose={() => (cerrandoId = null)}
-	width="max-w-2xl"
->
-	{#snippet children()}
-		{#if cierreError}
-			<div
-				class="mb-4 rounded-lg bg-peligro/10 border border-peligro/30 px-3 py-2.5 text-sm text-peligro"
-				role="alert"
-			>
-				{cierreError}
-			</div>
-		{/if}
-		<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
-			<FormField label="Fecha de devolución real" required>
-				<input
-					class="input"
-					type="date"
-					bind:value={cierre.fechaDevolucionReal}
-					onchange={calcularCierre}
-				/>
-			</FormField>
-			<FormField label="Hora de devolución" hint="Al cambiar se recalculan días/horas">
-				<input
-					class="input"
-					type="time"
-					bind:value={cierre.horaDevolucionReal}
-					onchange={calcularCierre}
-				/>
-			</FormField>
-			<FormField label="Km final">
-				<input
-					class="input"
-					inputmode="numeric"
-					placeholder="Km al devolver"
-					bind:value={cierre.kmFinal}
-				/>
-			</FormField>
-			<FormField label="Tanque final">
-				<select class="input" bind:value={cierre.tanqueFinal}>
-					{#each lists?.nivelTanque ?? ['Lleno', '3/4', '1/2', '1/4', 'Vacío'] as t}
-						<option value={t}>{t}</option>
-					{/each}
-				</select>
-			</FormField>
-			<FormField
-				label="Días cobrados"
-				hint="Auto desde la devolución real (excedente > 3 h = día completo)."
-			>
-				<input
-					class="input"
-					type="number"
-					min="0"
-					step="1"
-					placeholder="Mantener"
-					bind:value={cierre.diasCalculados}
-				/>
-			</FormField>
-			<FormField label="Horas extras finales" hint="Excedente ≤ 3 h, redondeadas hacia arriba.">
-				<input
-					class="input"
-					type="number"
-					min="0"
-					step="1"
-					placeholder="Mantener"
-					bind:value={cierre.horasExtras}
-				/>
-			</FormField>
-			<FormField label="Valor día final (COP)">
-				<input
-					class="input"
-					inputmode="decimal"
-					placeholder="Mantener"
-					bind:value={cierre.valorDia}
-				/>
-			</FormField>
-			<FormField label="Valor hora extra final (COP)">
-				<input
-					class="input"
-					inputmode="decimal"
-					placeholder="Mantener"
-					bind:value={cierre.valorHoraExtra}
-				/>
-			</FormField>
-			<FormField label="Descuento final (COP)">
-				<input
-					class="input"
-					inputmode="decimal"
-					placeholder="Mantener"
-					bind:value={cierre.descuento}
-				/>
-			</FormField>
-			<FormField label="Observaciones de la devolución">
-				<textarea
-					class="input min-h-[70px] resize-y"
-					bind:value={cierre.observaciones}
-					maxlength="2000"
-				></textarea>
-			</FormField>
-		</div>
-	{/snippet}
-
-	{#snippet footer()}
-		<button class="btn-ghost" onclick={() => (cerrandoId = null)} disabled={cerrando}
-			>Cancelar</button
-		>
-		<button class="btn-primary" onclick={confirmarCierre} disabled={cerrando}>
-			{#if cerrando}
-				<svg
-					class="animate-spin h-4 w-4"
-					xmlns="http://www.w3.org/2000/svg"
-					fill="none"
-					viewBox="0 0 24 24"
-					><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
-					></circle><path
-						class="opacity-75"
-						fill="currentColor"
-						d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-					></path></svg
-				>
-				Cerrando...
-			{:else}
-				Cerrar renta
-			{/if}
-		</button>
-	{/snippet}
-</Modal>
+/>
 
 <!-- Modal cambiar vehículo (sin cerrar la renta) -->
-<Modal
+<ModalCambiarAuto
 	open={cambiarAutoId !== null}
-	title={cambiarAutoId !== null ? `Cambiar vehículo — renta #${cambiarAutoId}` : ''}
-	subtitle="Libera el auto anterior y asigna uno nuevo; la renta sigue activa."
+	rentaId={cambiarAutoId}
+	bind:placaSeleccionada={cambiarAutoPlaca}
+	{autosParaCambio}
+	error={cambiarAutoError}
+	guardando={guardandoCambioAuto}
+	onConfirmar={confirmarCambiarAuto}
 	onClose={() => (cambiarAutoId = null)}
-	width="max-w-md"
->
-	{#snippet children()}
-		{#if cambiarAutoError}
-			<div
-				class="mb-4 rounded-lg bg-peligro/10 border border-peligro/30 px-3 py-2.5 text-sm text-peligro"
-				role="alert"
-			>
-				{cambiarAutoError}
-			</div>
-		{/if}
-		<FormField
-			label="Vehículo nuevo"
-			required
-			hint="Solo se listan autos disponibles (más el actual)."
-		>
-			<select class="input" bind:value={cambiarAutoPlaca}>
-				<option value="">— Seleccionar —</option>
-				{#each autosParaCambio as a}
-					<option value={a.placa}
-						>{a.placa} · {a.marca} {a.modelo}{a.estado === 'Disponible' ? '' : ' (actual)'}</option
-					>
-				{/each}
-			</select>
-		</FormField>
-		{#if autosParaCambio.length === 0}
-			<p class="text-xs text-alerta">
-				No hay autos disponibles para el cambio. Libera uno desde la sección Autos.
-			</p>
-		{/if}
-	{/snippet}
-
-	{#snippet footer()}
-		<button class="btn-ghost" onclick={() => (cambiarAutoId = null)} disabled={guardandoCambioAuto}
-			>Cancelar</button
-		>
-		<button
-			class="btn-primary"
-			onclick={confirmarCambiarAuto}
-			disabled={guardandoCambioAuto || !cambiarAutoPlaca}
-		>
-			{#if guardandoCambioAuto}
-				<svg
-					class="animate-spin h-4 w-4"
-					xmlns="http://www.w3.org/2000/svg"
-					fill="none"
-					viewBox="0 0 24 24"
-					><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
-					></circle><path
-						class="opacity-75"
-						fill="currentColor"
-						d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-					></path></svg
-				>
-				Cambiando...
-			{:else}
-				Cambiar vehículo
-			{/if}
-		</button>
-	{/snippet}
-</Modal>
+/>
 
 <!-- Modal pago -->
-<Modal
+<ModalPagoRenta
 	open={pagandoId !== null}
-	title={pagandoId !== null ? `Registrar pago — renta #${pagandoId}` : ''}
-	subtitle="El abono y el saldo pendiente se actualizan automáticamente."
+	rentaId={pagandoId}
+	bind:pago
+	{pagoError}
+	{guardandoPago}
+	onConfirmar={confirmarPago}
 	onClose={() => (pagandoId = null)}
-	width="max-w-md"
->
-	{#snippet children()}
-		{#if pagoError}
-			<div
-				class="mb-4 rounded-lg bg-peligro/10 border border-peligro/30 px-3 py-2.5 text-sm text-peligro"
-				role="alert"
-			>
-				{pagoError}
-			</div>
-		{/if}
-		<div class="space-y-4">
-			<FormField label="Monto (COP)" required>
-				<input class="input" inputmode="decimal" placeholder="Ej: 200000" bind:value={pago.monto} />
-			</FormField>
-			<FormField label="Método de pago" required>
-				<select class="input" bind:value={pago.metodoPago}>
-					{#each ['Efectivo', 'Tarjeta débito', 'Tarjeta crédito', 'Transferencia', 'Nequi', 'Daviplata', 'Otro'] as m}
-						<option value={m}>{m}</option>
-					{/each}
-				</select>
-			</FormField>
-			<FormField label="Concepto" required>
-				<input
-					class="input"
-					placeholder="Ej: Abono renta"
-					bind:value={pago.concepto}
-					maxlength="80"
-				/>
-			</FormField>
-			<FormField label="Observaciones">
-				<textarea
-					class="input min-h-[60px] resize-y"
-					bind:value={pago.observaciones}
-					maxlength="2000"
-				></textarea>
-			</FormField>
-		</div>
-	{/snippet}
-
-	{#snippet footer()}
-		<button class="btn-ghost" onclick={() => (pagandoId = null)} disabled={guardandoPago}
-			>Cancelar</button
-		>
-		<button class="btn-primary" onclick={confirmarPago} disabled={guardandoPago}>
-			{#if guardandoPago}
-				<svg
-					class="animate-spin h-4 w-4"
-					xmlns="http://www.w3.org/2000/svg"
-					fill="none"
-					viewBox="0 0 24 24"
-					><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
-					></circle><path
-						class="opacity-75"
-						fill="currentColor"
-						d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-					></path></svg
-				>
-				Guardando...
-			{:else}
-				Registrar pago
-			{/if}
-		</button>
-	{/snippet}
-</Modal>
+/>
 
 <!-- Modal inspección -->
-<Modal
+<ModalInspeccionRenta
 	open={inspeccionandoId !== null}
-	title={inspeccionandoId !== null
-		? `Inspección de ${inspeccionTipo} — renta #${inspeccionandoId}`
-		: ''}
-	subtitle="Verificación del estado del vehículo al entregar o recibir."
+	rentaId={inspeccionandoId}
+	bind:inspeccionTipo
+	bind:inspeccion
+	{inspeccionError}
+	{guardandoInspeccion}
+	nivelTanqueList={lists?.nivelTanque ?? ['Lleno', '3/4', '1/2', '1/4', 'Vacío']}
+	onTipoChange={(t) => {
+		inspeccionTipo = t;
+		inspeccion = defaultInspeccion(inspeccionTipo);
+		if (inspeccionTipo === 'Salida' && pagandoId === null && inspeccionandoId !== null) {
+			const actual = rentas.find((r) => r.id === inspeccionandoId);
+			if (actual) inspeccion.kilometraje = actual.kmSalida;
+		}
+	}}
+	onConfirmar={confirmarInspeccion}
 	onClose={() => (inspeccionandoId = null)}
-	width="max-w-2xl"
->
-	{#snippet children()}
-		{#if inspeccionError}
-			<div
-				class="mb-4 rounded-lg bg-peligro/10 border border-peligro/30 px-3 py-2.5 text-sm text-peligro"
-				role="alert"
-			>
-				{inspeccionError}
-			</div>
-		{/if}
-		<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
-			<div class="col-span-full mb-1">
-				<div
-					class="inline-flex rounded-lg border border-border p-1 bg-alt-row/60"
-					role="tablist"
-					aria-label="Tipo de inspección"
-				>
-					{#each ['Salida', 'Entrada'] as t}
-						<button
-							type="button"
-							class="px-3 py-1.5 rounded-md text-sm font-semibold transition-colors {inspeccionTipo ===
-							t
-								? 'bg-primary text-white shadow'
-								: 'text-text-secondary hover:text-text-primary'}"
-							role="tab"
-							aria-selected={inspeccionTipo === t}
-							onclick={() => {
-								inspeccionTipo = t as 'Salida' | 'Entrada';
-								inspeccion = defaultInspeccion(inspeccionTipo);
-								if (
-									inspeccionTipo === 'Salida' &&
-									pagandoId === null &&
-									inspeccionandoId !== null
-								) {
-									const actual = rentas.find((r) => r.id === inspeccionandoId);
-									if (actual) inspeccion.kilometraje = actual.kmSalida;
-								}
-							}}
-						>
-							{t}
-						</button>
-					{/each}
-				</div>
-			</div>
-			<FormField label="Kilometraje" required>
-				<input
-					class="input"
-					inputmode="numeric"
-					placeholder="Km actual"
-					bind:value={inspeccion.kilometraje}
-				/>
-			</FormField>
-			<FormField label="Nivel de gasolina" required>
-				<select class="input" bind:value={inspeccion.nivelGasolina}>
-					{#each lists?.nivelTanque ?? ['Lleno', '3/4', '1/2', '1/4', 'Vacío'] as t}
-						<option value={t}>{t}</option>
-					{/each}
-				</select>
-			</FormField>
-			<FormField label="Limpieza">
-				<select class="input" bind:value={inspeccion.limpieza}>
-					{#each ['Limpio', 'Aceptable', 'Sucio'] as l}
-						<option value={l}>{l}</option>
-					{/each}
-				</select>
-			</FormField>
-			<div class="col-span-full grid grid-cols-2 sm:grid-cols-4 gap-2">
-				<label
-					class="flex items-center gap-2 text-sm text-text-primary cursor-pointer rounded-lg border border-border px-3 py-2 hover:bg-alt-row/60 transition-colors"
-				>
-					<input type="checkbox" class="accent-primary" bind:checked={inspeccion.tieneRepuesto} />
-					Llanta repuesto
-				</label>
-				<label
-					class="flex items-center gap-2 text-sm text-text-primary cursor-pointer rounded-lg border border-border px-3 py-2 hover:bg-alt-row/60 transition-colors"
-				>
-					<input
-						type="checkbox"
-						class="accent-primary"
-						bind:checked={inspeccion.tieneGatoCruceta}
-					/>
-					Gato / cruceta
-				</label>
-				<label
-					class="flex items-center gap-2 text-sm text-text-primary cursor-pointer rounded-lg border border-border px-3 py-2 hover:bg-alt-row/60 transition-colors"
-				>
-					<input
-						type="checkbox"
-						class="accent-primary"
-						bind:checked={inspeccion.tieneKitCarretera}
-					/>
-					Kit carretera
-				</label>
-				<label
-					class="flex items-center gap-2 text-sm text-text-primary cursor-pointer rounded-lg border border-border px-3 py-2 hover:bg-alt-row/60 transition-colors"
-				>
-					<input type="checkbox" class="accent-primary" bind:checked={inspeccion.tieneDocumentos} />
-					Documentos
-				</label>
-			</div>
-			<FormField label="Daños de carrocería">
-				<textarea
-					class="input min-h-[60px] resize-y"
-					placeholder="Describir golpes, rayones..."
-					bind:value={inspeccion.danosCarroceria}
-					maxlength="2000"
-				></textarea>
-			</FormField>
-			<FormField label="Observaciones">
-				<textarea
-					class="input min-h-[60px] resize-y"
-					bind:value={inspeccion.observaciones}
-					maxlength="2000"
-				></textarea>
-			</FormField>
-		</div>
-	{/snippet}
-
-	{#snippet footer()}
-		<button
-			class="btn-ghost"
-			onclick={() => (inspeccionandoId = null)}
-			disabled={guardandoInspeccion}>Cancelar</button
-		>
-		<button class="btn-primary" onclick={confirmarInspeccion} disabled={guardandoInspeccion}>
-			{#if guardandoInspeccion}
-				<svg
-					class="animate-spin h-4 w-4"
-					xmlns="http://www.w3.org/2000/svg"
-					fill="none"
-					viewBox="0 0 24 24"
-					><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
-					></circle><path
-						class="opacity-75"
-						fill="currentColor"
-						d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-					></path></svg
-				>
-				Guardando...
-			{:else}
-				Registrar inspección
-			{/if}
-		</button>
-	{/snippet}
-</Modal>
+/>
 
 <!-- Modal editar renta cerrada (solo Administrador) -->
-<Modal
+<ModalEditarCerrada
 	open={editandoCerradaId !== null}
-	title={editandoCerradaRenta
-		? `Corregir renta cerrada #${String(editandoCerradaRenta.id).padStart(4, '0')}`
-		: ''}
-	subtitle="Modifica los campos financieros y recalcula los totales."
+	renta={editandoCerradaRenta}
+	bind:editCerrada
+	{editCerradaError}
+	{editandoCerrada}
+	onConfirmar={confirmarEditarCerrada}
 	onClose={() => (editandoCerradaId = null)}
-	width="max-w-2xl"
->
-	{#snippet children()}
-		<div
-			class="mb-4 rounded-lg bg-peligro/10 border border-peligro/30 px-3 py-2.5 text-sm text-peligro"
-			role="alert"
-		>
-			{editCerradaError}
-		</div>
-
-		<div
-			class="mb-4 rounded-lg bg-alerta/10 border border-alerta/30 px-3 py-2.5 text-sm text-alerta"
-		>
-			<strong>⚠️ Atención:</strong> Solo los campos financieros se modificarán. El abono, el cliente y
-			la placa NO se pueden editar.
-		</div>
-
-		<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
-			<FormField label="Valor día" required>
-				<input class="input" type="number" step="0.01" min="0" bind:value={editCerrada.valorDia} />
-			</FormField>
-			<FormField label="Valor hora extra">
-				<input
-					class="input"
-					type="number"
-					step="0.01"
-					min="0"
-					bind:value={editCerrada.valorHoraExtra}
-				/>
-			</FormField>
-			<FormField label="Días calculados" required>
-				<input class="input" type="number" min="1" bind:value={editCerrada.diasCalculados} />
-			</FormField>
-			<FormField label="Horas extras">
-				<input class="input" type="number" min="0" bind:value={editCerrada.horasExtras} />
-			</FormField>
-			<FormField label="Descuento">
-				<input class="input" type="number" step="0.01" min="0" bind:value={editCerrada.descuento} />
-			</FormField>
-			<div class="col-span-full">
-				<FormField label="Motivo de la corrección" required hint="Obligatorio para auditoría">
-					<textarea
-						class="input min-h-[60px] resize-y"
-						placeholder="Describe el error de digitación que se corrige..."
-						bind:value={editCerrada.observaciones}
-						maxlength="500"
-					></textarea>
-				</FormField>
-			</div>
-
-			<div class="mt-4 p-3 rounded-lg bg-alt-row/60 border border-border">
-				<p class="text-sm font-semibold text-text-primary mb-2">Valores actuales de la renta:</p>
-				<p class="text-sm text-text-secondary">
-					Total: <span class="font-semibold text-text-primary"
-						>{formatCOP(editandoCerradaRenta?.total ?? '0')}</span
-					>
-					| Saldo:
-					<span class="font-semibold">{formatCOP(editandoCerradaRenta?.saldoPendiente ?? '0')}</span
-					>
-				</p>
-			</div>
-		</div>
-	{/snippet}
-
-	{#snippet footer()}
-		<button class="btn-ghost" onclick={() => (editandoCerradaId = null)} disabled={editandoCerrada}
-			>Cancelar</button
-		>
-		<button class="btn-primary" onclick={confirmarEditarCerrada} disabled={editandoCerrada}>
-			{#if editandoCerrada}
-				<svg
-					class="animate-spin h-4 w-4"
-					xmlns="http://www.w3.org/2000/svg"
-					fill="none"
-					viewBox="0 0 24 24"
-					><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
-					></circle><path
-						class="opacity-75"
-						fill="currentColor"
-						d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-					></path></svg
-				>
-				Guardando...
-			{:else}
-				Aplicar corrección
-			{/if}
-		</button>
-	{/snippet}
-</Modal>
+/>
 
 <!-- Modal extender renta -->
-<Modal
+<ModalExtenderRenta
 	open={extenderId !== null}
-	title={extenderRenta ? `Extender renta #${String(extenderRenta.id).padStart(4, '0')}` : ''}
-	subtitle="Agregar horas o días extras a la renta activa."
+	renta={extenderRenta}
+	bind:extension
+	{extenderError}
+	{extenderando}
+	{historialExtensiones}
+	{cargandoHistorial}
+	{fmtHora}
+	onConfirmar={confirmarExtender}
 	onClose={() => (extenderId = null)}
-	width="max-w-md"
->
-	{#snippet children()}
-		{#if extenderError}
-			<div
-				class="mb-4 rounded-lg bg-peligro/10 border border-peligro/30 px-3 py-2.5 text-sm text-peligro"
-				role="alert"
-			>
-				{extenderError}
-			</div>
-		{/if}
-
-		<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
-			<FormField label="Tipo de extensión" required>
-				<select class="input" bind:value={extension.tipo}>
-					<option value="horas">Horas extra</option>
-					<option value="dias">Día(s) extra</option>
-				</select>
-			</FormField>
-			<FormField label="Cantidad" required>
-				<input class="input" type="number" min="1" bind:value={extension.cantidad} />
-			</FormField>
-			<FormField
-				label="Valor unitario"
-				required
-				hint={extension.tipo === 'horas' ? 'Valor por hora extra' : 'Valor por día extra'}
-			>
-				<input
-					class="input"
-					type="number"
-					step="0.01"
-					min="0"
-					placeholder="$0"
-					bind:value={extension.valor}
-				/>
-			</FormField>
-			<FormField label="Observaciones">
-				<input
-					class="input"
-					placeholder="Motivo de la extensión..."
-					bind:value={extension.observaciones}
-					maxlength="200"
-				/>
-			</FormField>
-		</div>
-
-		{#if extenderRenta}
-			<div class="mt-4 p-3 rounded-lg bg-alt-row/60 border border-border">
-				<p class="text-sm font-semibold text-text-primary mb-2">Resumen:</p>
-				<div class="text-sm text-text-secondary space-y-1">
-					<p>
-						Retorno actual: <span class="font-semibold"
-							>{formatDate(extenderRenta.fechaRetorno)} {fmtHora(extenderRenta.horaRetorno)}</span
-						>
-					</p>
-					<p>
-						Nuevo retorno: <span class="font-semibold text-exito">
-							{extension.tipo === 'horas'
-								? `${extension.cantidad} hora(s) más`
-								: `${extension.cantidad} día(s) más`}
-						</span>
-					</p>
-					{#if extension.valor && parseFloat(extension.valor) > 0}
-						<p>
-							Valor total extensión: <span class="font-semibold text-primary"
-								>{formatCOP((parseFloat(extension.valor) * extension.cantidad).toString())}</span
-							>
-						</p>
-					{/if}
-				</div>
-			</div>
-
-			{#if historialExtensiones.length > 0}
-				<div class="mt-4">
-					<p class="text-sm font-semibold text-text-primary mb-2">Historial de extensiones:</p>
-					<div class="space-y-2">
-						{#each historialExtensiones as ext}
-							<div class="p-2 rounded-lg bg-alt-row/40 border border-border text-sm">
-								<div class="flex justify-between items-center">
-									<span class="font-semibold text-text-primary">
-										{ext.tipo === 'horas' ? `+${ext.cantidad}h` : `+${ext.cantidad}d`}
-									</span>
-									<span class="font-semibold text-primary">{formatCOP(ext.valorTotal)}</span>
-								</div>
-								<div class="text-xs text-text-secondary mt-1">
-									{ext.usuario ?? 'sistema'} · {ext.createdAt
-										? formatDate(ext.createdAt.split(' ')[0])
-										: '—'}
-									{#if ext.observaciones}
-										<span class="ml-2">· {ext.observaciones}</span>
-									{/if}
-								</div>
-							</div>
-						{/each}
-					</div>
-				</div>
-			{/if}
-			{#if cargandoHistorial}
-				<p class="text-xs text-text-secondary mt-2">Cargando historial...</p>
-			{/if}
-		{/if}
-	{/snippet}
-
-	{#snippet footer()}
-		<button class="btn-ghost" onclick={() => (extenderId = null)} disabled={extenderando}
-			>Cancelar</button
-		>
-		<button class="btn-primary" onclick={confirmarExtender} disabled={extenderando}>
-			{#if extenderando}
-				<svg
-					class="animate-spin h-4 w-4"
-					xmlns="http://www.w3.org/2000/svg"
-					fill="none"
-					viewBox="0 0 24 24"
-					><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
-					></circle><path
-						class="opacity-75"
-						fill="currentColor"
-						d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-					></path></svg
-				>
-				Extendiendo...
-			{:else}
-				Aplicar extensión
-			{/if}
-		</button>
-	{/snippet}
-</Modal>
+/>
 
 <!-- Modal orden imprimible -->
 <Modal

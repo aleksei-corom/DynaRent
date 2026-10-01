@@ -3,6 +3,7 @@
 	import { logApi, ApiError } from '$lib/api';
 	import { sid } from '$lib/stores/session.svelte';
 	import { toast } from '$lib/stores/toast.svelte';
+	import { formatLocalDateISO } from '$lib/utils/format';
 	import { guardSesion, tieneRol } from '$lib/utils/guards';
 	import { goto } from '$app/navigation';
 
@@ -52,7 +53,8 @@
 			const url = URL.createObjectURL(blob);
 			const a = document.createElement('a');
 			a.href = url;
-			const fecha = new Date().toISOString().slice(0, 10);
+			// Local, no UTC (para el nombre del archivo exportado)
+			const fecha = formatLocalDateISO();
 			a.download = `dynarent_logs_${fecha}.txt`;
 			a.click();
 			URL.revokeObjectURL(url);
@@ -145,7 +147,7 @@
 				</div>
 			{:else}
 				<pre
-					class="text-xs font-mono text-text-primary whitespace-pre-wrap break-words max-h-[70vh] overflow-auto bg-fondo rounded p-4">{tab ===
+					class="text-xs font-mono text-text-primary whitespace-pre-wrap wrap-break-word max-h-[70vh] overflow-auto bg-fondo rounded p-4">{tab ===
 					'backend'
 						? logsBackend
 						: logsFrontend}</pre>
