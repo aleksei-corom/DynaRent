@@ -522,13 +522,17 @@ impl RentaService {
             retorno_dt
                 .checked_add_signed(chrono::Duration::hours(datos.cantidad))
                 .ok_or_else(|| {
-                    AppError::Validation("La cantidad de horas para la extensión es inválida.".into())
+                    AppError::Validation(
+                        "La cantidad de horas para la extensión es inválida.".into(),
+                    )
                 })?
         } else {
             retorno_dt
                 .checked_add_signed(chrono::Duration::days(datos.cantidad))
                 .ok_or_else(|| {
-                    AppError::Validation("La cantidad de días para la extensión es inválida.".into())
+                    AppError::Validation(
+                        "La cantidad de días para la extensión es inválida.".into(),
+                    )
                 })?
         };
         use chrono::Datelike;
@@ -1397,7 +1401,8 @@ fn validar_cierre(d: &RentaCierreDatos) -> Result<(), AppError> {
             ));
         }
     }
-    for (campo, v) in [("el kilometraje final", &d.km_final)] {
+    {
+        let (campo, v) = ("el kilometraje final", &d.km_final);
         if let Some(k) = v {
             if !k.is_empty() && k.parse::<f64>().is_err() {
                 return Err(AppError::Validation(format!(

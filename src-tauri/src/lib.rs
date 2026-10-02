@@ -124,7 +124,10 @@ pub fn run() {
                     .filter(|d| !d.trim().is_empty());
                 match override_dir {
                     Some(d) => {
-                        log::info!("DYNARENT_DATA_DIR activo (BD aislada para humo-test): {}", d);
+                        log::info!(
+                            "DYNARENT_DATA_DIR activo (BD aislada para humo-test): {}",
+                            d
+                        );
                         (manifest_dir.join("resources"), std::path::PathBuf::from(d))
                     }
                     None => {

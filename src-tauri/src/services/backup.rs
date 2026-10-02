@@ -125,9 +125,10 @@ pub fn listar_backups(cfg: &AppConfig) -> Vec<PathBuf> {
         .map(|e| e.path())
         .filter(|p| {
             let nombre = p.file_name().map(|n| n.to_string_lossy().into_owned());
-            nombre
-                .as_deref()
-                .is_some_and(|n| (n.starts_with(PREFIJO_BACKUP) || n.starts_with("Backup_Dinamo_")) && n.ends_with(".fbk"))
+            nombre.as_deref().is_some_and(|n| {
+                (n.starts_with(PREFIJO_BACKUP) || n.starts_with("Backup_Dinamo_"))
+                    && n.ends_with(".fbk")
+            })
         })
         .collect();
     archivos.sort();
