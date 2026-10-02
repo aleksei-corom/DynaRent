@@ -13,7 +13,7 @@
 	} from '$lib/api';
 	import { session } from '$lib/stores/session.svelte';
 	import { toast } from '$lib/stores/toast.svelte';
-	import { formatCOP, formatDate } from '$lib/utils/format';
+	import { formatCOP, formatDate, formatLocalDateISO } from '$lib/utils/format';
 	import { guardSesion, haySesion } from '$lib/utils/guards';
 	import DataTable from '$lib/components/DataTable.svelte';
 	import Modal from '$lib/components/Modal.svelte';
@@ -83,7 +83,7 @@
 	function defaultForm(): GastoDatos {
 		return {
 			placa: '',
-			fecha: new Date().toISOString().slice(0, 10),
+			fecha: formatLocalDateISO(),
 			categoria: '',
 			descripcion: '',
 			monto: '',
@@ -400,7 +400,7 @@
 						{g.categoria}
 					</span>
 				{:else if col.key === 'descripcion'}
-					<div class="max-w-[260px]">
+					<div class="max-w-65">
 						<p class="font-medium text-text-primary truncate">{g.descripcion}</p>
 						{#if g.usuario && g.usuario !== 'Sistema'}
 							<p class="text-[11px] text-text-secondary/70 truncate">por {g.usuario}</p>

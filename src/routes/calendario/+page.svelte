@@ -4,6 +4,7 @@
 	import { sid } from '$lib/stores/session.svelte';
 	import { toast } from '$lib/stores/toast.svelte';
 	import { guardSesion } from '$lib/utils/guards';
+	import { formatLocalDateISO } from '$lib/utils/format';
 	import {
 		celdasDelMes,
 		diasSemanaCorto,
@@ -53,13 +54,15 @@
 	function limiteInferiorIso(): string {
 		const base = mesActual;
 		const d = new Date(base.getFullYear(), base.getMonth() - 6, 1);
-		return d.toISOString().slice(0, 10);
+		// Local, no UTC (toISOString salta de día en UTC-5 después de las 7 PM)
+		return formatLocalDateISO(d);
 	}
 
 	function limiteSuperiorIso(): string {
 		const base = mesActual;
 		const d = new Date(base.getFullYear(), base.getMonth() + 7, 0);
-		return d.toISOString().slice(0, 10);
+		// Local, no UTC (toISOString salta de día en UTC-5 después de las 7 PM)
+		return formatLocalDateISO(d);
 	}
 
 	// Token de carga: descarta respuestas de cargas anteriores (p. ej. cuando
@@ -231,7 +234,7 @@
 					/></svg
 				>
 			</button>
-			<span class="text-lg font-black text-text-primary capitalize min-w-[160px] text-center"
+			<span class="text-lg font-black text-text-primary capitalize min-w-40 text-center"
 				>{tituloMes}</span
 			>
 		</div>
@@ -289,7 +292,7 @@
 						{@const nDia = totalDia(celda.dia)}
 						{@const esDiaActual = celda.dia === diaSeleccionado}
 						<button
-							class="min-h-[96px] p-1.5 border-b border-r border-border/60 text-left align-top transition-colors
+							class="min-h-24 p-1.5 border-b border-r border-border/60 text-left align-top transition-colors
 								{celda.enMes ? 'bg-surface' : 'bg-alt-row/30'}
 								hover:bg-primary/5
 								{esDiaActual ? 'ring-2 ring-primary ring-inset' : ''}"

@@ -60,6 +60,15 @@ path = "src/bin/updater_e2e.rs"
 # detrás de #[cfg(debug_assertions)] como defense-in-depth.
 required-features = ["dev"]
 
+[[bin]]
+name = "gen_devguard"
+path = "src/bin/gen_devguard.rs"
+# Generador del mapa de contratos del guardrail devGuard
+# (src/lib/api/devGuard.generated.ts) a partir de los DTOs de entrada reales,
+# clasificando cada campo con sondas serde (acepta número/string). Solo se
+# construye con `--features dev` para no llegar al bundle de release.
+required-features = ["dev"]
+
 [features]
 default = []
 # Feature de desarrollo: habilita el binario `dev_reset_admin`.
@@ -128,14 +137,14 @@ cookie_store = "0.21"
 # - aes-gcm: cifrado PII nuevo formato `v1:` (AES-256-GCM) — ver core/crypto.rs
 # - cbc + aes: solo para desencriptar tokens Fernet legacy (AES-128-CBC). NO quitar.
 # - hmac: verificación HMAC-SHA256 de tokens Fernet legacy. NO quitar.
-argon2 = "0.5"
-pbkdf2 = { version = "0.12", features = ["sha2"] }
-sha2 = "0.10"
-hmac = "0.12"
-aes-gcm = "0.10"
-aes = "0.8"
-cbc = { version = "0.1", features = ["alloc"] }
-rand = "0.8"
+argon2 = "0.6"
+pbkdf2 = { version = "0.13", features = ["sha2"] }
+sha2 = "0.11"
+hmac = "0.13"
+aes-gcm = "0.11"
+aes = "0.9"
+cbc = { version = "0.2", features = ["alloc"] }
+rand = "0.10"
 base64 = "0.22"
 hex = "0.4"
 subtle = "2.5"

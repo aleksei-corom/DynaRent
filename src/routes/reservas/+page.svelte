@@ -4,6 +4,7 @@
 		reservaApi,
 		clienteApi,
 		autoApi,
+		syncWebApi,
 		ApiError,
 		type Reserva,
 		type ReservaDatos,
@@ -14,7 +15,7 @@
 	import { session } from '$lib/stores/session.svelte';
 	import { businessLists } from '$lib/stores/business.svelte';
 	import { toast } from '$lib/stores/toast.svelte';
-	import { formatCOP, formatDate } from '$lib/utils/format';
+	import { formatCOP, formatDate, formatLocalDateISO } from '$lib/utils/format';
 	import { calcularDiasHoras } from '$lib/utils/calcularDiasHoras';
 	import { guardSesion, haySesion } from '$lib/utils/guards';
 	import DataTable from '$lib/components/DataTable.svelte';
@@ -25,6 +26,7 @@
 	import ClienteFormModal from '$lib/components/ClienteFormModal.svelte';
 	import OrdenReserva from '$lib/components/reports/OrdenReserva.svelte';
 	import AvisoImpresion from '$lib/components/AvisoImpresion.svelte';
+	import Icon from '$lib/components/Icon.svelte';
 	import { imprimirDocumento } from '$lib/utils/imprimir';
 	import { goto } from '$app/navigation';
 
@@ -70,10 +72,16 @@
 	let eliminarId = $state<number | null>(null);
 	let eliminando = $state(false);
 
+	// Sincronización con la plataforma Web (Neon PostgreSQL)
+	let sincronizandoWeb = $state(false);
+	let pendientesWebCount = $state(0);
+
 	function defaultForm(): ReservaDatos {
 		const hoy = new Date();
-		const maniana = new Date(hoy.getTime() + 86400000);
-		const iso = (d: Date) => d.toISOString().slice(0, 10);
+		// Local, no UTC: `toISOString()` salta al día siguiente en zonas con
+		// offset negativo (Colombia UTC-5) después de las 7:00 PM.
+		const maniana = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + 1);
+		const iso = (d: Date) => formatLocalDateISO(d);
 		return {
 			idCliente: null,
 			nombreCliente: '',
@@ -90,9 +98,9 @@
 			horasExtras: 0,
 			valorDia: '',
 			valorHoraAdic: '',
+			costoLavado: '',
 			abono: '',
 			total: '',
-			costoLavado: '',
 			observaciones: '',
 			estado: 'Confirmada'
 		};
@@ -101,7 +109,8 @@
 	// ── Calculadora en vivo ──
 	const totalCalc = $derived(
 		(parseFloat(form.valorDia) || 0) * form.diasCalculados +
-			(parseFloat(form.valorHoraAdic) || 0) * form.horasExtras
+			(parseFloat(form.valorHoraAdic) || 0) * form.horasExtras +
+			(parseFloat(form.costoLavado) || 0)
 	);
 	const saldoCalc = $derived(Math.max(0, totalCalc - (parseFloat(form.abono) || 0)));
 
@@ -179,6 +188,40 @@
 		}
 	}
 
+	async function verificarPendientesWeb() {
+		if (!haySesion()) return;
+		try {
+			const res = await syncWebApi.consultarPendientes();
+			if (res.ok) {
+				pendientesWebCount = res.count;
+			}
+		} catch {
+			pendientesWebCount = 0;
+		}
+	}
+
+	async function sincronizarConWeb() {
+		if (!haySesion()) return;
+		sincronizandoWeb = true;
+		try {
+			const res = await syncWebApi.sincronizarReservas(sid());
+			if (res.importadas > 0) {
+				toast.success(
+					`¡Sincronización exitosa! ${res.importadas} reserva(s) web importada(s) (${res.clientesReutilizados} clientes vinculados, ${res.clientesNuevos} nuevos).`
+				);
+			} else if (res.errores.length > 0) {
+				toast.error(`Hubo problemas al sincronizar: ${res.errores.join(', ')}`);
+			} else {
+				toast.info('No hay reservas web pendientes por importar.');
+			}
+			await Promise.all([cargar(), cargarProximas(), verificarPendientesWeb()]);
+		} catch (e) {
+			toast.error(e instanceof Error ? e.message : 'Error al conectar con el servidor web.');
+		} finally {
+			sincronizandoWeb = false;
+		}
+	}
+
 	async function cargarProximas() {
 		if (!haySesion()) return;
 		try {
@@ -207,7 +250,8 @@
 				.listar(sid())
 				.then((a) => (autos = a))
 				.catch(() => (autos = [])),
-			cargarProximas()
+			cargarProximas(),
+			verificarPendientesWeb().catch(() => null)
 		]);
 		// La carga inicial de reservas la dispara el $effect de filtros (una sola vez)
 	});
@@ -254,7 +298,7 @@
 			valorHoraAdic: r.valorHoraAdic,
 			abono: r.abono,
 			total: r.total,
-			costoLavado: r.costoLavado ?? '',
+			costoLavado: r.costoLavado,
 			observaciones: r.observaciones ?? '',
 			estado: r.estado
 		};
@@ -398,18 +442,68 @@
 				{reservas.length} reserva{reservas.length === 1 ? '' : 's'} · orden imprimible incluida
 			</p>
 		</div>
-		<button class="btn-primary" onclick={abrirNuevo}>
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="w-4 h-4"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-				stroke-width="2"
-				><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg
+		<div class="flex items-center gap-2.5">
+			<button
+				class="relative inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold border border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary transition-all disabled:opacity-60 cursor-pointer"
+				onclick={sincronizarConWeb}
+				disabled={sincronizandoWeb}
+				title="Sincronizar reservas pagadas desde la página Web"
 			>
-			Nueva Reserva
-		</button>
+				{#if sincronizandoWeb}
+					<svg
+						class="animate-spin w-4 h-4 text-primary"
+						xmlns="http://www.w3.org/2000/svg"
+						fill="none"
+						viewBox="0 0 24 24"
+					>
+						<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
+						></circle>
+						<path
+							class="opacity-75"
+							fill="currentColor"
+							d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+						></path>
+					</svg>
+					<span>Sincronizando...</span>
+				{:else}
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="w-4 h-4"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						stroke-width="2"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"
+						/>
+					</svg>
+					<span>Sincronizar Web</span>
+					{#if pendientesWebCount > 0}
+						<span
+							class="inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-black rounded-full bg-primary text-white animate-pulse"
+						>
+							{pendientesWebCount}
+						</span>
+					{/if}
+				{/if}
+			</button>
+
+			<button class="btn-primary" onclick={abrirNuevo}>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="w-4 h-4"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+					stroke-width="2"
+					><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg
+				>
+				Nueva Reserva
+			</button>
+		</div>
 	</div>
 
 	<!-- Próximas reservas -->
@@ -496,9 +590,20 @@
 			{#snippet children(col, item)}
 				{@const r = item as unknown as Reserva}
 				{#if col.key === 'id'}
-					<span class="font-bold text-primary tabular-nums">#{String(r.id).padStart(4, '0')}</span>
+					<div class="flex items-center gap-1.5">
+						<span class="font-bold text-primary tabular-nums">#{String(r.id).padStart(4, '0')}</span
+						>
+						{#if r.observaciones?.includes('[ORIGEN: WEB')}
+							<span
+								class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-500/15 text-sky-600 border border-sky-500/30 whitespace-nowrap"
+								title="Reserva originada en la Web y pagada online"
+							>
+								🌐 WEB
+							</span>
+						{/if}
+					</div>
 				{:else if col.key === 'cliente'}
-					<div class="max-w-[200px]">
+					<div class="max-w-50">
 						<p class="font-semibold text-text-primary truncate">{r.nombreCliente}</p>
 						{#if r.nacionalidad}
 							<p class="text-xs text-text-secondary truncate">{r.nacionalidad}</p>
@@ -516,7 +621,7 @@
 							<span class="text-text-secondary">{fmtHora(r.horaRecogida)}</span>
 						</p>
 						{#if r.ubicacionRecogida}
-							<p class="text-xs text-text-secondary truncate max-w-[160px]">
+							<p class="text-xs text-text-secondary truncate max-w-40">
 								{r.ubicacionRecogida}
 							</p>
 						{/if}
@@ -552,106 +657,51 @@
 						<button
 							class="p-2 rounded-lg text-text-secondary hover:text-primary hover:bg-primary/10 transition-colors"
 							title="Imprimir orden de reserva"
+							aria-label="Imprimir orden de reserva #{r.id}"
 							onclick={() => abrirImprimir(r)}
 						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="w-4 h-4"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-								stroke-width="1.8"
-								><path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5z"
-								/></svg
-							>
+							<Icon name="printer" class="w-4 h-4" />
 						</button>
 						{#if r.estado === 'Confirmada' || r.estado === 'Pendiente'}
 							<button
 								class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-primary border border-primary/30 hover:bg-primary/10 transition-colors"
 								title="Crear renta desde esta reserva (precarga el formulario)"
+								aria-label="Crear renta desde la reserva #{r.id}"
 								onclick={() => crearRentaDesdeReserva(r)}
 							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="w-3.5 h-3.5"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									stroke-width="2"
-									><path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d="M12 4.5v15m7.5-7.5h-15"
-									/></svg
-								>
+								<Icon name="plus" class="w-3.5 h-3.5" />
 								Crear renta
 							</button>
 						{/if}
 						<button
 							class="p-2 rounded-lg text-text-secondary hover:text-primary hover:bg-primary/10 transition-colors"
 							title="Editar"
+							aria-label="Editar reserva #{r.id}"
 							onclick={() => abrirEditar(r)}
 						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="w-4 h-4"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-								stroke-width="1.8"
-								><path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.862 4.487zm0 0L19.5 7.125"
-								/></svg
-							>
+							<Icon name="pencil" class="w-4 h-4" />
 						</button>
 						{#if r.estado !== 'Cancelada' && r.estado !== 'Completada'}
 							<button
 								class="p-2 rounded-lg text-text-secondary hover:text-alerta hover:bg-alerta/10 transition-colors"
 								title="Cancelar reserva"
+								aria-label="Cancelar reserva #{r.id}"
 								onclick={() => {
 									cancelarId = r.id;
 									cancelarNombre = r.nombreCliente;
 								}}
 							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="w-4 h-4"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									stroke-width="1.8"
-									><path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-									/></svg
-								>
+								<Icon name="x" class="w-4 h-4" />
 							</button>
 						{/if}
 						{#if puedeEliminar}
 							<button
 								class="p-2 rounded-lg text-text-secondary hover:text-peligro hover:bg-peligro/10 transition-colors"
 								title="Eliminar"
+								aria-label="Eliminar reserva #{r.id}"
 								onclick={() => (eliminarId = r.id)}
 							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="w-4 h-4"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									stroke-width="1.8"
-									><path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
-									/></svg
-								>
+								<Icon name="trash" class="w-4 h-4" />
 							</button>
 						{/if}
 					</div>
@@ -916,19 +966,19 @@
 							bind:value={form.valorHoraAdic}
 						/>
 					</FormField>
+					<FormField label="Costo lavado" hint="COP" dense>
+						<input
+							class="input"
+							inputmode="decimal"
+							placeholder="0"
+							bind:value={form.costoLavado}
+						/>
+					</FormField>
 					<FormField label="Días calculados" hint="Auto desde fechas" dense>
 						<input class="input" type="number" min="0" step="1" bind:value={form.diasCalculados} />
 					</FormField>
 					<FormField label="Horas extras" dense>
 						<input class="input" type="number" min="0" step="1" bind:value={form.horasExtras} />
-					</FormField>
-					<FormField label="Costo lavado" hint="COP" dense>
-						<input
-							class="input"
-							inputmode="decimal"
-							placeholder="25000"
-							bind:value={form.costoLavado}
-						/>
 					</FormField>
 					<FormField label="Abono" hint="COP" dense>
 						<input class="input" inputmode="decimal" placeholder="100000" bind:value={form.abono} />
@@ -967,7 +1017,7 @@
 					</div>
 					<!-- Total destacado -->
 					<div
-						class="rounded-lg bg-gradient-to-br from-primary to-primary-hover px-3 py-2.5 text-white mb-2"
+						class="rounded-lg bg-linear-to-br from-primary to-primary-hover px-3 py-2.5 text-white mb-2"
 					>
 						<p class="text-[10px] uppercase tracking-wide opacity-80 font-semibold">
 							Total estimado
@@ -1017,7 +1067,7 @@
 						Observaciones
 					</span>
 					<textarea
-						class="input flex-1 min-h-[60px] resize-none text-xs"
+						class="input flex-1 min-h-15 resize-none text-xs"
 						placeholder="Aparecen en la orden imprimible…"
 						bind:value={form.observaciones}
 						maxlength="2000"

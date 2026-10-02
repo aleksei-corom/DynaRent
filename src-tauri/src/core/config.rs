@@ -349,7 +349,10 @@ impl AppConfig {
                 "max_login_attempts_in_window",
                 10,
             ),
-            db_encryption_key: get_str(&map, "security", "db_encryption_key", ""),
+            db_encryption_key: std::env::var("DYNARENT_DB_ENCRYPTION_KEY")
+                .ok()
+                .filter(|s| !s.trim().is_empty())
+                .unwrap_or_else(|| get_str(&map, "security", "db_encryption_key", "")),
             simit_enabled: get_bool(&map, "simit", "enabled", true),
             simit_interval_hours: get_u64(&map, "simit", "interval_hours", 2),
             simit_polite_delay_ms: get_u64(&map, "simit", "polite_delay_ms", 2500),
@@ -449,6 +452,12 @@ impl AppConfig {
         if let Err(e) = std::fs::write(self.config_dir.join("config.ini"), content) {
             log::warn!("No se pudo guardar config.ini: {}", e);
         }
+    }
+}
+
+impl Default for AppConfig {
+    fn default() -> Self {
+        Self::load(&PathBuf::new(), &PathBuf::new(), &PathBuf::new())
     }
 }
 

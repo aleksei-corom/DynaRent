@@ -519,23 +519,40 @@ impl RentaService {
                 .map_err(|_| AppError::Validation("Hora de retorno inválida".into()))?,
         );
         let nuevo_retorno_dt = if datos.tipo == "horas" {
-            retorno_dt + chrono::Duration::hours(datos.cantidad)
+            retorno_dt
+                .checked_add_signed(chrono::Duration::hours(datos.cantidad))
+                .ok_or_else(|| {
+                    AppError::Validation(
+                        "La cantidad de horas para la extensión es inválida.".into(),
+                    )
+                })?
         } else {
-            retorno_dt + chrono::Duration::days(datos.cantidad)
+            retorno_dt
+                .checked_add_signed(chrono::Duration::days(datos.cantidad))
+                .ok_or_else(|| {
+                    AppError::Validation(
+                        "La cantidad de días para la extensión es inválida.".into(),
+                    )
+                })?
         };
+        use chrono::Datelike;
+        // Límite de sentido común: ninguna extensión puede desplazar el
+        // retorno más de 5 años respecto al retorno actual. Cualquier valor que lo
+        // supera es un error de digitación (p. ej. cantidad con dígitos de más).
+        if nuevo_retorno_dt.year() > retorno_dt.year() + 5 {
+            return Err(AppError::Validation(
+                "La extensión no puede desplazar el retorno más de 5 años.".into(),
+            ));
+        }
         let nuevo_fecha = nuevo_retorno_dt.format("%Y-%m-%d").to_string();
         let nueva_hora = nuevo_retorno_dt.format("%H:%M").to_string();
-        // Calcular nuevos totales
-        let nuevo_dias = if datos.tipo == "dias" {
-            actual.dias_calculados + datos.cantidad
-        } else {
-            actual.dias_calculados
-        };
-        let nuevas_horas = if datos.tipo == "horas" {
-            actual.horas_extras + datos.cantidad
-        } else {
-            actual.horas_extras
-        };
+        // Las extensiones se valorizan y acumulan en `valor_dia_extra` (y en el
+        // historial `extensiones_renta`). Los días y horas base del contrato
+        // (`dias_calculados`, `horas_extras`) se preservan como base de
+        // liquidación contractual para evitar doble cobro tanto aquí como en
+        // `calcular_totales` y `ContratoRenta.svelte`.
+        let dias_base = actual.dias_calculados;
+        let horas_base = actual.horas_extras;
         // Recalcular total
         let vdia = dec_str(&actual.valor_dia);
         let vhe = dec_str(&actual.valor_hora_extra);
@@ -555,9 +572,9 @@ impl RentaService {
             &actual.valor_gasolina,
         ]);
         let desc = dec_str(&actual.descuento);
-        let subtotal =
-            (vdia * Decimal::from(nuevo_dias) + vhe * Decimal::from(nuevas_horas) + extras - desc)
-                .max(Decimal::ZERO);
+        let subtotal = (vdia * Decimal::from(dias_base) + vhe * Decimal::from(horas_base) + extras
+            - desc)
+            .max(Decimal::ZERO);
         let imp = if actual.cobra_iva {
             impuesto(cfg)
         } else {
@@ -599,8 +616,8 @@ impl RentaService {
                 params![
                     nuevo_fecha,
                     nueva_hora,
-                    nuevo_dias,
-                    nuevas_horas,
+                    dias_base,
+                    horas_base,
                     nuevo_vde.to_string(),
                     subtotal.round_dp(2).to_string(),
                     impuestos.to_string(),
@@ -684,7 +701,10 @@ impl RentaService {
                 .valor_hora_extra
                 .clone()
                 .unwrap_or_else(|| actual.valor_hora_extra.clone()),
-            valor_dia_extra: actual.valor_dia_extra.clone(),
+            valor_dia_extra: datos
+                .valor_dia_extra
+                .clone()
+                .unwrap_or_else(|| actual.valor_dia_extra.clone()),
             costo_lavado: actual.costo_lavado.clone(),
             costo_silla: actual.costo_silla.clone(),
             costo_retorno: actual.costo_retorno.clone(),
@@ -701,7 +721,9 @@ impl RentaService {
             impuestos: actual.impuestos.clone(),
             cobra_iva: actual.cobra_iva,
             tiene_comision: actual.tiene_comision,
-            cobrar_horas_extra: actual.cobrar_horas_extra,
+            cobrar_horas_extra: datos
+                .cobrar_horas_extra
+                .unwrap_or(actual.cobrar_horas_extra),
             comision: actual.comision.clone(),
             valor_neto: actual.valor_neto.clone(),
             total: actual.total.clone(),
@@ -725,6 +747,8 @@ impl RentaService {
         let edit = RentaCierreEditDatos {
             valor_dia: Some(d.valor_dia.clone()),
             valor_hora_extra: Some(d.valor_hora_extra.clone()),
+            valor_dia_extra: Some(d.valor_dia_extra.clone()),
+            cobrar_horas_extra: Some(d.cobrar_horas_extra),
             dias_calculados: Some(d.dias_calculados),
             horas_extras: Some(d.horas_extras),
             descuento: Some(d.descuento.clone()),
@@ -732,11 +756,11 @@ impl RentaService {
         };
         // Registrar valores anteriores para auditoría
         let audit_msg = format!(
-            "renta={id}, placa={}, ANTES: vdia={}, vhe={}, dias={}, hext={}, desc={}, total={} | DESPUES: vdia={}, vhe={}, dias={}, hext={}, desc={}, total={}, motivo={}",
+            "renta={id}, placa={}, ANTES: vdia={}, vhe={}, vde={}, dias={}, hext={}, desc={}, total={} | DESPUES: vdia={}, vhe={}, vde={}, dias={}, hext={}, desc={}, total={}, motivo={}",
             actual.placa.as_deref().unwrap_or("-"),
-            actual.valor_dia, actual.valor_hora_extra, actual.dias_calculados, actual.horas_extras,
+            actual.valor_dia, actual.valor_hora_extra, actual.valor_dia_extra, actual.dias_calculados, actual.horas_extras,
             actual.descuento, actual.total,
-            d.valor_dia, d.valor_hora_extra, d.dias_calculados, d.horas_extras,
+            d.valor_dia, d.valor_hora_extra, d.valor_dia_extra, d.dias_calculados, d.horas_extras,
             d.descuento, d.total,
             datos.observaciones.as_deref().unwrap_or("(sin motivo)")
         );
@@ -746,8 +770,10 @@ impl RentaService {
                 "UPDATE rentas SET \
                     valor_dia = CAST(COALESCE(?, valor_dia) AS DECIMAL(12,2)), \
                     valor_hora_extra = CAST(COALESCE(?, valor_hora_extra) AS DECIMAL(12,2)), \
+                    valor_dia_extra = CAST(COALESCE(?, valor_dia_extra) AS DECIMAL(12,2)), \
                     dias_calculados = COALESCE(?, dias_calculados), \
                     horas_extras = COALESCE(?, horas_extras), \
+                    cobrar_horas_extra = ?, \
                     descuento = CAST(COALESCE(?, descuento) AS DECIMAL(12,2)), \
                     subtotal = CAST(? AS DECIMAL(12,2)), \
                     impuestos = CAST(? AS DECIMAL(12,2)), \
@@ -763,8 +789,12 @@ impl RentaService {
                     edit.valor_hora_extra
                         .as_deref()
                         .map(|s| s.trim().replace(',', ".")),
+                    edit.valor_dia_extra
+                        .as_deref()
+                        .map(|s| s.trim().replace(',', ".")),
                     edit.dias_calculados,
                     edit.horas_extras,
+                    if d.cobrar_horas_extra { 1i16 } else { 0i16 },
                     edit.descuento
                         .as_deref()
                         .map(|s| s.trim().replace(',', ".")),
@@ -1087,7 +1117,12 @@ fn normalizar_cierre(d: &mut RentaCierreDatos) {
         .as_ref()
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty());
-    for m in [&mut d.valor_dia, &mut d.valor_hora_extra, &mut d.descuento] {
+    for m in [
+        &mut d.valor_dia,
+        &mut d.valor_hora_extra,
+        &mut d.valor_dia_extra,
+        &mut d.descuento,
+    ] {
         if let Some(v) = m {
             *v = v.trim().replace(',', ".");
             if v.is_empty() {
@@ -1366,7 +1401,8 @@ fn validar_cierre(d: &RentaCierreDatos) -> Result<(), AppError> {
             ));
         }
     }
-    for (campo, v) in [("el kilometraje final", &d.km_final)] {
+    {
+        let (campo, v) = ("el kilometraje final", &d.km_final);
         if let Some(k) = v {
             if !k.is_empty() && k.parse::<f64>().is_err() {
                 return Err(AppError::Validation(format!(

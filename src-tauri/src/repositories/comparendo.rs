@@ -10,6 +10,7 @@
 
 use rsfbclient::{Execute, IntoParam, ParamsType, Queryable};
 
+use crate::core::decimal_string::decimal_string;
 use crate::core::error::AppError;
 use crate::core::PooledConnection;
 // Helpers centralizados (Bloque 4 / TAREA 4.2): antes estaban duplicados
@@ -65,12 +66,13 @@ pub struct Comparendo {
 }
 
 /// Datos de entrada para crear/actualizar (validados por el servicio)
-#[derive(Debug, Clone, Default, serde::Deserialize)]
+#[derive(Debug, Clone, Default, serde::Deserialize, Serialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ComparendoDatos {
     pub placa: String,
     pub fecha_infraccion: String,
     pub hora_infraccion: String,
+    #[serde(deserialize_with = "decimal_string")]
     pub monto: String,
     /// Número oficial del comparendo (opcional; usado para deduplicar SIMIT)
     pub numero_comparendo: Option<String>,

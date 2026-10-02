@@ -7,8 +7,10 @@ import type {
 	Renta,
 	RentaDatos,
 	RentaCierreDatos,
+	RentaCierreEditDatos,
 	PagoDatos,
 	InspeccionDatos,
+	ExtensionDatos,
 	Auto,
 	BusinessLists,
 	Reserva
@@ -88,9 +90,9 @@ function reserva(overrides: Partial<Reserva> = {}): Reserva {
 		horasExtras: 0,
 		valorDia: '150000.00',
 		valorHoraAdic: '10000.00',
+		costoLavado: '0',
 		abono: '50000.00',
 		total: '300000.00',
-		costoLavado: '0.00',
 		observaciones: 'Desde la reserva',
 		estado: 'Confirmada',
 		createdAt: null,
@@ -422,6 +424,98 @@ describe('página de Rentas', () => {
 		expect(args.datos.monto).toBe('200000');
 	});
 
+	it('extiende una renta enviando el valor como string (regresión: el backend espera String)', async () => {
+		tauri.register('listar_rentas', () => [renta({ id: 5 })]);
+		tauri.register('listar_extensiones', () => []);
+		const extender = vi.fn((_args: { sessionId: string; id: number; datos: ExtensionDatos }) =>
+			renta({ id: 5 })
+		);
+		tauri.register('extender_renta', extender);
+
+		render(RentasPage);
+		await screen.findByText('Cliente de Prueba');
+
+		await fireEvent.click(screen.getByTitle('Extender renta (agregar horas/días)'));
+		const dialogo = await screen.findByRole('dialog');
+		expect(dialogo).toHaveTextContent('Extender renta #0005');
+
+		await fireEvent.input(screen.getByPlaceholderText('$0'), {
+			target: { value: '20000' }
+		});
+
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Aplicar extensión' }));
+
+		await waitFor(() => expect(extender).toHaveBeenCalledTimes(1));
+		const args = extender.mock.calls[0][0] as {
+			sessionId: string;
+			id: number;
+			datos: ExtensionDatos;
+		};
+		expect(args.id).toBe(5);
+		expect(args.datos.tipo).toBe('horas');
+		expect(args.datos.cantidad).toBe(1);
+		// Si `valor` llegara como number, el backend falla con
+		// «invalid type: integer, expected a string» y la extensión no se aplica
+		expect(args.datos.valor).toBe('20000');
+		expect(typeof args.datos.valor).toBe('string');
+	});
+
+	it('corrige una renta cerrada enviando los montos como string (regresión H2)', async () => {
+		tauri.register('listar_rentas', () => [
+			renta({
+				id: 7,
+				estado: 'Cerrada',
+				valorDia: '150000.00',
+				valorHoraExtra: '10000.00',
+				valorDiaExtra: '0.00',
+				descuento: '0.00',
+				diasCalculados: 3,
+				horasExtras: 0
+			})
+		]);
+		const editar = vi.fn((_args: { sessionId: string; id: number; datos: RentaCierreEditDatos }) =>
+			renta({ id: 7, estado: 'Cerrada', valorDia: '180000.00' })
+		);
+		tauri.register('editar_renta_cerrada', editar);
+
+		render(RentasPage);
+		await screen.findByText('Cliente de Prueba');
+
+		await fireEvent.click(screen.getByTitle('Editar renta cerrada (corregir digitación)'));
+		const dialogo = await screen.findByRole('dialog');
+		expect(dialogo).toHaveTextContent('Corregir renta cerrada #0007');
+
+		// Corregir el valor día: el input es inputmode="decimal" (string), y el
+		// submit convierte con String() — nunca debe salir un number del modal
+		await fireEvent.input(screen.getByPlaceholderText('150000'), {
+			target: { value: '180000' }
+		});
+		await fireEvent.input(
+			screen.getByPlaceholderText('Describe el error de digitación que se corrige...'),
+			{ target: { value: 'Corrección de la tarifa pactada' } }
+		);
+
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Aplicar corrección' }));
+
+		await waitFor(() => expect(editar).toHaveBeenCalledTimes(1));
+		const args = editar.mock.calls[0][0] as {
+			sessionId: string;
+			id: number;
+			datos: RentaCierreEditDatos;
+		};
+		expect(args.id).toBe(7);
+		// Montos como string, nunca number (el backend espera Option<String>)
+		expect(args.datos.valorDia).toBe('180000');
+		expect(typeof args.datos.valorDia).toBe('string');
+		// Los campos no tocados conservan el string del prefill de la BD
+		expect(args.datos.valorHoraExtra).toBe('10000.00');
+		expect(typeof args.datos.valorHoraExtra).toBe('string');
+		expect(typeof args.datos.descuento).toBe('string');
+		// Controles enteros sin cambios y motivo de auditoría
+		expect(args.datos.diasCalculados).toBe(3);
+		expect(args.datos.observaciones).toBe('Corrección de la tarifa pactada');
+	});
+
 	it('registra una inspección de salida', async () => {
 		tauri.register('listar_rentas', () => [renta({ id: 5 })]);
 		const inspeccionar = vi.fn(
@@ -619,6 +713,80 @@ describe('página de Rentas', () => {
 		// El número de contrato es la secuencia por año (2026-042), independiente del id (1),
 		// con el mismo formato que el listado y la orden
 		expect(screen.getByText(/CONTRATO Nº: 2026-042/)).toBeInTheDocument();
+	});
+
+	it('muestra desglose de horas extras y tarifas en orden de renta y contrato', async () => {
+		const rentaConHE = renta({
+			id: 2,
+			horasExtras: 2,
+			valorHoraExtra: '15000.00',
+			diasCalculados: 2,
+			valorDia: '100000.00',
+			subtotal: '230000.00',
+			total: '230000.00',
+			cobrarHorasExtra: true
+		});
+		tauri.register('listar_rentas', () => [rentaConHE]);
+		tauri.register('obtener_renta', () => ({ ...rentaConHE, pagos: [], inspecciones: [] }));
+
+		render(RentasPage);
+		await screen.findByText('Cliente de Prueba');
+
+		// 1) Abrir orden de renta
+		await fireEvent.click(screen.getByTitle('Imprimir orden de renta'));
+		expect(await screen.findByRole('dialog')).toHaveTextContent('Orden de renta #0002');
+		expect(screen.getByText(/Horas extras \(2 × \$ 15\.000\)/)).toBeInTheDocument();
+		expect(screen.getByText(/Valor del día × 2 días/)).toBeInTheDocument();
+
+		// 2) Pasar al contrato
+		await fireEvent.click(screen.getByRole('button', { name: /Ver contrato/ }));
+		expect(await screen.findByRole('dialog')).toHaveTextContent('Contrato de renta #0002');
+		// Cláusula Tercera tiene el desglose de horas extras
+		expect(screen.getByText(/Horas extras:/)).toBeInTheDocument();
+		expect(screen.getByText(/2 horas × \$ 15\.000 = \$ 30\.000/)).toBeInTheDocument();
+		// Cláusula Cuarta muestra la tarifa por hora configurada
+		expect(screen.getAllByText(/\$ 15\.000 POR HORA/).length).toBeGreaterThanOrEqual(1);
+	});
+
+	it('cierra una renta enviando valorHoraExtra, horasExtras, valorDiaExtra y cobrarHorasExtra', async () => {
+		const rentaActiva = renta({
+			id: 5,
+			valorDia: '100000.00',
+			valorHoraExtra: '15000.00',
+			valorDiaExtra: '0.00',
+			diasCalculados: 2,
+			horasExtras: 0,
+			kmSalida: '50000'
+		});
+		tauri.register('listar_rentas', () => [rentaActiva]);
+		const cerrarMock = vi.fn((_args: { sessionId: string; id: number; datos: RentaCierreDatos }) =>
+			renta({ id: 5, estado: 'Cerrada' })
+		);
+		tauri.register('cerrar_renta', cerrarMock);
+
+		render(RentasPage);
+		await screen.findByText('Cliente de Prueba');
+
+		// Abrir modal de cierre
+		await fireEvent.click(screen.getByTitle('Cerrar renta (devolución)'));
+		const modal = await screen.findByRole('dialog');
+		expect(modal).toHaveTextContent('Cerrar renta #5');
+
+		// Ingresar campos de cierre
+		const kmInput = screen.getByPlaceholderText('Km al devolver');
+		await fireEvent.input(kmInput, { target: { value: '50500' } });
+
+		const diasExtraInput = screen.getByLabelText(/Valor días extra final/i);
+		await fireEvent.input(diasExtraInput, { target: { value: '80000' } });
+
+		// Confirmar cierre
+		await fireEvent.click(within(modal).getByRole('button', { name: 'Cerrar renta' }));
+
+		await waitFor(() => expect(cerrarMock).toHaveBeenCalledTimes(1));
+		const args = cerrarMock.mock.calls[0][0];
+		expect(args.id).toBe(5);
+		expect(args.datos.valorDiaExtra).toBe('80000');
+		expect(args.datos.cobrarHorasExtra).toBe(true);
 	});
 
 	it('filtra por estado con el selector', async () => {

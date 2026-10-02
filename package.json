@@ -16,12 +16,14 @@
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"tauri": "tauri",
-	"verificar:paginacion": "node scripts/verificar-paginacion.mjs",
-	"test:paginacion": "node scripts/test-verificar-paginacion.mjs",
-	"smoke:app": "node scripts/smoke-test-app.mjs",
-	"watch:simit": "node scripts/watch-simit.mjs",
-	"check:simit": "node scripts/check-simit.mjs",
-	"test:check-simit": "node scripts/test-check-simit.mjs",
+		"verificar:paginacion": "node scripts/verificar-paginacion.mjs",
+		"test:paginacion": "node scripts/test-verificar-paginacion.mjs",
+		"smoke:app": "node scripts/smoke-test-app.mjs",
+		"smoke:dev": "node scripts/smoke-dev.mjs",
+		"gen:devguard": "cd src-tauri && cargo run --features dev --bin gen_devguard",
+		"watch:simit": "node scripts/watch-simit.mjs",
+		"check:simit": "node scripts/check-simit.mjs",
+		"test:check-simit": "node scripts/test-check-simit.mjs",
 		"lint": "eslint src --ext .ts,.svelte",
 		"lint:fix": "eslint src --ext .ts,.svelte --fix",
 		"format": "prettier --write src",
@@ -60,6 +62,7 @@
 		"@tauri-apps/api": "^2.0.0",
 		"@tauri-apps/plugin-process": "^2.0.0",
 		"@tauri-apps/plugin-updater": "^2.0.0",
+		"brace-expansion": "5.0.12",
 		"exceljs": "^4.4.0"
 	}
 }

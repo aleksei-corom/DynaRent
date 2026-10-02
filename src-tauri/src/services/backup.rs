@@ -20,7 +20,7 @@
 //!
 //! # Rotación
 //! Tras cada backup se conservan las `max_copies` más recientes
-//! (`Backup_Dinamo_<YYYYMMDD_HHMMSS>.fbk`; el timestamp del nombre ordena
+//! (`Backup_DynaRent_<YYYYMMDD_HHMMSS>.fbk`; el timestamp del nombre ordena
 //! cronológicamente) y se eliminan las excedentes. `max_copies = 0` = conservar
 //! todas (rotación desactivada).
 //!
@@ -49,20 +49,20 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use aes_gcm::{
-    aead::{Aead, KeyInit},
+    aead::{consts::U12, Aead, KeyInit},
     Aes256Gcm, Nonce,
 };
 use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, TimeZone, Timelike};
 use pbkdf2::pbkdf2_hmac;
-use rand::RngCore;
+use rand::Rng;
 use serde::Serialize;
 use sha2::Sha256;
 
 use crate::core::config::AppConfig;
 use crate::core::error::AppError;
 
-/// Prefijo de los archivos de backup (coincide con el plan: `Backup_Dinamo_<ts>.fbk`)
-const PREFIJO_BACKUP: &str = "Backup_Dinamo_";
+/// Prefijo de los archivos de backup
+const PREFIJO_BACKUP: &str = "Backup_DynaRent_";
 /// Prefijo de los archivos staging de restauración (temporales en el dir de backups)
 const PREFIJO_STAGING: &str = "restore_staging_";
 /// Flag de línea de comandos con el que `backup_restaurar` relanza la app para
@@ -70,6 +70,11 @@ const PREFIJO_STAGING: &str = "restore_staging_";
 /// motor Embedded abre la BD en exclusiva por proceso; la app actual debe
 /// terminar para que gbak pueda reemplazar el archivo).
 const FLAG_RESTAURAR: &str = "--restaurar-backup=";
+
+/// Tamaño mínimo (en bytes) que debe tener el staging para que se considere
+/// un backup plausible. Menos de 1 KB descarta archivos vacíos o truncados
+/// ANTES de invocar gbak.
+const TAMANO_MINIMO_STAGING: u64 = 1024;
 
 // ─── Cifrado opcional (AES-256-GCM por chunks + PBKDF2) ──────────────────────
 
@@ -87,7 +92,7 @@ const GCM_NONCE_LEN: usize = 12;
 /// Longitud del tag de autenticación GCM
 const GCM_TAG_LEN: usize = 16;
 
-/// Nombre de archivo de un backup: `Backup_Dinamo_<YYYYMMDD_HHMMSS>.fbk`
+/// Nombre de archivo de un backup: `Backup_DynaRent_<YYYYMMDD_HHMMSS>.fbk`
 fn nombre_backup(ahora: &DateTime<Local>) -> String {
     format!("{PREFIJO_BACKUP}{}.fbk", ahora.format("%Y%m%d_%H%M%S"))
 }
@@ -108,7 +113,7 @@ fn encontrar_gbak(cfg: &AppConfig) -> PathBuf {
     cfg.resource_dir.join("firebird").join("gbak.exe")
 }
 
-/// Lista los backups existentes (`Backup_Dinamo_*.fbk`), ordenados del más
+/// Lista los backups existentes (`Backup_DynaRent_*.fbk`), ordenados del más
 /// viejo al más nuevo (el timestamp del nombre es cronológico).
 pub fn listar_backups(cfg: &AppConfig) -> Vec<PathBuf> {
     let dir = dir_backups(cfg);
@@ -120,9 +125,10 @@ pub fn listar_backups(cfg: &AppConfig) -> Vec<PathBuf> {
         .map(|e| e.path())
         .filter(|p| {
             let nombre = p.file_name().map(|n| n.to_string_lossy().into_owned());
-            nombre
-                .as_deref()
-                .is_some_and(|n| n.starts_with(PREFIJO_BACKUP) && n.ends_with(".fbk"))
+            nombre.as_deref().is_some_and(|n| {
+                (n.starts_with(PREFIJO_BACKUP) || n.starts_with("Backup_Dinamo_"))
+                    && n.ends_with(".fbk")
+            })
         })
         .collect();
     archivos.sort();
@@ -245,7 +251,7 @@ pub fn cifrar_archivo(origen: &Path, destino: &Path, password: &str) -> Result<(
     let mut salida = File::create(destino)?;
     salida.write_all(MAGIC_CIFRADO)?;
     let mut salt = [0u8; PBKDF2_SALT_LEN];
-    rand::thread_rng().fill_bytes(&mut salt);
+    rand::rng().fill_bytes(&mut salt);
     salida.write_all(&salt)?;
     let clave = derivar_clave_cifrado(password.as_bytes(), &salt);
     let cipher = Aes256Gcm::new_from_slice(&clave)
@@ -271,8 +277,9 @@ pub fn cifrar_archivo(origen: &Path, destino: &Path, password: &str) -> Result<(
         }
         let mut nonce_bytes = [0u8; GCM_NONCE_LEN];
         nonce_bytes[..8].copy_from_slice(&idx.to_be_bytes());
+        let nonce = Nonce::<U12>::from(nonce_bytes);
         let ct = cipher
-            .encrypt(Nonce::from_slice(&nonce_bytes), &buf[..n])
+            .encrypt(&nonce, &buf[..n])
             .map_err(|e| AppError::Crypto(format!("Error cifrando chunk: {e}")))?;
         salida.write_all(&nonce_bytes)?;
         salida.write_all(&ct)?;
@@ -350,14 +357,13 @@ pub fn descifrar_archivo(origen: &Path, destino: &Path, password: &str) -> Resul
                 ));
             }
             ct.truncate(n);
-            let pt = cipher
-                .decrypt(Nonce::from_slice(&nonce_bytes), ct.as_slice())
-                .map_err(|_| {
-                    AppError::Crypto(
-                        "No se pudo descifrar el backup (contraseña incorrecta o archivo dañado)"
-                            .into(),
-                    )
-                })?;
+            let nonce = Nonce::<U12>::from(nonce_bytes);
+            let pt = cipher.decrypt(&nonce, ct.as_slice()).map_err(|_| {
+                AppError::Crypto(
+                    "No se pudo descifrar el backup (contraseña incorrecta o archivo dañado)"
+                        .into(),
+                )
+            })?;
             salida.write_all(&pt)?;
         }
         salida.flush()?;
@@ -520,6 +526,16 @@ pub fn restaurar_fdb_desde_fbk(
             staging_fbk.display()
         )));
     }
+    // Fast-fail: rechazar un staging vacío o truncado ANTES de invocar gbak.
+    // Un gbak «exitoso» contra un backup trunco puede dejar una BD restaurada
+    // sin datos; la BD actual sería entonces la única copia válida. La copia
+    // pre_restore de salvaguarda también queda reservada para backups plausibles.
+    let tamano_staging = std::fs::metadata(staging_fbk).map(|m| m.len()).unwrap_or(0);
+    if tamano_staging < TAMANO_MINIMO_STAGING {
+        return Err(AppError::Generic(format!(
+            "El backup a restaurar es demasiado pequeño ({tamano_staging} bytes) — probablemente está vacío o corrupto. La BD no fue modificada."
+        )));
+    }
     // gbak -r recrea el destino (NO debe existir) → restauramos a un temporal
     // y renombramos sobre el `.fdb` real al final (swap atómico).
     let destino_tmp = db_path.with_extension("fdb.restore.tmp");
@@ -557,6 +573,24 @@ pub fn restaurar_fdb_desde_fbk(
             return Err(AppError::Generic(
                 "gbak -r terminó OK pero no dejó la BD restaurada".into(),
             ));
+        }
+        // Salvaguarda: si la BD actual existe, crear una copia preventiva con
+        // timestamp antes de reemplazarla, protegiendo al operador si restaura
+        // por error un backup desactualizado o vacío.
+        if db_path.exists() {
+            let timestamp = Local::now().format("%Y%m%d_%H%M%S");
+            let backup_pre = db_path.with_extension(format!("pre_restore_{timestamp}.bak"));
+            if let Err(e) = std::fs::copy(db_path, &backup_pre) {
+                log::warn!(
+                    "No se pudo crear copia preventiva de la BD antes de restaurar ({}): {e}",
+                    backup_pre.display()
+                );
+            } else {
+                log::info!(
+                    "Copia preventiva de la BD creada con éxito en {}",
+                    backup_pre.display()
+                );
+            }
         }
         renombrar_con_reintentos(&destino_tmp, db_path, 30, 500)
     })();
@@ -1084,7 +1118,7 @@ mod tests {
     fn archivo_prueba(dir: &Path, nombre: &str, bytes: usize) -> PathBuf {
         let ruta = dir.join(nombre);
         let mut datos = vec![0u8; bytes];
-        rand::thread_rng().fill_bytes(&mut datos);
+        rand::rng().fill_bytes(&mut datos);
         fs::write(&ruta, &datos).unwrap();
         ruta
     }
@@ -1390,6 +1424,44 @@ mod tests {
     }
 
     #[test]
+    fn restaurar_staging_vacio_falla_sin_copias_pre_restore() {
+        // Con un gbak falso (solo debe existir: con staging vacío la guard de
+        // tamaño aborta antes de invocarlo), valida que un backup truncado se
+        // rechace antes de cualquier copia preventiva o reemplazo de la BD.
+        let tmp = std::env::temp_dir().join(format!("restore_vacio_{}", uniq()));
+        fs::create_dir_all(&tmp).unwrap();
+        let mut cfg = config_prueba();
+        let firebird_fake = tmp.join("firebird");
+        fs::create_dir_all(&firebird_fake).unwrap();
+        fs::write(firebird_fake.join("gbak.exe"), b"gbak-falso").unwrap();
+        cfg.resource_dir = tmp.clone();
+        cfg.data_dir = tmp.clone();
+        let fdb = tmp.join("dynarent_v3.fdb");
+        fs::write(&fdb, b"bd-actual").unwrap();
+        cfg.db_path = fdb;
+        let staging = tmp.join("staging_vacio.fbk");
+        fs::write(&staging, b"").unwrap(); // 0 bytes
+
+        let err = restaurar_fdb_desde_fbk(&cfg, &staging, &cfg.db_path).unwrap_err();
+        assert!(
+            err.to_string().contains("demasiado pequeño"),
+            "error: {err}"
+        );
+        assert_eq!(fs::read(&cfg.db_path).unwrap(), b"bd-actual");
+        // Ninguna copia preventiva debe haberse creado para un staging vacío
+        let pre_restore: Vec<_> = fs::read_dir(&tmp)
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_name().to_string_lossy().contains("pre_restore"))
+            .collect();
+        assert!(
+            pre_restore.is_empty(),
+            "sin copias pre_restore para staging vacío"
+        );
+        fs::remove_dir_all(&tmp).unwrap();
+    }
+
+    #[test]
     fn restaurar_sin_gbak_falla_y_deja_la_bd_intacta() {
         let tmp = std::env::temp_dir().join(format!("restore_nogbak_{}", uniq()));
         fs::create_dir_all(&tmp).unwrap();
@@ -1420,25 +1492,25 @@ mod tests {
     #[test]
     fn registrar_resultado_restauracion_alimenta_el_estado() {
         let estado = EstadoBackup::default();
-        estado.registrar_resultado_restauracion("Backup_Dinamo_20260817_120000.fbk", Ok(()));
+        estado.registrar_resultado_restauracion("Backup_DynaRent_20260817_120000.fbk", Ok(()));
         let cfg = config_prueba();
         let info = estado.info(&cfg);
         assert_eq!(
             info.ultima_restauracion.as_deref(),
-            Some("Backup_Dinamo_20260817_120000.fbk")
+            Some("Backup_DynaRent_20260817_120000.fbk")
         );
         assert_eq!(info.ultima_restauracion_error, None);
 
         // Un fallo posterior no borra la última restauración exitosa, pero
         // sí expone el error (misma semántica que ultimo_backup/ultimo_error).
         estado.registrar_resultado_restauracion(
-            "Backup_Dinamo_20260817_120000.fbk",
+            "Backup_DynaRent_20260817_120000.fbk",
             Err("gbak falló".into()),
         );
         let info = estado.info(&cfg);
         assert_eq!(
             info.ultima_restauracion.as_deref(),
-            Some("Backup_Dinamo_20260817_120000.fbk")
+            Some("Backup_DynaRent_20260817_120000.fbk")
         );
         assert!(info
             .ultima_restauracion_error

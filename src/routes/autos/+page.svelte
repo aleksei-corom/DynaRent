@@ -11,7 +11,7 @@
 	import { sid, session } from '$lib/stores/session.svelte';
 	import { businessLists } from '$lib/stores/business.svelte';
 	import { toast } from '$lib/stores/toast.svelte';
-	import { formatDate } from '$lib/utils/format';
+	import { formatDate, formatLocalDateISO } from '$lib/utils/format';
 	import { guardSesion, haySesion } from '$lib/utils/guards';
 	import DataTable from '$lib/components/DataTable.svelte';
 	import Modal from '$lib/components/Modal.svelte';
@@ -54,7 +54,7 @@
 	let eliminando = $state(false);
 
 	function today(): string {
-		return new Date().toISOString().slice(0, 10);
+		return formatLocalDateISO();
 	}
 
 	function defaultForm(): AutoDatos {
@@ -692,10 +692,7 @@
 				/>
 			</FormField>
 			<FormField label="Observaciones" hint="Máx. 2000 caracteres.">
-				<textarea
-					class="input min-h-[80px] resize-y"
-					bind:value={form.observaciones}
-					maxlength="2000"
+				<textarea class="input min-h-20 resize-y" bind:value={form.observaciones} maxlength="2000"
 				></textarea>
 			</FormField>
 		</div>
