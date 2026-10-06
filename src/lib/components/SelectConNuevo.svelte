@@ -86,6 +86,7 @@
 				class="btn-outline !px-3 shrink-0"
 				onclick={confirmarNuevo}
 				title="Agregar"
+				aria-label="Agregar"
 			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"

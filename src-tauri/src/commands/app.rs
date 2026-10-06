@@ -51,3 +51,19 @@ pub fn confirmar_cierre(app: tauri::AppHandle) {
         app.exit(0);
     }
 }
+
+/// Estado de salud de la conexión a Firebird
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DbHealthStatus {
+    pub ok: bool,
+    pub mensaje: String,
+}
+
+/// Verifica la conexión activa con la base de datos Firebird (heartbeat/health check).
+#[tauri::command]
+pub fn app_db_health(state: tauri::State<'_, crate::services::AppState>) -> DbHealthStatus {
+    let (ok, mensaje) = crate::core::db::check_connection(&state.pool);
+    DbHealthStatus { ok, mensaje }
+}
+

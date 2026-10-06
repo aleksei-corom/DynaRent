@@ -436,6 +436,7 @@
 							<button
 								class="p-2 rounded-lg text-estado-activo hover:bg-estado-activo/10 transition-colors"
 								title="Desbloquear cuenta"
+								aria-label={`Desbloquear cuenta de ${u.nombre || u.username}`}
 								onclick={() => desbloquear(u)}
 							>
 								<svg
@@ -456,6 +457,7 @@
 						<button
 							class="p-2 rounded-lg text-text-secondary hover:text-alerta hover:bg-alerta/10 transition-colors"
 							title="Forzar cambio de contraseña"
+							aria-label={`Forzar cambio de contraseña para ${u.nombre || u.username}`}
 							onclick={() => abrirForzar(u)}
 						>
 							<svg
@@ -475,6 +477,7 @@
 						<button
 							class="p-2 rounded-lg text-text-secondary hover:text-primary hover:bg-primary/10 transition-colors"
 							title="Editar"
+							aria-label={`Editar usuario ${u.nombre || u.username}`}
 							onclick={() => abrirEditar(u)}
 						>
 							<svg
@@ -495,6 +498,7 @@
 							<button
 								class="p-2 rounded-lg text-text-secondary hover:text-peligro hover:bg-peligro/10 transition-colors"
 								title="Eliminar"
+								aria-label={`Eliminar usuario ${u.nombre || u.username}`}
 								onclick={() => (eliminarId = u.id)}
 							>
 								<svg
@@ -622,6 +626,8 @@
 		<div class="mt-2 space-y-2.5">
 			<button
 				type="button"
+				role="switch"
+				aria-checked={form.activo}
 				class="w-full flex items-center justify-between gap-3 rounded-xl border border-border bg-alt-row/50 px-4 py-3 text-left transition-colors hover:border-primary/40"
 				onclick={() => (form.activo = !form.activo)}
 			>
@@ -643,6 +649,8 @@
 			{#if !editando}
 				<button
 					type="button"
+					role="switch"
+					aria-checked={form.debeCambiarPassword}
 					class="w-full flex items-center justify-between gap-3 rounded-xl border border-border bg-alt-row/50 px-4 py-3 text-left transition-colors hover:border-primary/40"
 					onclick={() => (form.debeCambiarPassword = !form.debeCambiarPassword)}
 				>

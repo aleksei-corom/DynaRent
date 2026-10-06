@@ -421,6 +421,7 @@
 						<button
 							class="p-2 rounded-lg text-text-secondary hover:text-primary hover:bg-primary/10 transition-colors"
 							title="Editar"
+							aria-label={`Editar gasto #${g.id} (${g.categoria})`}
 							onclick={() => abrirEditar(g)}
 						>
 							<svg
@@ -441,6 +442,7 @@
 							<button
 								class="p-2 rounded-lg text-text-secondary hover:text-peligro hover:bg-peligro/10 transition-colors"
 								title="Eliminar"
+								aria-label={`Eliminar gasto #${g.id} (${g.categoria})`}
 								onclick={() => {
 									eliminarId = g.id;
 									eliminarDesc = g.descripcion;

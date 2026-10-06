@@ -1197,6 +1197,7 @@
 								class="mb-3 shrink-0 inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold border border-primary text-primary hover:bg-primary hover:text-white transition-colors"
 								onclick={() => (clienteModalOpen = true)}
 								title="Crear nuevo cliente"
+								aria-label="Crear nuevo cliente"
 							>
 								<svg
 									xmlns="http://www.w3.org/2000/svg"

@@ -320,6 +320,7 @@ pub fn run() {
             commands::app::confirmar_cierre,
             commands::app::app_frontend_lista,
             commands::app::app_version,
+            commands::app::app_db_health,
             commands::backup::backup_estado,
             commands::backup::backup_ahora,
             commands::backup::backup_restaurar,

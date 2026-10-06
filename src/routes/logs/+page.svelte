@@ -120,11 +120,17 @@
 		</div>
 
 		<!-- Tabs -->
-		<div class="flex gap-1 mb-4 border-b border-border">
+		<div
+			class="flex gap-1 mb-4 border-b border-border"
+			role="tablist"
+			aria-label="Tipo de registros"
+		>
 			<button
 				class="px-4 py-2 text-sm font-medium transition-colors {tab === 'backend'
 					? 'text-primary border-b-2 border-primary'
 					: 'text-text-secondary hover:text-text-primary'}"
+				role="tab"
+				aria-selected={tab === 'backend'}
 				onclick={() => (tab = 'backend')}
 			>
 				🔧 Backend ({logsBackend.split('\n').length} líneas)
@@ -133,6 +139,8 @@
 				class="px-4 py-2 text-sm font-medium transition-colors {tab === 'frontend'
 					? 'text-primary border-b-2 border-primary'
 					: 'text-text-secondary hover:text-text-primary'}"
+				role="tab"
+				aria-selected={tab === 'frontend'}
 				onclick={() => (tab = 'frontend')}
 			>
 				🌐 Frontend ({logsFrontend.split('\n').length} líneas)

@@ -50,20 +50,29 @@
 	const darkMode = $derived(tema === 'dark' || (tema === 'auto' && sistemaOscuro));
 
 	// ── Guard de sesión (validación centralizada en guards.ts) ──
-	onMount(async () => {
-		await validarSesion();
-		checking = false;
-		ready = true;
-		// Branding de la empresa (nombre + logo) para el menú lateral;
-		// best-effort: ante error se conserva el fallback estático.
-		void empresa.cargarPublica();
-		// Versión real del binario instalado (sidebar / login / Acerca de).
-		void appInfo.cargarVersion();
-		// Estado del setup inicial: si el admin aún no configuró la empresa,
-		// el $effect de abajo lo lleva a /empresa (SetUp Inicial).
-		if (session.isAuthenticated && session.token) {
-			void empresa.cargarSetup(session.token);
-		}
+	onMount(() => {
+		let stopDbMonitor: (() => void) | undefined;
+		(async () => {
+			await validarSesion();
+			checking = false;
+			ready = true;
+			// Branding de la empresa (nombre + logo) para el menú lateral;
+			// best-effort: ante error se conserva el fallback estático.
+			void empresa.cargarPublica();
+			// Versión real del binario instalado (sidebar / login / Acerca de).
+			void appInfo.cargarVersion();
+			// Monitoreo proactivo de salud de base de datos Firebird (heartbeat)
+			stopDbMonitor = appInfo.iniciarMonitoreoDb();
+			// Estado del setup inicial: si el admin aún no configuró la empresa,
+			// el $effect de abajo lo lleva a /empresa (SetUp Inicial).
+			if (session.isAuthenticated && session.token) {
+				void empresa.cargarSetup(session.token);
+			}
+		})();
+
+		return () => {
+			stopDbMonitor?.();
+		};
 	});
 
 	// ── Setup inicial ──
@@ -486,6 +495,36 @@
 					{pageTitle(current)}
 				</h1>
 				<div class="flex-1"></div>
+
+				<!-- Telemetría y estado de conexión Firebird -->
+				{#if !appInfo.dbOk}
+					<div
+						class="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-peligro/10 border border-peligro/30 text-peligro text-xs font-semibold animate-pulse"
+						role="alert"
+						title={appInfo.dbMensaje || 'Sin conexión a Firebird'}
+					>
+						<span class="w-2 h-2 rounded-full bg-peligro"></span>
+						<span class="hidden sm:inline">BD Desconectada</span>
+						<button
+							onclick={() => appInfo.verificarDb()}
+							class="text-[11px] underline hover:text-peligro/80 transition-colors ml-1 font-bold"
+							title="Reintentar conexión con Firebird"
+							aria-label="Reintentar conexión con base de datos"
+							disabled={appInfo.dbVerificando}
+						>
+							{appInfo.dbVerificando ? 'Reintentando…' : 'Reconectar'}
+						</button>
+					</div>
+				{:else}
+					<div
+						class="hidden lg:flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium text-text-secondary/70 hover:text-text-primary transition-colors cursor-default"
+						title={appInfo.dbMensaje || 'Firebird conectado'}
+					>
+						<span class="w-1.5 h-1.5 rounded-full bg-exito"></span>
+						<span class="hidden xl:inline text-[10px]">Firebird</span>
+					</div>
+				{/if}
+
 				<button
 					onclick={() => (paletaOpen = true)}
 					class="hidden sm:flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-text-secondary hover:bg-alt-row hover:text-text-primary transition-colors border border-border/60"
@@ -519,6 +558,44 @@
 					>{session.user?.rol}</span
 				>
 			</header>
+
+			<!-- Banner de contingencia si se pierde la conexión a Firebird -->
+			{#if !appInfo.dbOk}
+				<div
+					class="bg-peligro/15 border-b border-peligro/30 px-4 py-2 flex items-center justify-between text-xs text-peligro font-medium shrink-0"
+					role="status"
+					aria-live="polite"
+				>
+					<div class="flex items-center gap-2">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="w-4 h-4 shrink-0"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+							/>
+						</svg>
+						<span
+							><strong>Aviso de Base de Datos:</strong>
+							{appInfo.dbMensaje ||
+								'Sin conexión a Firebird. Reintentando reconectar en segundo plano.'}</span
+						>
+					</div>
+					<button
+						onclick={() => appInfo.verificarDb()}
+						class="btn-outline !py-0.5 !px-2.5 text-xs border-peligro/50 text-peligro hover:bg-peligro/10"
+						disabled={appInfo.dbVerificando}
+					>
+						{appInfo.dbVerificando ? 'Reconectando…' : 'Reconectar ahora'}
+					</button>
+				</div>
+			{/if}
 
 			<!-- Vista actual -->
 			<main class="flex-1 overflow-y-auto p-6">
