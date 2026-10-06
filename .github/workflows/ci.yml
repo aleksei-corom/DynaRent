@@ -52,10 +52,12 @@ jobs:
           bun-version: latest
 
       - name: Regenerar bun.lock
-        # bun install (sin --no-save) para que actualice bun.lock con el nuevo package.json
-        run: bun install
+        # bun install (sin scripts para no activar husky en el runner de linux)
+        run: bun install --ignore-scripts
 
       - name: Commit si cambió
+        env:
+          HUSKY: "0"
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -63,7 +65,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "bun.lock ya estaba sincronizado — nada que commitear"
           else
-            git commit -m "chore: sync bun.lock con package.json (Dependabot)"
+            git commit --no-verify -m "chore: sync bun.lock con package.json (Dependabot)"
             git push || echo "WARN: No se pudo pushear bun.lock al PR"
             echo "bun.lock actualizado y pusheado al PR"
           fi

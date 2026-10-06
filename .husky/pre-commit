@@ -9,6 +9,10 @@
 # Nota: NO formateamos automáticamente (podría alterar ficheros que el
 # desarrollador no quiera commitear aún). `lint:fix` sí arregla, pero lo
 # deja en el staging area para revisión manual.
+# En entornos CI, las pruebas y clippy corren en sus propios jobs dedicados.
+if [ "$CI" = "true" ] || [ "$HUSKY" = "0" ]; then
+  exit 0
+fi
 
 bun run lint || npm run lint
 cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
