@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { autoApi, comparendoApi, rentaApi, ApiError, type Auto } from '$lib/api';
-	import { sid } from '$lib/stores/session.svelte';
-	import { toast } from '$lib/stores/toast.svelte';
-	import { formatCOP, formatContrato, formatDate } from '$lib/utils/format';
-	import { guardSesion } from '$lib/utils/guards';
-	import { construirTimelineVehiculo, type TimelineVehiculo } from '$lib/utils/timelineVehiculo';
+	import { autoApi, comparendoApi, rentaApi, ApiError, type Auto } from '#lib/api.js';
+	import { sid } from '#lib/stores/session.svelte.js';
+	import { toast } from '#lib/stores/toast.svelte.js';
+	import { formatCOP, formatContrato, formatDate } from '#lib/utils/format.js';
+	import { guardSesion } from '#lib/utils/guards.js';
+	import { construirTimelineVehiculo, type TimelineVehiculo } from '#lib/utils/timelineVehiculo.js';
 
 	const placa = $derived(String(page.params.placa ?? '').toUpperCase());
 
@@ -153,7 +153,7 @@
 				</div>
 			{:else}
 				<ol class="relative border-l-2 border-primary/20 ml-3 pl-6 space-y-5">
-					{#each timeline.eventos as ev}
+					{#each timeline.eventos as ev (ev.tipo === 'renta' ? ev.renta.renta.id : ev.multa.comparendo.id)}
 						<li class="relative">
 							<span
 								class="absolute -left-[35px] top-4 w-3 h-3 rounded-full border-2 border-surface {ev.tipo ===
@@ -215,7 +215,7 @@
 												{r.multas.length} multa{r.multas.length === 1 ? '' : 's'} dentro de esta renta
 											</p>
 											<div class="mt-1.5 flex flex-wrap gap-1.5">
-												{#each r.multas as m}
+												{#each r.multas as m (m.id)}
 													<span
 														class="inline-flex items-center gap-1 rounded-full border border-alerta/25 bg-alerta/10 px-2.5 py-0.5 text-[11px] font-semibold text-alerta whitespace-nowrap"
 													>

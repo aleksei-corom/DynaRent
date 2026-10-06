@@ -6,14 +6,14 @@
 		type InformeMensual,
 		type UtilidadVehiculo,
 		type BusinessLists
-	} from '$lib/api';
-	import { session } from '$lib/stores/session.svelte';
-	import { toast } from '$lib/stores/toast.svelte';
-	import { formatCOP, formatDate, formatLocalDateISO } from '$lib/utils/format';
-	import { guardRole, guardSesion, haySesion, tieneRol } from '$lib/utils/guards';
-	import { construirLibroInforme } from '$lib/utils/informeExcel';
-	import { empresa } from '$lib/stores/empresa.svelte';
-	import { imprimirDocumento } from '$lib/utils/imprimir';
+	} from '#lib/api.js';
+	import { session } from '#lib/stores/session.svelte.js';
+	import { toast } from '#lib/stores/toast.svelte.js';
+	import { formatCOP, formatDate, formatLocalDateISO } from '#lib/utils/format.js';
+	import { guardRole, guardSesion, haySesion, tieneRol } from '#lib/utils/guards.js';
+	import { construirLibroInforme } from '#lib/utils/informeExcel.js';
+	import { empresa } from '#lib/stores/empresa.svelte.js';
+	import { imprimirDocumento } from '#lib/utils/imprimir.js';
 
 	const sid = () => session.token ?? '';
 
@@ -289,7 +289,7 @@
 						</p>
 					{:else}
 						<div class="space-y-2">
-							{#each informe.gastosPorCategoria as [categoria, total]}
+							{#each informe.gastosPorCategoria as [categoria, total] (categoria)}
 								{@const pct = Math.min(
 									100,
 									(parseFloat(total) / Math.max(1e-9, parseFloat(informe.egresosGastos))) * 100
@@ -336,7 +336,7 @@
 									</tr>
 								</thead>
 								<tbody class="divide-y divide-border/60">
-									{#each informe.rentas as r}
+									{#each informe.rentas as r (r.id)}
 										<tr class="hover:bg-alt-row/50 transition-colors">
 											<td class="py-2 pr-3 font-bold text-primary tabular-nums"
 												>#{String(r.id).padStart(4, '0')}</td
@@ -419,7 +419,7 @@
 								</tr>
 							</thead>
 							<tbody class="divide-y divide-border/60">
-								{#each informe.utilidadPorVehiculo as v}
+								{#each informe.utilidadPorVehiculo as v (v.placa)}
 									{@const util = parseFloat(v.utilidad) || 0}
 									{@const ancho =
 										maxUtilidad > 0 ? Math.min(100, (Math.abs(util) / maxUtilidad) * 100) : 0}

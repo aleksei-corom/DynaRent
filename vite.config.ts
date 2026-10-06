@@ -1,10 +1,18 @@
+import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 import tailwindcss from '@tailwindcss/vite';
 
 // https://vite.dev/config/
 export default defineConfig({
-	plugins: [tailwindcss(), sveltekit()],
+	plugins: [
+		tailwindcss(),
+		sveltekit({
+			// SPA mode: Tauri sirve la app como archivos estáticos
+			adapter: adapter({ fallback: 'index.html' }),
+			prerender: { entries: [] }
+		})
+	],
 	clearScreen: false,
 	// Defense-in-depth: never emit source maps in any build (dev or prod).
 	// Vite defaults to false in prod, but setting it explicitly prevents a

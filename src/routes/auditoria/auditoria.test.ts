@@ -3,8 +3,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
 import { tauri } from '../../test/tauri';
 import { goto } from '$app/navigation';
-import { session } from '$lib/stores/session.svelte';
-import type { AuditoriaEvento, AuditoriaResultado } from '$lib/api';
+import { session } from '#lib/stores/session.svelte.js';
+import type { AuditoriaEvento, AuditoriaResultado } from '#lib/api.js';
 import AuditoriaPage from './+page.svelte';
 
 function evento(overrides: Partial<AuditoriaEvento> = {}): AuditoriaEvento {
@@ -161,7 +161,7 @@ describe('página de Auditoría', () => {
 
 			render(AuditoriaPage);
 
-			await waitFor(() => expect(goto).toHaveBeenCalledWith('/dashboard', { replaceState: true }));
+			await waitFor(() => expect(goto).toHaveBeenCalledWith('/dashboard', { replace: true }));
 			// El no-admin no debe disparar NINGUNA llamada a la API
 			expect(listar).not.toHaveBeenCalled();
 		});
@@ -172,7 +172,7 @@ describe('página de Auditoría', () => {
 
 			render(AuditoriaPage);
 
-			await waitFor(() => expect(goto).toHaveBeenCalledWith('/dashboard', { replaceState: true }));
+			await waitFor(() => expect(goto).toHaveBeenCalledWith('/dashboard', { replace: true }));
 		});
 
 		it('redirige a /login sin sesión (guard de sesión antes que el de rol)', async () => {
@@ -182,7 +182,7 @@ describe('página de Auditoría', () => {
 
 			render(AuditoriaPage);
 
-			await waitFor(() => expect(goto).toHaveBeenCalledWith('/login', { replaceState: true }));
+			await waitFor(() => expect(goto).toHaveBeenCalledWith('/login', { replace: true }));
 			expect(listar).not.toHaveBeenCalled();
 		});
 	});

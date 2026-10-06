@@ -9,7 +9,7 @@
 //
 // Patrón de uso en una ruta:
 //
-//   import { businessLists } from '$lib/stores/business.svelte';
+//   import { businessLists } from '#lib/stores/business.svelte.js';
 //
 //   onMount(async () => {
 //       // Carga las listas si no están en cache (o si expiró el TTL).
@@ -26,7 +26,7 @@
 // `businessLists.invalidate()` para que la próxima lectura vuelva a consultar
 // el backend.
 
-import { businessApi, type BusinessLists } from '$lib/api';
+import { businessApi, type BusinessLists } from '#lib/api.js';
 
 /** TTL por defecto: 5 minutos (300_000 ms). */
 const DEFAULT_TTL_MS = 5 * 60 * 1000;

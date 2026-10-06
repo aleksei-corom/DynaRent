@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
-	import { toasts, dismiss, type ToastType } from '$lib/stores/toast.svelte';
+	import { toasts, dismiss, type ToastType } from '#lib/stores/toast.svelte.js';
 
 	// Los toasts se insertan siempre tras el mount, así que basta con leer la
 	// preferencia una vez (respeta prefers-reduced-motion).

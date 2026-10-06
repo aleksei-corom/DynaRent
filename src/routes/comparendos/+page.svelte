@@ -16,21 +16,21 @@
 		type ResultadoSincronizacion,
 		type EventoProgresoSimit,
 		type EventoLogSimit
-	} from '$lib/api';
-	import { session } from '$lib/stores/session.svelte';
-	import { empresa } from '$lib/stores/empresa.svelte';
-	import { toast } from '$lib/stores/toast.svelte';
-	import { formatCOP, formatContrato, formatDate, formatLocalDateISO } from '$lib/utils/format';
-	import { guardSesion, haySesion } from '$lib/utils/guards';
-	import DataTable from '$lib/components/DataTable.svelte';
-	import Modal from '$lib/components/Modal.svelte';
-	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
-	import SearchSelect, { type SearchSelectOpcion } from '$lib/components/SearchSelect.svelte';
-	import FormField from '$lib/components/FormField.svelte';
-	import OrdenComparendo from '$lib/components/reports/OrdenComparendo.svelte';
-	import AvisoImpresion from '$lib/components/AvisoImpresion.svelte';
-	import Icon from '$lib/components/Icon.svelte';
-	import { imprimirDocumento } from '$lib/utils/imprimir';
+	} from '#lib/api.js';
+	import { session } from '#lib/stores/session.svelte.js';
+	import { empresa } from '#lib/stores/empresa.svelte.js';
+	import { toast } from '#lib/stores/toast.svelte.js';
+	import { formatCOP, formatContrato, formatDate, formatLocalDateISO } from '#lib/utils/format.js';
+	import { guardSesion, haySesion } from '#lib/utils/guards.js';
+	import DataTable from '#lib/components/DataTable.svelte';
+	import Modal from '#lib/components/Modal.svelte';
+	import ConfirmDialog from '#lib/components/ConfirmDialog.svelte';
+	import SearchSelect, { type SearchSelectOpcion } from '#lib/components/SearchSelect.svelte';
+	import FormField from '#lib/components/FormField.svelte';
+	import OrdenComparendo from '#lib/components/reports/OrdenComparendo.svelte';
+	import AvisoImpresion from '#lib/components/AvisoImpresion.svelte';
+	import Icon from '#lib/components/Icon.svelte';
+	import { imprimirDocumento } from '#lib/utils/imprimir.js';
 
 	const sid = () => session.token ?? '';
 
@@ -813,7 +813,7 @@
 							</button>
 						</div>
 						<div class="max-h-48 overflow-y-auto bg-gray-900 p-2 font-mono text-[11px] space-y-0.5">
-							{#each logs as log}
+							{#each logs as log (log.timestamp + log.message)}
 								<div class="flex items-start gap-2">
 									<span class="text-gray-500 shrink-0">{log.timestamp}</span>
 									<span
@@ -835,7 +835,7 @@
 					<div
 						class="rounded-lg bg-peligro/10 border border-peligro/25 px-3 py-2 text-[11px] text-peligro max-h-24 overflow-y-auto"
 					>
-						{#each r.errores as e}
+						{#each r.errores as e (e.placa)}
 							<p>• {e.placa}: {e.error}</p>
 						{/each}
 					</div>
@@ -878,7 +878,7 @@
 		</select>
 		<select class="input w-auto" bind:value={placaFiltro} aria-label="Filtrar por placa">
 			<option value="">Todas las placas</option>
-			{#each autos as a}
+			{#each autos as a (a.placa)}
 				<option value={a.placa}>{a.placa} · {a.marca} {a.modelo}</option>
 			{/each}
 		</select>
@@ -1063,51 +1063,49 @@
 	onClose={() => (modalOpen = false)}
 	width="max-w-2xl"
 >
-	{#snippet children()}
-		{#if formError}
-			<div
-				class="mb-4 rounded-lg bg-peligro/10 border border-peligro/30 px-3 py-2.5 text-sm text-peligro"
-				role="alert"
-			>
-				{formError}
-			</div>
-		{/if}
-
-		<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
-			<SearchSelect
-				label="Placa"
-				required
-				value={form.placa}
-				opciones={opcionesAutos}
-				onchange={(v) => (form.placa = v)}
-				placeholder="Buscar placa, marca o modelo…"
-				vacioLabel="— Seleccionar vehículo —"
-			/>
-			<FormField label="Monto (COP)" required>
-				<input class="input" inputmode="decimal" placeholder="Ej: 580000" bind:value={form.monto} />
-			</FormField>
-			<FormField label="Fecha de la infracción" required>
-				<input class="input" type="date" bind:value={form.fechaInfraccion} />
-			</FormField>
-			<FormField label="Hora de la infracción" required>
-				<input class="input" type="time" placeholder="HH:MM" bind:value={form.horaInfraccion} />
-			</FormField>
-			<FormField label="Estado">
-				<select class="input" bind:value={form.estado}>
-					<option value="Pendiente">Pendiente</option>
-					<option value="Pagado">Pagado</option>
-				</select>
-			</FormField>
-			<FormField label="Observaciones">
-				<input
-					class="input"
-					placeholder="Ej: Exceso de velocidad, foto-detección..."
-					bind:value={form.observaciones}
-					maxlength="2000"
-				/>
-			</FormField>
+	{#if formError}
+		<div
+			class="mb-4 rounded-lg bg-peligro/10 border border-peligro/30 px-3 py-2.5 text-sm text-peligro"
+			role="alert"
+		>
+			{formError}
 		</div>
-	{/snippet}
+	{/if}
+
+	<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+		<SearchSelect
+			label="Placa"
+			required
+			value={form.placa}
+			opciones={opcionesAutos}
+			onchange={(v) => (form.placa = v)}
+			placeholder="Buscar placa, marca o modelo…"
+			vacioLabel="— Seleccionar vehículo —"
+		/>
+		<FormField label="Monto (COP)" required>
+			<input class="input" inputmode="decimal" placeholder="Ej: 580000" bind:value={form.monto} />
+		</FormField>
+		<FormField label="Fecha de la infracción" required>
+			<input class="input" type="date" bind:value={form.fechaInfraccion} />
+		</FormField>
+		<FormField label="Hora de la infracción" required>
+			<input class="input" type="time" placeholder="HH:MM" bind:value={form.horaInfraccion} />
+		</FormField>
+		<FormField label="Estado">
+			<select class="input" bind:value={form.estado}>
+				<option value="Pendiente">Pendiente</option>
+				<option value="Pagado">Pagado</option>
+			</select>
+		</FormField>
+		<FormField label="Observaciones">
+			<input
+				class="input"
+				placeholder="Ej: Exceso de velocidad, foto-detección..."
+				bind:value={form.observaciones}
+				maxlength="2000"
+			/>
+		</FormField>
+	</div>
 
 	{#snippet footer()}
 		<button class="btn-ghost" onclick={() => (modalOpen = false)} disabled={guardando}
@@ -1167,12 +1165,10 @@
 	onClose={cerrarImpresion}
 	width="max-w-3xl"
 >
-	{#snippet children()}
-		{#if imprimirComparendo}
-			<AvisoImpresion />
-			<OrdenComparendo comparendo={imprimirComparendo} />
-		{/if}
-	{/snippet}
+	{#if imprimirComparendo}
+		<AvisoImpresion />
+		<OrdenComparendo comparendo={imprimirComparendo} />
+	{/if}
 
 	{#snippet footer()}
 		<button class="btn-ghost print-hidden" onclick={cerrarImpresion}>Cerrar</button>

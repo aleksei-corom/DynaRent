@@ -7,9 +7,9 @@
 // se conserva el branding estático por defecto (fallbacks ajustables por marca:
 // el clon comercial usa DynaRent).
 
-import { empresaApi, setupApi, type EmpresaConfig } from '$lib/api';
-import { codigoPais } from '$lib/utils/geografia';
-import { setCurrency } from '$lib/utils/format';
+import { empresaApi, setupApi, type EmpresaConfig } from '#lib/api.js';
+import { codigoPais } from '#lib/utils/geografia.js';
+import { setCurrency } from '#lib/utils/format.js';
 
 /** Branding por defecto cuando la empresa aún no configuró nada. */
 export const FALLBACK_NOMBRE = 'DynaRent';

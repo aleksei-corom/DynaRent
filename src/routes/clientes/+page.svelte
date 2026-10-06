@@ -1,24 +1,25 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { SvelteDate } from 'svelte/reactivity';
 	import {
 		clienteApi,
 		ApiError,
 		type Cliente,
 		type ClienteConPii,
 		type BusinessLists
-	} from '$lib/api';
-	import { sid, session } from '$lib/stores/session.svelte';
-	import { businessLists } from '$lib/stores/business.svelte';
-	import { toast } from '$lib/stores/toast.svelte';
-	import { formatDate } from '$lib/utils/format';
-	import { guardSesion, haySesion, tieneRol } from '$lib/utils/guards';
-	import DataTable from '$lib/components/DataTable.svelte';
-	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
-	import StatusBadge from '$lib/components/StatusBadge.svelte';
-	import PiiKeyDialog from '$lib/components/PiiKeyDialog.svelte';
-	import Icon from '$lib/components/Icon.svelte';
-	import ClienteFormModal from '$lib/components/ClienteFormModal.svelte';
-	import { useDebouncedEffect } from '$lib/utils/debounce.svelte';
+	} from '#lib/api.js';
+	import { sid, session } from '#lib/stores/session.svelte.js';
+	import { businessLists } from '#lib/stores/business.svelte.js';
+	import { toast } from '#lib/stores/toast.svelte.js';
+	import { formatDate } from '#lib/utils/format.js';
+	import { guardSesion, haySesion, tieneRol } from '#lib/utils/guards.js';
+	import DataTable from '#lib/components/DataTable.svelte';
+	import ConfirmDialog from '#lib/components/ConfirmDialog.svelte';
+	import StatusBadge from '#lib/components/StatusBadge.svelte';
+	import PiiKeyDialog from '#lib/components/PiiKeyDialog.svelte';
+	import Icon from '#lib/components/Icon.svelte';
+	import ClienteFormModal from '#lib/components/ClienteFormModal.svelte';
+	import { useDebouncedEffect } from '#lib/utils/debounce.svelte.js';
 
 	// sid() viene del store (reemplaza `const sid = () => session.token ?? ''`). Ver TAREA E3.
 
@@ -123,7 +124,7 @@
 	function licenciaVence(fecha: string | null): string {
 		if (!fecha) return '—';
 		const d = new Date(fecha + 'T00:00:00');
-		const hoy = new Date();
+		const hoy = new SvelteDate();
 		hoy.setHours(0, 0, 0, 0);
 		const dias = Math.round((d.getTime() - hoy.getTime()) / 86_400_000);
 		if (dias < 0) return `${formatDate(fecha)} · vencida`;
@@ -199,7 +200,7 @@
 		</div>
 		<select class="input w-auto" bind:value={estadoFiltro} aria-label="Filtrar por estado">
 			<option value="">Todos los estados</option>
-			{#each lists?.estadosCliente ?? ['Activo', 'Inactivo', 'Lista Negra', 'VIP'] as est}
+			{#each lists?.estadosCliente ?? ['Activo', 'Inactivo', 'Lista Negra', 'VIP'] as est (est)}
 				<option value={est}>{est}</option>
 			{/each}
 		</select>

@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { ApiError, empresaApi, type EmpresaConfig } from '$lib/api';
-	import { toast } from '$lib/stores/toast.svelte';
-	import { empresa } from '$lib/stores/empresa.svelte';
-	import { sid } from '$lib/stores/session.svelte';
-	import { guardRole, guardSesion, haySesion } from '$lib/utils/guards';
-	import FormField from '$lib/components/FormField.svelte';
-	import { PAISES_BASE } from '$lib/utils/geografia';
-	import { MONEDAS, monedaPorPais } from '$lib/utils/monedas';
+	import { ApiError, empresaApi, type EmpresaConfig } from '#lib/api.js';
+	import { toast } from '#lib/stores/toast.svelte.js';
+	import { empresa } from '#lib/stores/empresa.svelte.js';
+	import { sid } from '#lib/stores/session.svelte.js';
+	import { guardRole, guardSesion, haySesion } from '#lib/utils/guards.js';
+	import FormField from '#lib/components/FormField.svelte';
+	import { PAISES_BASE } from '#lib/utils/geografia.js';
+	import { MONEDAS, monedaPorPais } from '#lib/utils/monedas.js';
 
 	let cargando = $state(true);
 	let guardando = $state(false);
@@ -295,14 +295,14 @@
 				<FormField label="País">
 					<select class="input" bind:value={form.pais} onchange={onPaisChange}>
 						<option value="">— Seleccionar —</option>
-						{#each PAISES_BASE as p}
+						{#each PAISES_BASE as p (p)}
 							<option value={p}>{p}</option>
 						{/each}
 					</select>
 				</FormField>
 				<FormField label="Moneda" hint="ISO 4217">
 					<select class="input" bind:value={form.moneda}>
-						{#each MONEDAS as m}
+						{#each MONEDAS as m (m.code)}
 							<option value={m.code}>{m.code} — {m.symbol} ({m.paises[0]})</option>
 						{/each}
 					</select>

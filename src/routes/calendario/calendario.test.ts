@@ -2,8 +2,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
 import { tauri } from '../../test/tauri';
-import { session } from '$lib/stores/session.svelte';
-import type { Renta, Reserva } from '$lib/api';
+import { session } from '#lib/stores/session.svelte.js';
+import type { Renta, Reserva } from '#lib/api.js';
 import CalendarioPage from './+page.svelte';
 
 function setSesion() {

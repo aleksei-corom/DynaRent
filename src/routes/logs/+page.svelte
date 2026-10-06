@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { logApi, ApiError } from '$lib/api';
-	import { sid } from '$lib/stores/session.svelte';
-	import { toast } from '$lib/stores/toast.svelte';
-	import { formatLocalDateISO } from '$lib/utils/format';
-	import { guardSesion, tieneRol } from '$lib/utils/guards';
+	import { logApi, ApiError } from '#lib/api.js';
+	import { sid } from '#lib/stores/session.svelte.js';
+	import { toast } from '#lib/stores/toast.svelte.js';
+	import { formatLocalDateISO } from '#lib/utils/format.js';
+	import { guardSesion, tieneRol } from '#lib/utils/guards.js';
 	import { goto } from '$app/navigation';
 
 	// Solo admin

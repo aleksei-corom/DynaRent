@@ -1,7 +1,7 @@
 <script lang="ts">
-	import Modal from '$lib/components/Modal.svelte';
-	import FormField from '$lib/components/FormField.svelte';
-	import type { Auto } from '$lib/api';
+	import Modal from '#lib/components/Modal.svelte';
+	import FormField from '#lib/components/FormField.svelte';
+	import type { Auto } from '#lib/api.js';
 
 	interface Props {
 		open: boolean;
@@ -33,35 +33,33 @@
 	{onClose}
 	width="max-w-md"
 >
-	{#snippet children()}
-		{#if error}
-			<div
-				class="mb-4 rounded-lg bg-peligro/10 border border-peligro/30 px-3 py-2.5 text-sm text-peligro"
-				role="alert"
-			>
-				{error}
-			</div>
-		{/if}
-		<FormField
-			label="Vehículo nuevo"
-			required
-			hint="Solo se listan autos disponibles (más el actual)."
+	{#if error}
+		<div
+			class="mb-4 rounded-lg bg-peligro/10 border border-peligro/30 px-3 py-2.5 text-sm text-peligro"
+			role="alert"
 		>
-			<select class="input" bind:value={placaSeleccionada}>
-				<option value="">— Seleccionar —</option>
-				{#each autosParaCambio as a}
-					<option value={a.placa}
-						>{a.placa} · {a.marca} {a.modelo}{a.estado === 'Disponible' ? '' : ' (actual)'}</option
-					>
-				{/each}
-			</select>
-		</FormField>
-		{#if autosParaCambio.length === 0}
-			<p class="text-xs text-alerta">
-				No hay autos disponibles para el cambio. Libera uno desde la sección Autos.
-			</p>
-		{/if}
-	{/snippet}
+			{error}
+		</div>
+	{/if}
+	<FormField
+		label="Vehículo nuevo"
+		required
+		hint="Solo se listan autos disponibles (más el actual)."
+	>
+		<select class="input" bind:value={placaSeleccionada}>
+			<option value="">— Seleccionar —</option>
+			{#each autosParaCambio as a (a.placa)}
+				<option value={a.placa}
+					>{a.placa} · {a.marca} {a.modelo}{a.estado === 'Disponible' ? '' : ' (actual)'}</option
+				>
+			{/each}
+		</select>
+	</FormField>
+	{#if autosParaCambio.length === 0}
+		<p class="text-xs text-alerta">
+			No hay autos disponibles para el cambio. Libera uno desde la sección Autos.
+		</p>
+	{/if}
 
 	{#snippet footer()}
 		<button class="btn-ghost" onclick={onClose} disabled={guardando}>Cancelar</button>

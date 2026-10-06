@@ -654,7 +654,7 @@ y `IntoParams` para tuplas de **≤15**. Cualquier SELECT largo debe partirse en
 - **ts-rs** (`Cargo.toml`): genera tipos TypeScript en `src/lib/types/generated/` a partir de
   `#[derive(TS)]` en structs Rust. Los tipos generados (`Renta`, `Pago`, `Inspeccion`,
   `RentaDatos`) se actualizan con `cargo test`. El frontend puede importarlos con
-  `import type { Pago } from '$lib/types/generated/Pago'`.
+  `import type { Pago } from '#lib/types/generated/Pago'`.
 - **domain/ scaffold** (`src-tauri/src/domain/`): documentación de la futura migración a value
   objects (Dinero, Placa, RangoFechas). No hay código de producción — solo guía para
   migración incremental (Fases 1-4 documentadas en `domain/README.md`).

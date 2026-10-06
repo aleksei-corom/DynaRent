@@ -9,7 +9,7 @@
 // `filasInformeExcel` (pura) y `construirLibroInforme` mantienen su contrato
 // (esta última ahora devuelve un `ExcelJS.Workbook` en lugar de `XLSX.WorkBook`).
 import ExcelJS from 'exceljs';
-import type { InformeMensual } from '$lib/api';
+import type { InformeMensual } from '#lib/api.js';
 
 /** Formato numérico de moneda aplicado a las celdas de dinero */
 const FORMATO_MONTO = '#,##0';

@@ -3,10 +3,10 @@
 	// Texto legal tomado de Contrato_Dinamo.docx (fuente de verdad). Se imprime en
 	// papel Carta / Letter (ver @page y .contrato-carta en app.css).
 	import { onMount } from 'svelte';
-	import type { Renta, Cliente, Auto } from '$lib/api';
-	import { formatCOP, formatContrato, formatDate } from '$lib/utils/format';
-	import { empresa } from '$lib/stores/empresa.svelte';
-	import { sid } from '$lib/stores/session.svelte';
+	import type { Renta, Cliente, Auto } from '#lib/api.js';
+	import { formatCOP, formatContrato, formatDate } from '#lib/utils/format.js';
+	import { empresa } from '#lib/stores/empresa.svelte.js';
+	import { sid } from '#lib/stores/session.svelte.js';
 
 	// Datos + logo de la empresa (setup inicial); fallback estático si no hay config.
 	onMount(() => {

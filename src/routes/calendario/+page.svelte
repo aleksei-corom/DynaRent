@@ -1,19 +1,19 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { rentaApi, reservaApi, type Renta, type Reserva } from '$lib/api';
-	import { sid } from '$lib/stores/session.svelte';
-	import { toast } from '$lib/stores/toast.svelte';
-	import { guardSesion } from '$lib/utils/guards';
-	import { formatLocalDateISO } from '$lib/utils/format';
+	import { rentaApi, reservaApi, type Renta, type Reserva } from '#lib/api.js';
+	import { sid } from '#lib/stores/session.svelte.js';
+	import { toast } from '#lib/stores/toast.svelte.js';
+	import { guardSesion } from '#lib/utils/guards.js';
+	import { formatLocalDateISO } from '#lib/utils/format.js';
 	import {
 		celdasDelMes,
 		diasSemanaCorto,
 		detectarSolapamientos,
 		nombreMes,
 		rangoCubreDia
-	} from '$lib/utils/calendario';
-	import Modal from '$lib/components/Modal.svelte';
-	import Icon from '$lib/components/Icon.svelte';
+	} from '#lib/utils/calendario.js';
+	import Modal from '#lib/components/Modal.svelte';
+	import Icon from '#lib/components/Icon.svelte';
 
 	// sid() viene del store (reemplaza `const sid = () => session.token ?? ''`). Ver TAREA E3.
 
@@ -275,7 +275,7 @@
 		<!-- Grid -->
 		<div class="card overflow-hidden">
 			<div class="grid grid-cols-7 border-b border-border">
-				{#each diasSemanaCorto() as d, i}
+				{#each diasSemanaCorto() as d, i (d)}
 					<div
 						class="px-2 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-text-secondary {i >=
 						5
@@ -286,9 +286,9 @@
 					</div>
 				{/each}
 			</div>
-			{#each semanas as semana}
+			{#each semanas as semana, si (si)}
 				<div class="grid grid-cols-7">
-					{#each semana as celda}
+					{#each semana as celda (celda.dia)}
 						{@const nDia = totalDia(celda.dia)}
 						{@const esDiaActual = celda.dia === diaSeleccionado}
 						<button
@@ -320,7 +320,7 @@
 							{#if celda.enMes}
 								{@const { rentas: r, reservas: rs } = itemsDelDia(celda.dia)}
 								<div class="mt-1 space-y-1">
-									{#each r.slice(0, 3) as x}
+									{#each r.slice(0, 3) as x (x.id)}
 										<span
 											class="block truncate rounded border px-1 py-0.5 text-[10px] font-semibold leading-tight {chipClases(
 												'renta',
@@ -331,7 +331,7 @@
 											R{x.id} · {x.nombreCliente.split(' ')[0]}
 										</span>
 									{/each}
-									{#each rs.slice(0, 3) as x}
+									{#each rs.slice(0, 3) as x (x.id)}
 										<span
 											class="block truncate rounded border px-1 py-0.5 text-[10px] font-semibold leading-tight {chipClases(
 												'reserva',
@@ -367,71 +367,69 @@
 	onClose={() => (diaSeleccionado = null)}
 	width="max-w-2xl"
 >
-	{#snippet children()}
-		{#if detalleDia}
-			{#if detalleDia.items.length === 0}
-				<p class="text-sm text-text-secondary py-6 text-center">
-					Sin rentas ni reservas este día. <Icon
-						name="sparkles"
-						class="w-4 h-4 inline-block align-[-2px] text-primary"
-					/>
-				</p>
-			{:else}
-				<div class="space-y-2">
-					{#each detalleDia.items as it}
-						<div
-							class="rounded-xl border p-3.5 flex items-start justify-between gap-3 transition-colors
-							{it.conflicto ? 'border-peligro/40 bg-peligro/5' : 'border-border bg-alt-row/40'}"
-						>
-							<div class="min-w-0">
-								<p class="font-semibold text-text-primary flex items-center gap-2">
-									<span
-										class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide {it.tipo ===
-										'renta'
-											? 'bg-primary/10 text-primary'
-											: 'bg-alerta/10 text-alerta'}"
-									>
-										{it.tipo === 'renta' ? `Renta #${it.id}` : `Reserva #${it.id}`}
-									</span>
-									<span class="truncate">{it.nombre}</span>
-								</p>
-								<p class="text-xs text-text-secondary mt-1 truncate">
-									<span class="font-mono">{it.placa}</span> · {it.vehiculo} · {fmtFecha(
-										it.fechaRecogida
-									)} → {fmtFecha(it.fechaRetorno)}
-								</p>
-								{#if it.conflicto}
-									<p class="text-xs font-semibold text-peligro mt-1">
-										<Icon name="alert" class="w-3.5 h-3.5 inline-block align-[-2px] mr-1" />Vehículo
-										con fechas solapadas con otra renta/reserva
-									</p>
-								{/if}
-							</div>
-							<div class="text-right shrink-0">
-								<p class="font-bold text-text-primary tabular-nums">
-									{Number(it.total) > 0
-										? new Intl.NumberFormat('es-CO', {
-												style: 'currency',
-												currency: 'COP',
-												maximumFractionDigits: 0
-											}).format(Number(it.total))
-										: '—'}
-								</p>
+	{#if detalleDia}
+		{#if detalleDia.items.length === 0}
+			<p class="text-sm text-text-secondary py-6 text-center">
+				Sin rentas ni reservas este día. <Icon
+					name="sparkles"
+					class="w-4 h-4 inline-block align-[-2px] text-primary"
+				/>
+			</p>
+		{:else}
+			<div class="space-y-2">
+				{#each detalleDia.items as it (`${it.tipo}-${it.id}`)}
+					<div
+						class="rounded-xl border p-3.5 flex items-start justify-between gap-3 transition-colors
+						{it.conflicto ? 'border-peligro/40 bg-peligro/5' : 'border-border bg-alt-row/40'}"
+					>
+						<div class="min-w-0">
+							<p class="font-semibold text-text-primary flex items-center gap-2">
 								<span
-									class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold mt-1
-									{it.estado === 'Cancelada'
-										? 'border-peligro/30 text-peligro'
-										: it.estado === 'Cerrada'
-											? 'border-exito/30 text-exito'
-											: 'border-primary/30 text-primary'}"
+									class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide {it.tipo ===
+									'renta'
+										? 'bg-primary/10 text-primary'
+										: 'bg-alerta/10 text-alerta'}"
 								>
-									{it.estado}
+									{it.tipo === 'renta' ? `Renta #${it.id}` : `Reserva #${it.id}`}
 								</span>
-							</div>
+								<span class="truncate">{it.nombre}</span>
+							</p>
+							<p class="text-xs text-text-secondary mt-1 truncate">
+								<span class="font-mono">{it.placa}</span> · {it.vehiculo} · {fmtFecha(
+									it.fechaRecogida
+								)} → {fmtFecha(it.fechaRetorno)}
+							</p>
+							{#if it.conflicto}
+								<p class="text-xs font-semibold text-peligro mt-1">
+									<Icon name="alert" class="w-3.5 h-3.5 inline-block align-[-2px] mr-1" />Vehículo
+									con fechas solapadas con otra renta/reserva
+								</p>
+							{/if}
 						</div>
-					{/each}
-				</div>
-			{/if}
+						<div class="text-right shrink-0">
+							<p class="font-bold text-text-primary tabular-nums">
+								{Number(it.total) > 0
+									? new Intl.NumberFormat('es-CO', {
+											style: 'currency',
+											currency: 'COP',
+											maximumFractionDigits: 0
+										}).format(Number(it.total))
+									: '—'}
+							</p>
+							<span
+								class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold mt-1
+								{it.estado === 'Cancelada'
+									? 'border-peligro/30 text-peligro'
+									: it.estado === 'Cerrada'
+										? 'border-exito/30 text-exito'
+										: 'border-primary/30 text-primary'}"
+							>
+								{it.estado}
+							</span>
+						</div>
+					</div>
+				{/each}
+			</div>
 		{/if}
-	{/snippet}
+	{/if}
 </Modal>

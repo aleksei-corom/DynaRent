@@ -5,7 +5,7 @@
 //
 // Patrón: window.onerror + window.onunhandledrejection → logApi.registrar_error
 
-import { logApi } from '$lib/api';
+import { logApi } from '#lib/api.js';
 
 let initialized = false;
 let lastErrorTime = 0;

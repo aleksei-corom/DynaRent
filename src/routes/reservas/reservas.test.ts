@@ -2,9 +2,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/svelte';
 import { tauri } from '../../test/tauri';
-import { session } from '$lib/stores/session.svelte';
+import { session } from '#lib/stores/session.svelte.js';
 import { goto } from '$app/navigation';
-import type { Reserva, Auto, Cliente, BusinessLists } from '$lib/api';
+import type { Reserva, Auto, Cliente, BusinessLists } from '#lib/api.js';
 import ReservasPage from './+page.svelte';
 
 function reserva(overrides: Partial<Reserva> = {}): Reserva {

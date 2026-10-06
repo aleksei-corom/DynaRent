@@ -2,7 +2,7 @@
 // Migrado de `xlsx` a `exceljs` (ver informeExcel.ts).
 import { describe, it, expect } from 'vitest';
 import ExcelJS from 'exceljs';
-import type { InformeMensual } from '$lib/api';
+import type { InformeMensual } from '#lib/api.js';
 import { filasInformeExcel, construirLibroInforme } from './informeExcel';
 
 function informe(overrides: Partial<InformeMensual> = {}): InformeMensual {

@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
 import { tauri } from '../../test/tauri';
 import { goto } from '$app/navigation';
-import { session } from '$lib/stores/session.svelte';
+import { session } from '#lib/stores/session.svelte.js';
 import CambiarPasswordPage from './+page.svelte';
 
 beforeEach(() => {
@@ -67,7 +67,7 @@ describe('formulario de cambio de contraseña', () => {
 		// El layout corrige el flag tras validar contra el backend
 		session.debeCambiarPassword = false;
 
-		await waitFor(() => expect(goto).toHaveBeenCalledWith('/dashboard', { replaceState: true }));
+		await waitFor(() => expect(goto).toHaveBeenCalledWith('/dashboard', { replace: true }));
 	});
 
 	it('redirige a /dashboard al completar el cambio exitoso', async () => {

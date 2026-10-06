@@ -236,7 +236,7 @@
 				>
 					{vacioLabel}
 				</li>
-				{#each filtradas as o, i}
+				{#each filtradas as o, i (o.value)}
 					<li
 						role="option"
 						tabindex="-1"

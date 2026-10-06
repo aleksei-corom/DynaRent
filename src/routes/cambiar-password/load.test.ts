@@ -1,6 +1,6 @@
 // src/routes/cambiar-password/load.test.ts — Tests del guard en el load
 import { describe, it, expect, beforeEach } from 'vitest';
-import { session } from '$lib/stores/session.svelte';
+import { session } from '#lib/stores/session.svelte.js';
 import { load } from './+page';
 
 function setSesion(debeCambiarPassword: boolean) {

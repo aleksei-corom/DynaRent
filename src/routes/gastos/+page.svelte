@@ -10,16 +10,16 @@
 		type TotalesGastos,
 		type Auto,
 		type BusinessLists
-	} from '$lib/api';
-	import { session } from '$lib/stores/session.svelte';
-	import { toast } from '$lib/stores/toast.svelte';
-	import { formatCOP, formatDate, formatLocalDateISO } from '$lib/utils/format';
-	import { guardSesion, haySesion } from '$lib/utils/guards';
-	import DataTable from '$lib/components/DataTable.svelte';
-	import Modal from '$lib/components/Modal.svelte';
-	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
-	import FormField from '$lib/components/FormField.svelte';
-	import SearchSelect, { type SearchSelectOpcion } from '$lib/components/SearchSelect.svelte';
+	} from '#lib/api.js';
+	import { session } from '#lib/stores/session.svelte.js';
+	import { toast } from '#lib/stores/toast.svelte.js';
+	import { formatCOP, formatDate, formatLocalDateISO } from '#lib/utils/format.js';
+	import { guardSesion, haySesion } from '#lib/utils/guards.js';
+	import DataTable from '#lib/components/DataTable.svelte';
+	import Modal from '#lib/components/Modal.svelte';
+	import ConfirmDialog from '#lib/components/ConfirmDialog.svelte';
+	import FormField from '#lib/components/FormField.svelte';
+	import SearchSelect, { type SearchSelectOpcion } from '#lib/components/SearchSelect.svelte';
 
 	const sid = () => session.token ?? '';
 
@@ -289,7 +289,7 @@
 			<p class="text-[11px] font-bold uppercase tracking-wider text-text-secondary">Por placa</p>
 			<div class="mt-1 space-y-1">
 				{#if totales && totales.porPlaca.length > 0}
-					{#each totales.porPlaca.slice(0, 3) as t}
+					{#each totales.porPlaca.slice(0, 3) as t (t.clave)}
 						<div class="flex items-center justify-between text-sm">
 							<span class="font-mono text-xs text-primary font-semibold">{t.clave}</span>
 							<span class="tabular-nums text-text-primary">{formatCOP(t.total, true)}</span>
@@ -306,7 +306,7 @@
 			</p>
 			<div class="mt-1 space-y-1">
 				{#if totales && totales.porCategoria.length > 0}
-					{#each totales.porCategoria.slice(0, 3) as t}
+					{#each totales.porCategoria.slice(0, 3) as t (t.clave)}
 						<div class="flex items-center justify-between text-sm">
 							<span class="text-xs text-text-secondary font-medium">{t.clave}</span>
 							<span class="tabular-nums text-text-primary">{formatCOP(t.total, true)}</span>
@@ -344,13 +344,13 @@
 		</div>
 		<select class="input w-auto" bind:value={placaFiltro} aria-label="Filtrar por placa">
 			<option value="">Todas las placas</option>
-			{#each autos as a}
+			{#each autos as a (a.placa)}
 				<option value={a.placa}>{a.placa}</option>
 			{/each}
 		</select>
 		<select class="input w-auto" bind:value={categoriaFiltro} aria-label="Filtrar por categoría">
 			<option value="">Todas las categorías</option>
-			{#each categorias as c}
+			{#each categorias as c (c)}
 				<option value={c}>{c}</option>
 			{/each}
 		</select>
@@ -480,67 +480,65 @@
 	onClose={() => (modalOpen = false)}
 	width="max-w-lg"
 >
-	{#snippet children()}
-		{#if formError}
-			<div
-				class="mb-4 rounded-lg bg-peligro/10 border border-peligro/30 px-3 py-2.5 text-sm text-peligro"
-				role="alert"
-			>
-				{formError}
-			</div>
-		{/if}
+	{#if formError}
+		<div
+			class="mb-4 rounded-lg bg-peligro/10 border border-peligro/30 px-3 py-2.5 text-sm text-peligro"
+			role="alert"
+		>
+			{formError}
+		</div>
+	{/if}
 
-		<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
-			<FormField label="Fecha" required>
-				<input class="input" type="date" bind:value={form.fecha} />
-			</FormField>
-			<SearchSelect
-				label="Placa"
-				hint="Opcional — gasto general de la empresa."
-				value={form.placa ?? ''}
-				opciones={opcionesAutos}
-				onchange={(v) => (form.placa = v)}
-				placeholder="Buscar placa, marca o modelo…"
-				vacioLabel="Sin vehículo"
+	<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+		<FormField label="Fecha" required>
+			<input class="input" type="date" bind:value={form.fecha} />
+		</FormField>
+		<SearchSelect
+			label="Placa"
+			hint="Opcional — gasto general de la empresa."
+			value={form.placa ?? ''}
+			opciones={opcionesAutos}
+			onchange={(v) => (form.placa = v)}
+			placeholder="Buscar placa, marca o modelo…"
+			vacioLabel="Sin vehículo"
+		/>
+		<FormField label="Categoría" required>
+			<select class="input" bind:value={form.categoria}>
+				<option value="">Selecciona...</option>
+				{#each categorias as c (c)}
+					<option value={c}>{c}</option>
+				{/each}
+			</select>
+		</FormField>
+		<FormField label="Monto (COP)" required>
+			<input
+				class="input tabular-nums"
+				inputmode="decimal"
+				placeholder="Ej: 120000"
+				bind:value={form.monto}
 			/>
-			<FormField label="Categoría" required>
-				<select class="input" bind:value={form.categoria}>
-					<option value="">Selecciona...</option>
-					{#each categorias as c}
-						<option value={c}>{c}</option>
-					{/each}
-				</select>
-			</FormField>
-			<FormField label="Monto (COP)" required>
+		</FormField>
+		<div class="col-span-full">
+			<FormField label="Descripción" required>
 				<input
-					class="input tabular-nums"
-					inputmode="decimal"
-					placeholder="Ej: 120000"
-					bind:value={form.monto}
+					class="input"
+					placeholder="Ej: Cambio de aceite 15W-40"
+					bind:value={form.descripcion}
+					maxlength="200"
 				/>
 			</FormField>
-			<div class="col-span-full">
-				<FormField label="Descripción" required>
-					<input
-						class="input"
-						placeholder="Ej: Cambio de aceite 15W-40"
-						bind:value={form.descripcion}
-						maxlength="200"
-					/>
-				</FormField>
-			</div>
-			<div class="col-span-full">
-				<FormField label="Comprobante" hint="Número de factura, recibo o remisión.">
-					<input
-						class="input"
-						placeholder="Ej: F-000123"
-						bind:value={form.comprobante}
-						maxlength="50"
-					/>
-				</FormField>
-			</div>
 		</div>
-	{/snippet}
+		<div class="col-span-full">
+			<FormField label="Comprobante" hint="Número de factura, recibo o remisión.">
+				<input
+					class="input"
+					placeholder="Ej: F-000123"
+					bind:value={form.comprobante}
+					maxlength="50"
+				/>
+			</FormField>
+		</div>
+	</div>
 
 	{#snippet footer()}
 		<button class="btn-ghost" onclick={() => (modalOpen = false)} disabled={guardando}
