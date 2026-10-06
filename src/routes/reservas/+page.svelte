@@ -444,7 +444,7 @@
 		</div>
 		<div class="flex items-center gap-2.5">
 			<button
-				class="relative inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold border border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary transition-all disabled:opacity-60 cursor-pointer"
+				class="relative inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold border border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary transition-colors duration-150 active:scale-[0.98] disabled:opacity-60 cursor-pointer"
 				onclick={sincronizarConWeb}
 				disabled={sincronizandoWeb}
 				title="Sincronizar reservas pagadas desde la página Web"

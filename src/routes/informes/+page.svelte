@@ -301,7 +301,7 @@
 									</div>
 									<div class="h-2 rounded-full bg-alt-row overflow-hidden">
 										<div
-											class="h-full rounded-full bg-primary/70 transition-all"
+											class="h-full rounded-full bg-primary/70 transition-[width] duration-300 ease-out"
 											style="width: {pct}%"
 										></div>
 									</div>
@@ -446,7 +446,9 @@
 										<td class="py-2.5">
 											<div class="h-2 rounded-full bg-alt-row overflow-hidden">
 												<div
-													class="h-full rounded-full transition-all {barraClases(v)}"
+													class="h-full rounded-full transition-[width] duration-300 ease-out {barraClases(
+														v
+													)}"
 													style="width: {ancho}%"
 													title={formatCOP(v.utilidad)}
 												></div>

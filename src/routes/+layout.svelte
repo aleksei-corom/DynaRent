@@ -314,7 +314,7 @@
 	<div class="flex h-screen overflow-hidden">
 		<!-- Sidebar -->
 		<aside
-			class="bg-primary text-white flex flex-col transition-all duration-300 shrink-0"
+			class="bg-primary text-white flex flex-col transition-[width] duration-300 ease-in-out shrink-0"
 			class:w-64!={sidebarOpen}
 			class:w-16!={!sidebarOpen}
 		>
@@ -349,7 +349,7 @@
 								<a
 									href={item.href}
 									title={item.label}
-									class={'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-150 hover:bg-white/10 ' +
+									class={'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 ' +
 										(current === item.href ? 'bg-white/20 text-white ' : 'text-white/70 ') +
 										(!sidebarOpen ? 'justify-center' : '')}
 								>

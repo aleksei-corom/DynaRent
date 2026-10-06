@@ -607,7 +607,7 @@
 							{#if progreso && progreso.tipo !== 'inicio'}
 								<div class="w-full bg-primary/10 rounded-full h-2 overflow-hidden">
 									<div
-										class="bg-primary h-full transition-all duration-500 ease-out rounded-full"
+										class="bg-primary h-full transition-[width] duration-500 ease-out rounded-full"
 										style="width: {Math.max(
 											2,
 											(progreso.indicePlaca / Math.max(1, progreso.totalPlacas)) * 100

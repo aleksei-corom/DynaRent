@@ -218,7 +218,7 @@
 								<div class="flex-1 h-3 rounded-full bg-alt-row overflow-hidden">
 									<div
 										class="h-full rounded-full {estadoColors[e.estado] ??
-											'bg-primary'} transition-all duration-500"
+											'bg-primary'} transition-[width] duration-500 ease-out"
 										style="width: {Math.max(4, (e.total / maxEstado) * 100)}%"
 									></div>
 								</div>
