@@ -83,6 +83,8 @@ describe('empresa store — prefijo telefónico según país', () => {
 			web: null,
 			ciudad: 'Caracas',
 			pais: 'Venezuela',
+			moneda: null,
+			locale: null,
 			logo: null
 		});
 		expect(empresa.paisMostrar).toBe('Venezuela');

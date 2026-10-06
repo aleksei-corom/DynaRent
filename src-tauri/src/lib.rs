@@ -285,6 +285,14 @@ pub fn run() {
                 }
                 app.handle().plugin(builder.build())?;
             }
+
+            // Asegurar que la ventana principal aplique el icono de la app explícitamente
+            if let Some(icon) = app.default_window_icon() {
+                for (_, window) in app.webview_windows() {
+                    let _ = window.set_icon(icon.clone());
+                }
+            }
+
             Ok(())
         })
         .on_window_event(|window, event| {

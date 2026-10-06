@@ -18,6 +18,8 @@ function config(overrides: Partial<EmpresaConfig> = {}): EmpresaConfig {
 		web: 'www.test.com',
 		ciudad: 'Bogotá',
 		pais: 'Colombia',
+		moneda: 'COP',
+		locale: 'es-CO',
 		logo: null,
 		...overrides
 	};

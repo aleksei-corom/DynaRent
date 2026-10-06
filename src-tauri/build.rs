@@ -1,4 +1,5 @@
 fn main() {
+    println!("cargo:rerun-if-changed=icons/icon.ico");
     tauri_build::build();
 
     // Los binarios de test que enlazan el stack de Tauri (wry/webview2) importan
