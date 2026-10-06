@@ -2,14 +2,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/svelte';
 import { tauri } from '../../test/tauri';
-import { session } from '$lib/stores/session.svelte';
+import { session } from '#lib/stores/session.svelte.js';
 import type {
 	Mantenimiento,
 	MantenimientoDatos,
 	TotalesMantenimiento,
 	Auto,
 	BusinessLists
-} from '$lib/api';
+} from '#lib/api.js';
 import MantenimientoPage from './+page.svelte';
 
 function mantenimiento(overrides: Partial<Mantenimiento> = {}): Mantenimiento {

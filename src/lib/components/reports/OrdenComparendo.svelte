@@ -1,10 +1,10 @@
 <script lang="ts">
 	// OrdenComparendo.svelte — Documento imprimible A4 para Comparendos
 	import { onMount } from 'svelte';
-	import type { Comparendo } from '$lib/api';
-	import { formatCOP, formatContrato, formatDate } from '$lib/utils/format';
-	import { empresa } from '$lib/stores/empresa.svelte';
-	import { sid } from '$lib/stores/session.svelte';
+	import type { Comparendo } from '#lib/api.js';
+	import { formatCOP, formatContrato, formatDate } from '#lib/utils/format.js';
+	import { empresa } from '#lib/stores/empresa.svelte.js';
+	import { sid } from '#lib/stores/session.svelte.js';
 
 	// Datos + logo de la empresa (setup inicial); fallback estático si no hay config.
 	onMount(() => {

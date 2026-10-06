@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { SvelteSet } from 'svelte/reactivity';
 	import FormField from './FormField.svelte';
 
 	interface Props {
@@ -32,7 +33,7 @@
 	// Únicas, ordenadas y garantizando que el valor actual exista (para que el
 	// select siempre refleje el estado aunque el valor venga de otra parte).
 	const lista = $derived.by(() => {
-		const set = new Set<string>();
+		const set = new SvelteSet<string>();
 		for (const o of opciones) {
 			const t = o.trim();
 			if (t) set.add(t);
@@ -102,7 +103,7 @@
 	{:else}
 		<select class="input" {value} onchange={onSelect}>
 			<option value="">{placeholder}</option>
-			{#each lista as o}
+			{#each lista as o (o)}
 				<option value={o}>{o}</option>
 			{/each}
 			<option value="__nuevo__">＋ Agregar nuevo…</option>

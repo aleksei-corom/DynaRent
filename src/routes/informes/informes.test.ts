@@ -3,8 +3,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
 import { tauri } from '../../test/tauri';
 import { goto } from '$app/navigation';
-import { session } from '$lib/stores/session.svelte';
-import type { InformeMensual, BusinessLists } from '$lib/api';
+import { session } from '#lib/stores/session.svelte.js';
+import type { InformeMensual, BusinessLists } from '#lib/api.js';
 import InformesPage from './+page.svelte';
 
 const LISTS: BusinessLists = {
@@ -210,7 +210,7 @@ describe('guard de rol de la página de Informes (roles_con_informes)', () => {
 
 		render(InformesPage);
 
-		await waitFor(() => expect(goto).toHaveBeenCalledWith('/dashboard', { replaceState: true }));
+		await waitFor(() => expect(goto).toHaveBeenCalledWith('/dashboard', { replace: true }));
 		// El Operador no debe disparar NINGUNA llamada al informe
 		expect(mensual).not.toHaveBeenCalled();
 	});
@@ -224,7 +224,7 @@ describe('guard de rol de la página de Informes (roles_con_informes)', () => {
 
 		render(InformesPage);
 
-		await waitFor(() => expect(goto).toHaveBeenCalledWith('/dashboard', { replaceState: true }));
+		await waitFor(() => expect(goto).toHaveBeenCalledWith('/dashboard', { replace: true }));
 		expect(mensual).not.toHaveBeenCalled();
 	});
 

@@ -6,10 +6,10 @@
 	// (@media print) vía .orden-carta; el estilo de aquí es el que se ve en
 	// pantalla (vista previa) y en papel.
 	import { onMount } from 'svelte';
-	import type { Renta } from '$lib/api';
-	import { formatCOP, formatContrato, formatDate } from '$lib/utils/format';
-	import { empresa } from '$lib/stores/empresa.svelte';
-	import { sid } from '$lib/stores/session.svelte';
+	import type { Renta } from '#lib/api.js';
+	import { formatCOP, formatContrato, formatDate } from '#lib/utils/format.js';
+	import { empresa } from '#lib/stores/empresa.svelte.js';
+	import { sid } from '#lib/stores/session.svelte.js';
 
 	// Datos + logo de la empresa (setup inicial); fallback estático si no hay config.
 	onMount(() => {
@@ -203,7 +203,7 @@
 					>
 				</tr>
 			{/if}
-			{#each extras as e}
+			{#each extras as e (e.nombre)}
 				<tr>
 					<td>{e.nombre}</td>
 					<td class="derecha">{formatCOP(e.monto)}</td>
@@ -250,7 +250,7 @@
 				</tr>
 			</thead>
 			<tbody>
-				{#each renta.pagos as p}
+				{#each renta.pagos as p (p.id)}
 					<tr>
 						<td>
 							<span class="pago-concepto">{p.concepto}</span>

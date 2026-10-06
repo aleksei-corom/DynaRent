@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { SvelteDate } from 'svelte/reactivity';
 	import {
 		autoApi,
 		mantenimientoApi,
@@ -9,11 +10,11 @@
 		type AlertaKm,
 		type Renta,
 		type Comparendo
-	} from '$lib/api';
-	import { session } from '$lib/stores/session.svelte';
-	import { formatCOP, formatDate } from '$lib/utils/format';
-	import { guardSesion } from '$lib/utils/guards';
-	import Icon from '$lib/components/Icon.svelte';
+	} from '#lib/api.js';
+	import { session } from '#lib/stores/session.svelte.js';
+	import { formatCOP, formatDate } from '#lib/utils/format.js';
+	import { guardSesion } from '#lib/utils/guards.js';
+	import Icon from '#lib/components/Icon.svelte';
 
 	const sid = () => session.token ?? '';
 
@@ -34,7 +35,7 @@
 		if (!fecha) return null;
 		const d = new Date(fecha + 'T00:00:00');
 		if (Number.isNaN(d.getTime())) return null;
-		const hoy = new Date();
+		const hoy = new SvelteDate();
 		hoy.setHours(0, 0, 0, 0);
 		return Math.round((d.getTime() - hoy.getTime()) / 86_400_000);
 	}
@@ -237,7 +238,7 @@
 				</p>
 			{:else}
 				<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-					{#each vencimientosFiltrados as v}
+					{#each vencimientosFiltrados as v (v.placa + v.tipo)}
 						<div
 							class="rounded-xl border border-border bg-alt-row/40 p-3.5 flex items-start justify-between gap-3 hover:border-primary/40 transition-colors"
 						>
@@ -283,7 +284,7 @@
 				</p>
 			{:else}
 				<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-					{#each kmFiltrados as k}
+					{#each kmFiltrados as k (k.placa + k.tipo)}
 						<div
 							class="rounded-xl border border-border bg-alt-row/40 p-3.5 flex items-start justify-between gap-3 hover:border-primary/40 transition-colors"
 						>
@@ -344,7 +345,7 @@
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-border/60">
-							{#each rentasFiltradas as r}
+							{#each rentasFiltradas as r (r.id)}
 								<tr class="hover:bg-alt-row/50 transition-colors">
 									<td class="py-2.5 pr-3 font-bold text-primary tabular-nums"
 										>#{String(r.id).padStart(4, '0')}</td
@@ -407,7 +408,7 @@
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-border/60">
-							{#each comparendosFiltrados as c}
+							{#each comparendosFiltrados as c (c.id)}
 								<tr class="hover:bg-alt-row/50 transition-colors">
 									<td class="py-2.5 pr-3 font-bold text-primary tabular-nums"
 										>#{String(c.id).padStart(4, '0')}</td

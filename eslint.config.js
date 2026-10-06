@@ -2,18 +2,18 @@
 //
 // Requiere (añadidas a package.json devDependencies; el usuario debe instalarlas
 // con `bun install` o `npm install`):
-//   - eslint (^9.0.0, flat config por defecto)
-//   - @eslint/js (^9.0.0)
+//   - eslint (^10.12.0, flat config por defecto)
+//   - @eslint/js (^10.0.1)
 //   - @typescript-eslint/parser (^8.0.0)
 //   - @typescript-eslint/eslint-plugin (^8.0.0)
-//   - eslint-plugin-svelte (^2.40.0)
-//   - svelte-eslint-parser (^0.41.0)
-//   - eslint-config-prettier (^9.0.0)
-//   - prettier (^3.0.0)
-//   - prettier-plugin-svelte (^3.0.0)
+//   - eslint-plugin-svelte (^3.23.0)
+//   - svelte-eslint-parser (^1.8.1)
+//   - eslint-config-prettier (^10.1.8)
+//   - prettier (^3.9.9)
+//   - prettier-plugin-svelte (^4.1.1)
 //   - globals (^17.0.0) — globals de navegador/node para `no-undef`
 //
-// Stack: ESLint 9 (flat config), TypeScript 6, Svelte 5.56, SvelteKit 2.
+// Stack: ESLint 10 (flat config), TypeScript 6, Svelte 5.57, SvelteKit 3.
 // Estilo del repo: indentación con tabs, comillas simples, punto y coma sí.
 // (Ver .prettierrc.)
 //
@@ -150,5 +150,22 @@ export default [
 	},
 	// Desactivar reglas que conflictúan con Prettier (al final para tener prioridad)
 	prettier,
-	...sveltePlugin.configs['flat/prettier']
+	...sveltePlugin.configs['flat/prettier'],
+	// Override de parser para `*.svelte.ts`: los stores/runes en TS puro son
+	// parseados por el plugin de Svelte v3 con su propio parser, que no
+	// entiende sintaxis TS completa (error «Unexpected token cargada/type/...»).
+	// Va AL FINAL, después de `flat/recommended` y `flat/prettier` (que también
+	// declaran parser para `**/*.svelte.ts`), para que tenga prioridad y use el
+	// parser de TypeScript. Solo cambia el parser: no define reglas, así que no
+	// pisa la configuración de Prettier.
+	{
+		files: ['**/*.svelte.ts'],
+		languageOptions: {
+			parser: tsParser,
+			parserOptions: {
+				sourceType: 'module',
+				ecmaVersion: 'latest'
+			}
+		}
+	}
 ];

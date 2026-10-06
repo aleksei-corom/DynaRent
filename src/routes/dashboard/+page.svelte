@@ -1,14 +1,14 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { dashboardApi, ApiError, type DashboardData } from '$lib/api';
-	import { session, sid } from '$lib/stores/session.svelte';
-	import { toast } from '$lib/stores/toast.svelte';
-	import { formatDate } from '$lib/utils/format';
-	import { guardSesion, haySesion } from '$lib/utils/guards';
-	import StatusBadge from '$lib/components/StatusBadge.svelte';
-	import EmptyState from '$lib/components/EmptyState.svelte';
-	import Icon from '$lib/components/Icon.svelte';
-	import PiiKeyDialog from '$lib/components/PiiKeyDialog.svelte';
+	import { dashboardApi, ApiError, type DashboardData } from '#lib/api.js';
+	import { session, sid } from '#lib/stores/session.svelte.js';
+	import { toast } from '#lib/stores/toast.svelte.js';
+	import { formatDate } from '#lib/utils/format.js';
+	import { guardSesion, haySesion } from '#lib/utils/guards.js';
+	import StatusBadge from '#lib/components/StatusBadge.svelte';
+	import EmptyState from '#lib/components/EmptyState.svelte';
+	import Icon from '#lib/components/Icon.svelte';
+	import PiiKeyDialog from '#lib/components/PiiKeyDialog.svelte';
 
 	// sid() viene del store (reemplaza `const sid = () => session.token ?? ''`). Ver TAREA E3.
 
@@ -146,7 +146,7 @@
 
 	{#if loading}
 		<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-			{#each [1, 2, 3, 4] as _}
+			{#each [1, 2, 3, 4] as _ (_)}
 				<div class="card p-5 animate-pulse">
 					<div class="h-8 w-8 rounded-xl bg-alt-row mb-4"></div>
 					<div class="h-7 w-20 bg-alt-row rounded mb-2"></div>
@@ -161,7 +161,7 @@
 	{:else}
 		<!-- KPIs -->
 		<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-			{#each kpis as kpi}
+			{#each kpis as kpi (kpi.label)}
 				<div
 					class="card p-5 hover:shadow-md hover:-translate-y-0.5 transition-[transform,box-shadow] duration-150 group"
 				>
@@ -212,7 +212,7 @@
 					<p class="text-sm text-text-secondary">No hay vehículos registrados.</p>
 				{:else}
 					<div class="space-y-3.5">
-						{#each data.autosPorEstado as e}
+						{#each data.autosPorEstado as e (e.estado)}
 							<div class="flex items-center gap-3">
 								<span class="w-28 shrink-0 text-sm text-text-secondary truncate">{e.estado}</span>
 								<div class="flex-1 h-3 rounded-full bg-alt-row overflow-hidden">
@@ -238,7 +238,7 @@
 						<p class="text-sm text-text-secondary">Aún no hay clientes.</p>
 					{:else}
 						<div class="divide-y divide-border/60">
-							{#each data.clientesRecientes as c}
+							{#each data.clientesRecientes as c (c.id)}
 								<div class="flex items-center justify-between gap-3 py-2.5">
 									<div class="min-w-0">
 										<p class="text-sm font-medium text-text-primary truncate">{c.nombreCompleto}</p>
@@ -282,7 +282,7 @@
 					/>
 				{:else}
 					<div class="space-y-2 max-h-105 overflow-y-auto pr-1">
-						{#each data.alertas as a}
+						{#each data.alertas as a (a.placa + a.tipo)}
 							<div
 								class="rounded-lg border px-3 py-2.5 text-sm flex items-start gap-2.5 transition-transform hover:scale-[1.01] {a.critica
 									? 'border-peligro/30 bg-peligro/5'

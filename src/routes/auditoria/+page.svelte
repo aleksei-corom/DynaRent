@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { auditoriaApi, ApiError, type AuditoriaEvento } from '$lib/api';
-	import { session } from '$lib/stores/session.svelte';
-	import { toast } from '$lib/stores/toast.svelte';
-	import { formatDateTime } from '$lib/utils/format';
-	import { guardRole, guardSesion, haySesion, tieneRol } from '$lib/utils/guards';
-	import DataTable from '$lib/components/DataTable.svelte';
+	import { auditoriaApi, ApiError, type AuditoriaEvento } from '#lib/api.js';
+	import { session } from '#lib/stores/session.svelte.js';
+	import { toast } from '#lib/stores/toast.svelte.js';
+	import { formatDateTime } from '#lib/utils/format.js';
+	import { guardRole, guardSesion, haySesion, tieneRol } from '#lib/utils/guards.js';
+	import DataTable from '#lib/components/DataTable.svelte';
 
 	const sid = () => session.token ?? '';
 	const POR_PAGINA = 50;
@@ -176,13 +176,13 @@
 		</div>
 		<select class="input w-auto" bind:value={usuarioFiltro} aria-label="Filtrar por usuario">
 			<option value="">Todos los usuarios</option>
-			{#each usuarios as u}
+			{#each usuarios as u (u)}
 				<option value={u}>{u}</option>
 			{/each}
 		</select>
 		<select class="input w-auto" bind:value={accionFiltro} aria-label="Filtrar por acción">
 			<option value="">Todas las acciones</option>
-			{#each acciones as a}
+			{#each acciones as a (a)}
 				<option value={a}>{a}</option>
 			{/each}
 		</select>
@@ -274,7 +274,7 @@
 					// ventana centrada en la página actual
 					const inicio = Math.max(1, Math.min(pagina - 2, totalPaginas - 4));
 					return inicio + i;
-				}) as p}
+				}) as p (p)}
 					<button
 						class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors {p === pagina
 							? 'bg-primary text-white'

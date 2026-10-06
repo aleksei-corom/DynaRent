@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { tauri } from '../../test/tauri';
 import { goto } from '$app/navigation';
-import { session } from '$lib/stores/session.svelte';
+import { session } from '#lib/stores/session.svelte.js';
 import { guardRole, guardSesion, haySesion, tieneRol, validarSesion } from './guards';
 
 function setSesion(rol: string) {
@@ -58,13 +58,13 @@ describe('validarSesion', () => {
 		});
 
 		await expect(validarSesion()).resolves.toBe(false);
-		expect(goto).toHaveBeenCalledWith('/login', { replaceState: true });
+		expect(goto).toHaveBeenCalledWith('/login', { replace: true });
 		expect(session.isAuthenticated).toBe(false);
 	});
 
 	it('devuelve false y redirige a /login sin token', async () => {
 		await expect(validarSesion()).resolves.toBe(false);
-		expect(goto).toHaveBeenCalledWith('/login', { replaceState: true });
+		expect(goto).toHaveBeenCalledWith('/login', { replace: true });
 	});
 });
 
@@ -88,7 +88,7 @@ describe('guardSesion', () => {
 
 	it('devuelve false y redirige a /login sin sesión', () => {
 		expect(guardSesion()).toBe(false);
-		expect(goto).toHaveBeenCalledWith('/login', { replaceState: true });
+		expect(goto).toHaveBeenCalledWith('/login', { replace: true });
 	});
 });
 
@@ -102,12 +102,12 @@ describe('guardRole', () => {
 	it('devuelve false y redirige al fallback cuando no tiene el rol', () => {
 		setSesion('Operador');
 		expect(guardRole(['Administrador'], '/dashboard')).toBe(false);
-		expect(goto).toHaveBeenCalledWith('/dashboard', { replaceState: true });
+		expect(goto).toHaveBeenCalledWith('/dashboard', { replace: true });
 	});
 
 	it('redirige con replaceState (sin historial que permita volver atrás)', () => {
 		setSesion('Supervisor');
 		guardRole(['Administrador']);
-		expect(goto).toHaveBeenCalledWith('/dashboard', { replaceState: true });
+		expect(goto).toHaveBeenCalledWith('/dashboard', { replace: true });
 	});
 });

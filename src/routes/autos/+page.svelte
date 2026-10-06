@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { SvelteDate } from 'svelte/reactivity';
 	import {
 		autoApi,
 		ApiError,
@@ -7,18 +8,18 @@
 		type AutoDatos,
 		type AlertaVencimiento,
 		type BusinessLists
-	} from '$lib/api';
-	import { sid, session } from '$lib/stores/session.svelte';
-	import { businessLists } from '$lib/stores/business.svelte';
-	import { toast } from '$lib/stores/toast.svelte';
-	import { formatDate, formatLocalDateISO } from '$lib/utils/format';
-	import { guardSesion, haySesion } from '$lib/utils/guards';
-	import DataTable from '$lib/components/DataTable.svelte';
-	import Modal from '$lib/components/Modal.svelte';
-	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
-	import StatusBadge from '$lib/components/StatusBadge.svelte';
-	import FormField from '$lib/components/FormField.svelte';
-	import CopiarExistente from '$lib/components/CopiarExistente.svelte';
+	} from '#lib/api.js';
+	import { sid, session } from '#lib/stores/session.svelte.js';
+	import { businessLists } from '#lib/stores/business.svelte.js';
+	import { toast } from '#lib/stores/toast.svelte.js';
+	import { formatDate, formatLocalDateISO } from '#lib/utils/format.js';
+	import { guardSesion, haySesion } from '#lib/utils/guards.js';
+	import DataTable from '#lib/components/DataTable.svelte';
+	import Modal from '#lib/components/Modal.svelte';
+	import ConfirmDialog from '#lib/components/ConfirmDialog.svelte';
+	import StatusBadge from '#lib/components/StatusBadge.svelte';
+	import FormField from '#lib/components/FormField.svelte';
+	import CopiarExistente from '#lib/components/CopiarExistente.svelte';
 
 	// sid() viene del store (reemplaza `const sid = () => session.token ?? ''`). Ver TAREA E3.
 
@@ -235,7 +236,7 @@
 	function diasRestantes(fecha: string | null): number | null {
 		if (!fecha) return null;
 		const d = new Date(fecha + 'T00:00:00');
-		const hoy = new Date();
+		const hoy = new SvelteDate();
 		hoy.setHours(0, 0, 0, 0);
 		return Math.round((d.getTime() - hoy.getTime()) / 86_400_000);
 	}
@@ -312,7 +313,7 @@
 		</div>
 		<select class="input w-auto" bind:value={estadoFiltro} aria-label="Filtrar por estado">
 			<option value="">Todos los estados</option>
-			{#each lists?.estadosAuto ?? ['Disponible', 'Rentado', 'Mantenimiento', 'Vendido', 'Baja'] as est}
+			{#each lists?.estadosAuto ?? ['Disponible', 'Rentado', 'Mantenimiento', 'Vendido', 'Baja'] as est (est)}
 				<option value={est}>{est}</option>
 			{/each}
 		</select>
@@ -330,7 +331,7 @@
 				</h3>
 			</div>
 			<div class="flex flex-wrap gap-2">
-				{#each alertas.slice(0, 8) as a}
+				{#each alertas.slice(0, 8) as a (a.placa + a.tipo)}
 					<span
 						class="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold cursor-default transition-transform hover:scale-[1.03] {a.critica
 							? 'border-peligro/30 bg-peligro/10 text-peligro'
@@ -391,7 +392,7 @@
 					>
 				{:else if col.key === 'vencimientos'}
 					<div class="flex flex-wrap gap-1.5">
-						{#each [{ tipo: 'SOAT', fecha: a.vencimientoSoat }, { tipo: 'Téc.', fecha: a.vencimientoTecnico }, { tipo: 'Ext.', fecha: a.vencimientoExtintor }] as v}
+						{#each [{ tipo: 'SOAT', fecha: a.vencimientoSoat }, { tipo: 'Téc.', fecha: a.vencimientoTecnico }, { tipo: 'Ext.', fecha: a.vencimientoExtintor }] as v (v.tipo)}
 							{@const d = diasRestantes(v.fecha)}
 							{#if d !== null}
 								<span
@@ -488,215 +489,200 @@
 	width="max-w-2xl"
 	dismissible={!guardando}
 >
-	{#snippet children()}
-		{#if formError}
-			<div
-				class="mb-4 rounded-lg bg-peligro/10 border border-peligro/30 px-3 py-2.5 text-sm text-peligro"
-				role="alert"
-			>
-				{formError}
-			</div>
-		{/if}
-
-		{#if !editando}
-			<CopiarExistente
-				activo={modalOpen}
-				titulo="Copiar datos de un vehículo existente"
-				placeholder="Buscar por placa, marca o modelo…"
-				notaPaso="Escribe la placa nueva antes de guardar."
-				buscar={async (termino) =>
-					(await autoApi.listar(sid(), termino)).map((a) => ({
-						id: a.placa,
-						titulo: a.placa,
-						subtitulo: `${a.marca}${a.modelo ? ` · ${a.modelo}` : ''}${a.version ? ` · ${a.version}` : ''}`,
-						datos: a
-					}))}
-				onSeleccionar={(datos) => copiarDe(datos as Auto)}
-			/>
-		{/if}
-
-		<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
-			<!-- Identificación -->
-			<div class="col-span-full mb-1">
-				<h3
-					class="text-xs font-bold uppercase tracking-wider text-primary mb-3 flex items-center gap-2"
-				>
-					<span
-						class="w-4 h-4 rounded-md bg-primary/10 flex items-center justify-center text-[10px]"
-						>1</span
-					>
-					Identificación
-				</h3>
-			</div>
-			<FormField
-				label="Placa"
-				required
-				hint="Sin espacios. Se guarda en mayúsculas."
-				error={formError && !form.placa ? 'Obligatoria' : ''}
-			>
-				<input
-					class="input uppercase"
-					placeholder="ABC123"
-					bind:this={placaInput}
-					bind:value={form.placa}
-					maxlength="20"
-					disabled={editando}
-				/>
-			</FormField>
-			<FormField label="Fecha de ingreso" required>
-				<input class="input" type="date" bind:value={form.fechaIngreso} />
-			</FormField>
-			<FormField label="Marca" required>
-				<input class="input" placeholder="Ej: Toyota" bind:value={form.marca} maxlength="80" />
-			</FormField>
-			<FormField label="Modelo" required>
-				<input class="input" placeholder="Ej: Corolla" bind:value={form.modelo} maxlength="80" />
-			</FormField>
-			<FormField label="Versión">
-				<input class="input" placeholder="Ej: XEI 1.8" bind:value={form.version} maxlength="80" />
-			</FormField>
-			<FormField label="Color">
-				<input class="input" placeholder="Ej: Blanco" bind:value={form.color} maxlength="50" />
-			</FormField>
-			<FormField label="Tipo">
-				<select class="input" bind:value={form.tipo}>
-					{#each lists?.tiposAuto ?? ['Automóvil', 'Camioneta', 'Van', 'Lujo', 'Moto'] as t}
-						<option value={t}>{t}</option>
-					{/each}
-				</select>
-			</FormField>
-			<FormField label="Cilindraje">
-				<input
-					class="input"
-					placeholder="Ej: 1800 cc"
-					bind:value={form.cilindraje}
-					maxlength="30"
-				/>
-			</FormField>
-			<FormField label="Transmisión">
-				<select class="input" bind:value={form.transmision}>
-					{#each lists?.tiposTransmision ?? ['Automática', 'Mecánica'] as t}
-						<option value={t}>{t}</option>
-					{/each}
-				</select>
-			</FormField>
-			<FormField label="Combustible">
-				<select class="input" bind:value={form.combustible}>
-					{#each lists?.tiposCombustible ?? ['Gasolina', 'Diesel', 'Híbrido', 'Eléctrico', 'Gas'] as t}
-						<option value={t}>{t}</option>
-					{/each}
-				</select>
-			</FormField>
-
-			<!-- Adquisición y estado -->
-			<div class="col-span-full mt-4 mb-1">
-				<h3
-					class="text-xs font-bold uppercase tracking-wider text-primary mb-3 flex items-center gap-2"
-				>
-					<span
-						class="w-4 h-4 rounded-md bg-primary/10 flex items-center justify-center text-[10px]"
-						>2</span
-					>
-					Estado y adquisición
-				</h3>
-			</div>
-			<FormField label="Estado">
-				<select class="input" bind:value={form.estado}>
-					{#each lists?.estadosAuto ?? ['Disponible', 'Rentado', 'Mantenimiento', 'Vendido', 'Baja'] as e}
-						<option value={e}>{e}</option>
-					{/each}
-				</select>
-			</FormField>
-			<FormField label="Tipo de adquisición">
-				<select class="input" bind:value={form.tipoAdquisicion}>
-					<option value="">—</option>
-					{#each lists?.tiposAdquisicion ?? ['Propio', 'Leasing', 'Subarrendado'] as t}
-						<option value={t}>{t}</option>
-					{/each}
-				</select>
-			</FormField>
-			<FormField label="Costo fijo mensual (COP)">
-				<input
-					class="input"
-					inputmode="decimal"
-					placeholder="0"
-					bind:value={form.costoFijoMensual}
-				/>
-			</FormField>
-			<FormField label="Kilometraje actual (km)">
-				<input class="input" type="number" min="0" step="1" bind:value={form.kilometraje} />
-			</FormField>
-			<FormField label="Ubicación">
-				<input
-					class="input"
-					placeholder="Ej: Parqueadero principal"
-					bind:value={form.ubicacion}
-					maxlength="150"
-				/>
-			</FormField>
-			<FormField label="Propietario">
-				<input
-					class="input"
-					placeholder="Nombre del propietario"
-					bind:value={form.propietario}
-					maxlength="150"
-				/>
-			</FormField>
-			<FormField label="No. motor">
-				<input class="input" bind:value={form.noMotor} maxlength="80" />
-			</FormField>
-			<FormField label="No. chasis">
-				<input class="input" bind:value={form.noChasis} maxlength="80" />
-			</FormField>
-
-			<!-- Vencimientos y mantenimiento -->
-			<div class="col-span-full mt-4 mb-1">
-				<h3
-					class="text-xs font-bold uppercase tracking-wider text-primary mb-3 flex items-center gap-2"
-				>
-					<span
-						class="w-4 h-4 rounded-md bg-primary/10 flex items-center justify-center text-[10px]"
-						>3</span
-					>
-					Vencimientos y mantenimiento
-				</h3>
-			</div>
-			<FormField label="Vencimiento SOAT">
-				<input class="input" type="date" bind:value={form.vencimientoSoat} />
-			</FormField>
-			<FormField label="Vencimiento tecno-mecánica">
-				<input class="input" type="date" bind:value={form.vencimientoTecnico} />
-			</FormField>
-			<FormField label="Vencimiento extintor">
-				<input class="input" type="date" bind:value={form.vencimientoExtintor} />
-			</FormField>
-			<FormField label="Vencimiento batería">
-				<input class="input" type="date" bind:value={form.vencimientoBateria} />
-			</FormField>
-			<FormField label="Próximo cambio de aceite (km)">
-				<input
-					class="input"
-					type="number"
-					min="0"
-					placeholder="Ej: 20000"
-					bind:value={form.proximoAceite}
-				/>
-			</FormField>
-			<FormField label="Próximo cambio de frenos (km)">
-				<input
-					class="input"
-					type="number"
-					min="0"
-					placeholder="Ej: 30000"
-					bind:value={form.proximoFrenos}
-				/>
-			</FormField>
-			<FormField label="Observaciones" hint="Máx. 2000 caracteres.">
-				<textarea class="input min-h-20 resize-y" bind:value={form.observaciones} maxlength="2000"
-				></textarea>
-			</FormField>
+	{#if formError}
+		<div
+			class="mb-4 rounded-lg bg-peligro/10 border border-peligro/30 px-3 py-2.5 text-sm text-peligro"
+			role="alert"
+		>
+			{formError}
 		</div>
-	{/snippet}
+	{/if}
+
+	{#if !editando}
+		<CopiarExistente
+			activo={modalOpen}
+			titulo="Copiar datos de un vehículo existente"
+			placeholder="Buscar por placa, marca o modelo…"
+			notaPaso="Escribe la placa nueva antes de guardar."
+			buscar={async (termino) =>
+				(await autoApi.listar(sid(), termino)).map((a) => ({
+					id: a.placa,
+					titulo: a.placa,
+					subtitulo: `${a.marca}${a.modelo ? ` · ${a.modelo}` : ''}${a.version ? ` · ${a.version}` : ''}`,
+					datos: a
+				}))}
+			onSeleccionar={(datos) => copiarDe(datos as Auto)}
+		/>
+	{/if}
+
+	<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+		<!-- Identificación -->
+		<div class="col-span-full mb-1">
+			<h3
+				class="text-xs font-bold uppercase tracking-wider text-primary mb-3 flex items-center gap-2"
+			>
+				<span class="w-4 h-4 rounded-md bg-primary/10 flex items-center justify-center text-[10px]"
+					>1</span
+				>
+				Identificación
+			</h3>
+		</div>
+		<FormField
+			label="Placa"
+			required
+			hint="Sin espacios. Se guarda en mayúsculas."
+			error={formError && !form.placa ? 'Obligatoria' : ''}
+		>
+			<input
+				class="input uppercase"
+				placeholder="ABC123"
+				bind:this={placaInput}
+				bind:value={form.placa}
+				maxlength="20"
+				disabled={editando}
+			/>
+		</FormField>
+		<FormField label="Fecha de ingreso" required>
+			<input class="input" type="date" bind:value={form.fechaIngreso} />
+		</FormField>
+		<FormField label="Marca" required>
+			<input class="input" placeholder="Ej: Toyota" bind:value={form.marca} maxlength="80" />
+		</FormField>
+		<FormField label="Modelo" required>
+			<input class="input" placeholder="Ej: Corolla" bind:value={form.modelo} maxlength="80" />
+		</FormField>
+		<FormField label="Versión">
+			<input class="input" placeholder="Ej: XEI 1.8" bind:value={form.version} maxlength="80" />
+		</FormField>
+		<FormField label="Color">
+			<input class="input" placeholder="Ej: Blanco" bind:value={form.color} maxlength="50" />
+		</FormField>
+		<FormField label="Tipo">
+			<select class="input" bind:value={form.tipo}>
+				{#each lists?.tiposAuto ?? ['Automóvil', 'Camioneta', 'Van', 'Lujo', 'Moto'] as t (t)}
+					<option value={t}>{t}</option>
+				{/each}
+			</select>
+		</FormField>
+		<FormField label="Cilindraje">
+			<input class="input" placeholder="Ej: 1800 cc" bind:value={form.cilindraje} maxlength="30" />
+		</FormField>
+		<FormField label="Transmisión">
+			<select class="input" bind:value={form.transmision}>
+				{#each lists?.tiposTransmision ?? ['Automática', 'Mecánica'] as t (t)}
+					<option value={t}>{t}</option>
+				{/each}
+			</select>
+		</FormField>
+		<FormField label="Combustible">
+			<select class="input" bind:value={form.combustible}>
+				{#each lists?.tiposCombustible ?? ['Gasolina', 'Diesel', 'Híbrido', 'Eléctrico', 'Gas'] as t (t)}
+					<option value={t}>{t}</option>
+				{/each}
+			</select>
+		</FormField>
+
+		<!-- Adquisición y estado -->
+		<div class="col-span-full mt-4 mb-1">
+			<h3
+				class="text-xs font-bold uppercase tracking-wider text-primary mb-3 flex items-center gap-2"
+			>
+				<span class="w-4 h-4 rounded-md bg-primary/10 flex items-center justify-center text-[10px]"
+					>2</span
+				>
+				Estado y adquisición
+			</h3>
+		</div>
+		<FormField label="Estado">
+			<select class="input" bind:value={form.estado}>
+				{#each lists?.estadosAuto ?? ['Disponible', 'Rentado', 'Mantenimiento', 'Vendido', 'Baja'] as e (e)}
+					<option value={e}>{e}</option>
+				{/each}
+			</select>
+		</FormField>
+		<FormField label="Tipo de adquisición">
+			<select class="input" bind:value={form.tipoAdquisicion}>
+				<option value="">—</option>
+				{#each lists?.tiposAdquisicion ?? ['Propio', 'Leasing', 'Subarrendado'] as t (t)}
+					<option value={t}>{t}</option>
+				{/each}
+			</select>
+		</FormField>
+		<FormField label="Costo fijo mensual (COP)">
+			<input class="input" inputmode="decimal" placeholder="0" bind:value={form.costoFijoMensual} />
+		</FormField>
+		<FormField label="Kilometraje actual (km)">
+			<input class="input" type="number" min="0" step="1" bind:value={form.kilometraje} />
+		</FormField>
+		<FormField label="Ubicación">
+			<input
+				class="input"
+				placeholder="Ej: Parqueadero principal"
+				bind:value={form.ubicacion}
+				maxlength="150"
+			/>
+		</FormField>
+		<FormField label="Propietario">
+			<input
+				class="input"
+				placeholder="Nombre del propietario"
+				bind:value={form.propietario}
+				maxlength="150"
+			/>
+		</FormField>
+		<FormField label="No. motor">
+			<input class="input" bind:value={form.noMotor} maxlength="80" />
+		</FormField>
+		<FormField label="No. chasis">
+			<input class="input" bind:value={form.noChasis} maxlength="80" />
+		</FormField>
+
+		<!-- Vencimientos y mantenimiento -->
+		<div class="col-span-full mt-4 mb-1">
+			<h3
+				class="text-xs font-bold uppercase tracking-wider text-primary mb-3 flex items-center gap-2"
+			>
+				<span class="w-4 h-4 rounded-md bg-primary/10 flex items-center justify-center text-[10px]"
+					>3</span
+				>
+				Vencimientos y mantenimiento
+			</h3>
+		</div>
+		<FormField label="Vencimiento SOAT">
+			<input class="input" type="date" bind:value={form.vencimientoSoat} />
+		</FormField>
+		<FormField label="Vencimiento tecno-mecánica">
+			<input class="input" type="date" bind:value={form.vencimientoTecnico} />
+		</FormField>
+		<FormField label="Vencimiento extintor">
+			<input class="input" type="date" bind:value={form.vencimientoExtintor} />
+		</FormField>
+		<FormField label="Vencimiento batería">
+			<input class="input" type="date" bind:value={form.vencimientoBateria} />
+		</FormField>
+		<FormField label="Próximo cambio de aceite (km)">
+			<input
+				class="input"
+				type="number"
+				min="0"
+				placeholder="Ej: 20000"
+				bind:value={form.proximoAceite}
+			/>
+		</FormField>
+		<FormField label="Próximo cambio de frenos (km)">
+			<input
+				class="input"
+				type="number"
+				min="0"
+				placeholder="Ej: 30000"
+				bind:value={form.proximoFrenos}
+			/>
+		</FormField>
+		<FormField label="Observaciones" hint="Máx. 2000 caracteres.">
+			<textarea class="input min-h-20 resize-y" bind:value={form.observaciones} maxlength="2000"
+			></textarea>
+		</FormField>
+	</div>
 
 	{#snippet footer()}
 		<button class="btn-ghost" onclick={() => (modalOpen = false)} disabled={guardando}

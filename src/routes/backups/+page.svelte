@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { backupApi, ApiError, type InfoBackup } from '$lib/api';
-	import { session } from '$lib/stores/session.svelte';
-	import { toast } from '$lib/stores/toast.svelte';
-	import { formatDateTime } from '$lib/utils/format';
-	import { guardRole, guardSesion } from '$lib/utils/guards';
-	import Modal from '$lib/components/Modal.svelte';
+	import { backupApi, ApiError, type InfoBackup } from '#lib/api.js';
+	import { session } from '#lib/stores/session.svelte.js';
+	import { toast } from '#lib/stores/toast.svelte.js';
+	import { formatDateTime } from '#lib/utils/format.js';
+	import { guardRole, guardSesion } from '#lib/utils/guards.js';
+	import Modal from '#lib/components/Modal.svelte';
 
 	const sid = () => session.token ?? '';
 
@@ -272,7 +272,7 @@
 							</tr>
 						</thead>
 						<tbody>
-							{#each estado.copias as c}
+							{#each estado.copias as c (c.nombre)}
 								<tr class="border-b border-border/60 last:border-0 hover:bg-primary/5">
 									<td class="px-4 py-2 font-mono text-[13px] text-text-primary" title={c.nombre}
 										>{c.nombre}</td
@@ -368,48 +368,46 @@
 	width="max-w-md"
 	dismissible={!restaurando}
 >
-	{#snippet children()}
-		<div class="space-y-3">
-			<div class="flex items-start gap-3">
-				<div
-					class="w-10 h-10 rounded-xl bg-peligro/10 text-peligro flex items-center justify-center shrink-0"
+	<div class="space-y-3">
+		<div class="flex items-start gap-3">
+			<div
+				class="w-10 h-10 rounded-xl bg-peligro/10 text-peligro flex items-center justify-center shrink-0"
+			>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="w-5 h-5"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+					stroke-width="1.8"
+					><path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
+					/></svg
 				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="w-5 h-5"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="1.8"
-						><path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
-						/></svg
-					>
-				</div>
-				<p class="text-sm text-text-primary leading-relaxed pt-1">
-					La base de datos actual será <strong>reemplazada</strong> por la de este backup y la aplicación
-					se reiniciará. ¿Continuar?
-				</p>
 			</div>
-			{#if restaurarCifrado}
-				<label class="block">
-					<span class="text-xs font-medium text-text-secondary">
-						Contraseña de cifrado (obligatoria: la copia está cifrada)
-					</span>
-					<input
-						type="password"
-						class="input w-full mt-1"
-						placeholder="Contraseña del backup"
-						bind:value={password}
-						disabled={restaurando}
-						onkeydown={(e) => e.key === 'Enter' && confirmarRestaurar()}
-					/>
-				</label>
-			{/if}
+			<p class="text-sm text-text-primary leading-relaxed pt-1">
+				La base de datos actual será <strong>reemplazada</strong> por la de este backup y la aplicación
+				se reiniciará. ¿Continuar?
+			</p>
 		</div>
-	{/snippet}
+		{#if restaurarCifrado}
+			<label class="block">
+				<span class="text-xs font-medium text-text-secondary">
+					Contraseña de cifrado (obligatoria: la copia está cifrada)
+				</span>
+				<input
+					type="password"
+					class="input w-full mt-1"
+					placeholder="Contraseña del backup"
+					bind:value={password}
+					disabled={restaurando}
+					onkeydown={(e) => e.key === 'Enter' && confirmarRestaurar()}
+				/>
+			</label>
+		{/if}
+	</div>
 
 	{#snippet footer()}
 		<button class="btn-ghost" onclick={cerrarModal} disabled={restaurando}>Cancelar</button>

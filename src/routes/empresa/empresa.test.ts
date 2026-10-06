@@ -3,9 +3,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
 import { tauri } from '../../test/tauri';
-import { session } from '$lib/stores/session.svelte';
-import { empresa } from '$lib/stores/empresa.svelte';
-import type { EmpresaConfig, EmpresaConfigDatos } from '$lib/api';
+import { session } from '#lib/stores/session.svelte.js';
+import { empresa } from '#lib/stores/empresa.svelte.js';
+import type { EmpresaConfig, EmpresaConfigDatos } from '#lib/api.js';
 import EmpresaPage from './+page.svelte';
 
 function config(overrides: Partial<EmpresaConfig> = {}): EmpresaConfig {

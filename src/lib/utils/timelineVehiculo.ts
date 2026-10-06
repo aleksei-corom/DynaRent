@@ -5,7 +5,7 @@
 // rango (el cruce del backend ya trae `responsable.idRenta` en cada comparendo).
 // Funciones puras, sin Tauri — testeable en vitest.
 
-import type { Comparendo, Renta } from '$lib/api';
+import type { Comparendo, Renta } from '#lib/api.js';
 
 /** Renta en la línea de tiempo: rango efectivo [inicio, fin] + multas asociadas */
 export interface RentaTimeline {

@@ -1,8 +1,8 @@
 <script lang="ts">
-	import Modal from '$lib/components/Modal.svelte';
-	import FormField from '$lib/components/FormField.svelte';
-	import { formatCOP } from '$lib/utils/format';
-	import type { RentaCierreEditDatos, Renta } from '$lib/api';
+	import Modal from '#lib/components/Modal.svelte';
+	import FormField from '#lib/components/FormField.svelte';
+	import { formatCOP } from '#lib/utils/format.js';
+	import type { RentaCierreEditDatos, Renta } from '#lib/api.js';
 
 	interface Props {
 		open: boolean;
@@ -32,105 +32,94 @@
 	{onClose}
 	width="max-w-2xl"
 >
-	{#snippet children()}
-		{#if editCerradaError}
-			<div
-				class="mb-4 rounded-lg bg-peligro/10 border border-peligro/30 px-3 py-2.5 text-sm text-peligro"
-				role="alert"
-			>
-				{editCerradaError}
-			</div>
-		{/if}
-
+	{#if editCerradaError}
 		<div
-			class="mb-4 rounded-lg bg-alerta/10 border border-alerta/30 px-3 py-2.5 text-sm text-alerta"
+			class="mb-4 rounded-lg bg-peligro/10 border border-peligro/30 px-3 py-2.5 text-sm text-peligro"
+			role="alert"
 		>
-			<strong>⚠️ Atención:</strong> Solo los campos financieros se modificarán. El abono, el cliente y
-			la placa NO se pueden editar.
+			{editCerradaError}
+		</div>
+	{/if}
+
+	<div class="mb-4 rounded-lg bg-alerta/10 border border-alerta/30 px-3 py-2.5 text-sm text-alerta">
+		<strong>⚠️ Atención:</strong> Solo los campos financieros se modificarán. El abono, el cliente y la
+		placa NO se pueden editar.
+	</div>
+
+	<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+		<FormField label="Valor día" required>
+			<input
+				class="input"
+				inputmode="decimal"
+				step="0.01"
+				min="0"
+				placeholder="150000"
+				bind:value={editCerrada.valorDia}
+			/>
+		</FormField>
+		<FormField label="Valor hora extra">
+			<input
+				class="input"
+				inputmode="decimal"
+				step="0.01"
+				min="0"
+				placeholder="10000"
+				bind:value={editCerrada.valorHoraExtra}
+			/>
+		</FormField>
+		<FormField label="Días calculados" required>
+			<input class="input" type="number" min="1" bind:value={editCerrada.diasCalculados} />
+		</FormField>
+		<FormField label="Horas extras">
+			<input class="input" type="number" min="0" bind:value={editCerrada.horasExtras} />
+		</FormField>
+		<FormField label="Valor día extra">
+			<input
+				class="input"
+				inputmode="decimal"
+				step="0.01"
+				min="0"
+				placeholder="50000"
+				bind:value={editCerrada.valorDiaExtra}
+			/>
+		</FormField>
+		<FormField label="Descuento">
+			<input
+				class="input"
+				inputmode="decimal"
+				step="0.01"
+				min="0"
+				placeholder="5000"
+				bind:value={editCerrada.descuento}
+			/>
+		</FormField>
+		<div class="col-span-full mb-2">
+			<label
+				class="flex items-center gap-2 text-sm text-text-primary cursor-pointer rounded-lg border border-border px-3 py-2 hover:bg-alt-row/60 transition-colors w-fit"
+			>
+				<input type="checkbox" class="accent-primary" bind:checked={editCerrada.cobrarHorasExtra} />
+				Cobrar horas extras
+			</label>
+		</div>
+		<div class="col-span-full">
+			<FormField label="Motivo de la corrección" required hint="Obligatorio para auditoría">
+				<textarea
+					class="input min-h-15 resize-y"
+					placeholder="Describe el error de digitación que se corrige..."
+					bind:value={editCerrada.observaciones}
+					maxlength="500"></textarea>
+			</FormField>
 		</div>
 
-		<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
-			<FormField label="Valor día" required>
-				<input
-					class="input"
-					inputmode="decimal"
-					step="0.01"
-					min="0"
-					placeholder="150000"
-					bind:value={editCerrada.valorDia}
-				/>
-			</FormField>
-			<FormField label="Valor hora extra">
-				<input
-					class="input"
-					inputmode="decimal"
-					step="0.01"
-					min="0"
-					placeholder="10000"
-					bind:value={editCerrada.valorHoraExtra}
-				/>
-			</FormField>
-			<FormField label="Días calculados" required>
-				<input class="input" type="number" min="1" bind:value={editCerrada.diasCalculados} />
-			</FormField>
-			<FormField label="Horas extras">
-				<input class="input" type="number" min="0" bind:value={editCerrada.horasExtras} />
-			</FormField>
-			<FormField label="Valor día extra">
-				<input
-					class="input"
-					inputmode="decimal"
-					step="0.01"
-					min="0"
-					placeholder="50000"
-					bind:value={editCerrada.valorDiaExtra}
-				/>
-			</FormField>
-			<FormField label="Descuento">
-				<input
-					class="input"
-					inputmode="decimal"
-					step="0.01"
-					min="0"
-					placeholder="5000"
-					bind:value={editCerrada.descuento}
-				/>
-			</FormField>
-			<div class="col-span-full mb-2">
-				<label
-					class="flex items-center gap-2 text-sm text-text-primary cursor-pointer rounded-lg border border-border px-3 py-2 hover:bg-alt-row/60 transition-colors w-fit"
-				>
-					<input
-						type="checkbox"
-						class="accent-primary"
-						bind:checked={editCerrada.cobrarHorasExtra}
-					/>
-					Cobrar horas extras
-				</label>
-			</div>
-			<div class="col-span-full">
-				<FormField label="Motivo de la corrección" required hint="Obligatorio para auditoría">
-					<textarea
-						class="input min-h-15 resize-y"
-						placeholder="Describe el error de digitación que se corrige..."
-						bind:value={editCerrada.observaciones}
-						maxlength="500"
-					></textarea>
-				</FormField>
-			</div>
-
-			<div class="mt-4 p-3 rounded-lg bg-alt-row/60 border border-border">
-				<p class="text-sm font-semibold text-text-primary mb-2">Valores actuales de la renta:</p>
-				<p class="text-sm text-text-secondary">
-					Total: <span class="font-semibold text-text-primary"
-						>{formatCOP(renta?.total ?? '0')}</span
-					>
-					| Saldo:
-					<span class="font-semibold">{formatCOP(renta?.saldoPendiente ?? '0')}</span>
-				</p>
-			</div>
+		<div class="mt-4 p-3 rounded-lg bg-alt-row/60 border border-border">
+			<p class="text-sm font-semibold text-text-primary mb-2">Valores actuales de la renta:</p>
+			<p class="text-sm text-text-secondary">
+				Total: <span class="font-semibold text-text-primary">{formatCOP(renta?.total ?? '0')}</span>
+				| Saldo:
+				<span class="font-semibold">{formatCOP(renta?.saldoPendiente ?? '0')}</span>
+			</p>
 		</div>
-	{/snippet}
+	</div>
 
 	{#snippet footer()}
 		<button class="btn-ghost" onclick={onClose} disabled={editandoCerrada}>Cancelar</button>

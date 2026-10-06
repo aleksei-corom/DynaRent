@@ -3,18 +3,18 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { session } from '$lib/stores/session.svelte';
-	import { empresa } from '$lib/stores/empresa.svelte';
-	import { appInfo } from '$lib/stores/app.svelte';
-	import { authApi } from '$lib/api';
-	import { validarSesion } from '$lib/utils/guards';
-	import Toast from '$lib/components/Toast.svelte';
-	import Icon from '$lib/components/Icon.svelte';
-	import AtajosModal, { esAtajoAyuda } from '$lib/components/AtajosModal.svelte';
-	import AcercaDeModal from '$lib/components/AcercaDeModal.svelte';
-	import PaletaComandos, { esAtajoPaleta } from '$lib/components/PaletaComandos.svelte';
-	import ConfirmarCierre from '$lib/components/ConfirmarCierre.svelte';
-	import UpdateDisponible from '$lib/components/UpdateDisponible.svelte';
+	import { session } from '#lib/stores/session.svelte.js';
+	import { empresa } from '#lib/stores/empresa.svelte.js';
+	import { appInfo } from '#lib/stores/app.svelte.js';
+	import { authApi } from '#lib/api.js';
+	import { validarSesion } from '#lib/utils/guards.js';
+	import Toast from '#lib/components/Toast.svelte';
+	import Icon from '#lib/components/Icon.svelte';
+	import AtajosModal, { esAtajoAyuda } from '#lib/components/AtajosModal.svelte';
+	import AcercaDeModal from '#lib/components/AcercaDeModal.svelte';
+	import PaletaComandos, { esAtajoPaleta } from '#lib/components/PaletaComandos.svelte';
+	import ConfirmarCierre from '#lib/components/ConfirmarCierre.svelte';
+	import UpdateDisponible from '#lib/components/UpdateDisponible.svelte';
 
 	// Props de SvelteKit (snippet de la página hija)
 	let { children } = $props();
@@ -89,7 +89,7 @@
 		if (!pendiente) return;
 		const p = page.url.pathname;
 		if (p === '/empresa' || p === '/login' || p === '/cambiar-password') return;
-		void goto('/empresa', { replaceState: true });
+		void goto('/empresa', { replace: true });
 	});
 
 	// ── Tema por usuario (persistido en BD, tabla usuarios) ──
@@ -346,14 +346,14 @@
 
 			<!-- Navegación -->
 			<nav class="flex-1 overflow-y-auto py-4 px-2 space-y-5">
-				{#each menu as group}
+				{#each menu as group (group.section)}
 					{#if sidebarOpen}
 						<p class="px-3 text-[10px] font-bold tracking-widest text-white/40 uppercase">
 							{group.section}
 						</p>
 					{/if}
 					<div class="space-y-1">
-						{#each group.items as item}
+						{#each group.items as item (item.href)}
 							{#if (!item.roles || item.roles.includes(session.user?.rol ?? '')) && (!item.adminOnly || session.user?.rol === 'Administrador')}
 								<a
 									href={item.href}

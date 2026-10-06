@@ -2,8 +2,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/svelte';
 import { tauri } from '../../test/tauri';
-import { session } from '$lib/stores/session.svelte';
-import type { Auto, AutoDatos, BusinessLists } from '$lib/api';
+import { session } from '#lib/stores/session.svelte.js';
+import type { Auto, AutoDatos, BusinessLists } from '#lib/api.js';
 import AutosPage from './+page.svelte';
 
 function auto(overrides: Partial<Auto> = {}): Auto {

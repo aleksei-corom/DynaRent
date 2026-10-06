@@ -22,7 +22,7 @@
 //   }
 
 import { goto } from '$app/navigation';
-import { session } from '$lib/stores/session.svelte';
+import { session } from '#lib/stores/session.svelte.js';
 
 /**
  * Valida la sesión contra el backend (session.validate). Si no es válida,
@@ -33,7 +33,7 @@ import { session } from '$lib/stores/session.svelte';
 export async function validarSesion(): Promise<boolean> {
 	const ok = await session.validate();
 	if (!ok) {
-		void goto('/login', { replaceState: true });
+		void goto('/login', { replace: true });
 		return false;
 	}
 	return true;
@@ -54,7 +54,7 @@ export function haySesion(): boolean {
  */
 export function guardSesion(): boolean {
 	if (session.isAuthenticated) return true;
-	void goto('/login', { replaceState: true });
+	void goto('/login', { replace: true });
 	return false;
 }
 
@@ -75,6 +75,6 @@ export function tieneRol(roles: string[]): boolean {
  */
 export function guardRole(roles: string[], fallback = '/dashboard'): boolean {
 	if (session.hasRole(roles)) return true;
-	void goto(fallback, { replaceState: true });
+	void goto(fallback, { replace: true });
 	return false;
 }

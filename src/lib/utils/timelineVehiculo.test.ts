@@ -2,7 +2,7 @@
 // por vehículo (builder puro, sin Tauri).
 
 import { describe, expect, it } from 'vitest';
-import type { Comparendo, Renta } from '$lib/api';
+import type { Comparendo, Renta } from '#lib/api.js';
 import { construirTimelineVehiculo } from './timelineVehiculo';
 
 function renta(overrides: Partial<Renta> = {}): Renta {

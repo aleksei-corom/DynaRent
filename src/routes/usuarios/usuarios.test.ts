@@ -3,8 +3,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/svelte';
 import { tauri } from '../../test/tauri';
 import { goto } from '$app/navigation';
-import { session } from '$lib/stores/session.svelte';
-import type { Usuario, BusinessLists } from '$lib/api';
+import { session } from '#lib/stores/session.svelte.js';
+import type { Usuario, BusinessLists } from '#lib/api.js';
 import UsuariosPage from './+page.svelte';
 
 function usuario(overrides: Partial<Usuario> = {}): Usuario {
@@ -67,7 +67,7 @@ describe('guard de rol de la página de Usuarios', () => {
 
 		render(UsuariosPage);
 
-		await waitFor(() => expect(goto).toHaveBeenCalledWith('/dashboard', { replaceState: true }));
+		await waitFor(() => expect(goto).toHaveBeenCalledWith('/dashboard', { replace: true }));
 		// El no-admin no debe disparar NINGUNA llamada a la API
 		expect(listar).not.toHaveBeenCalled();
 		expect(listas).not.toHaveBeenCalled();
@@ -79,7 +79,7 @@ describe('guard de rol de la página de Usuarios', () => {
 
 		render(UsuariosPage);
 
-		await waitFor(() => expect(goto).toHaveBeenCalledWith('/dashboard', { replaceState: true }));
+		await waitFor(() => expect(goto).toHaveBeenCalledWith('/dashboard', { replace: true }));
 	});
 
 	it('redirige a /login sin sesión (guard de sesión antes que el de rol)', async () => {
@@ -88,7 +88,7 @@ describe('guard de rol de la página de Usuarios', () => {
 
 		render(UsuariosPage);
 
-		await waitFor(() => expect(goto).toHaveBeenCalledWith('/login', { replaceState: true }));
+		await waitFor(() => expect(goto).toHaveBeenCalledWith('/login', { replace: true }));
 		expect(listar).not.toHaveBeenCalled();
 	});
 

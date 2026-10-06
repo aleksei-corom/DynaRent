@@ -8,15 +8,15 @@
 		type UsuarioDatos,
 		type UsuarioDatosActualizar,
 		type BusinessLists
-	} from '$lib/api';
-	import { session } from '$lib/stores/session.svelte';
-	import { toast } from '$lib/stores/toast.svelte';
-	import { formatDateTime } from '$lib/utils/format';
-	import { guardRole, guardSesion, haySesion, tieneRol } from '$lib/utils/guards';
-	import DataTable from '$lib/components/DataTable.svelte';
-	import Modal from '$lib/components/Modal.svelte';
-	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
-	import FormField from '$lib/components/FormField.svelte';
+	} from '#lib/api.js';
+	import { session } from '#lib/stores/session.svelte.js';
+	import { toast } from '#lib/stores/toast.svelte.js';
+	import { formatDateTime } from '#lib/utils/format.js';
+	import { guardRole, guardSesion, haySesion, tieneRol } from '#lib/utils/guards.js';
+	import DataTable from '#lib/components/DataTable.svelte';
+	import Modal from '#lib/components/Modal.svelte';
+	import ConfirmDialog from '#lib/components/ConfirmDialog.svelte';
+	import FormField from '#lib/components/FormField.svelte';
 
 	const sid = () => session.token ?? '';
 	/** Máximo de intentos fallidos que bloquea una cuenta (default core/security.rs, se puede ajustar con max_login_attempts en config.ini) */
@@ -536,146 +536,139 @@
 	width="max-w-xl"
 	dismissible={!guardando}
 >
-	{#snippet children()}
-		{#if formError}
-			<div
-				class="mb-4 rounded-lg bg-peligro/10 border border-peligro/30 px-3 py-2.5 text-sm text-peligro"
-				role="alert"
-			>
-				{formError}
-			</div>
-		{/if}
-
-		<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
-			<FormField
-				label="Nombre de usuario"
-				required
-				hint="Solo letras, números, puntos, guiones. Sin espacios."
-			>
-				<input
-					class="input font-mono"
-					placeholder="jperez"
-					bind:value={form.username}
-					maxlength="50"
-					disabled={editando}
-				/>
-			</FormField>
-			<FormField label="Nombre completo" required>
-				<input
-					class="input"
-					placeholder="Ej: Juan Pérez"
-					bind:value={form.nombre}
-					maxlength="100"
-				/>
-			</FormField>
-			<FormField label="Rol" required>
-				<select class="input" bind:value={form.rol}>
-					{#each lists?.rolesDisponibles ?? ['Administrador', 'Supervisor', 'Operador'] as r}
-						<option value={r}>{r}</option>
-					{/each}
-				</select>
-			</FormField>
-			<FormField label="Email">
-				<input
-					class="input"
-					type="email"
-					placeholder="usuario@correo.com"
-					bind:value={form.email}
-					maxlength="100"
-				/>
-			</FormField>
-
-			{#if !editando}
-				<div class="col-span-full mt-1 mb-1">
-					<h3
-						class="text-xs font-bold uppercase tracking-wider text-primary mb-3 flex items-center gap-2"
-					>
-						<span
-							class="w-4 h-4 rounded-md bg-primary/10 flex items-center justify-center text-[10px]"
-							>1</span
-						>
-						Contraseña inicial
-					</h3>
-				</div>
-				<FormField
-					label="Contraseña"
-					required
-					hint="Mínimo 8 caracteres: mayúscula, minúscula, número y símbolo."
-				>
-					<input
-						class="input"
-						type="password"
-						autocomplete="new-password"
-						bind:value={form.password}
-						maxlength="128"
-					/>
-				</FormField>
-				<FormField label="Confirmar contraseña" required>
-					<input
-						class="input"
-						type="password"
-						autocomplete="new-password"
-						bind:value={confirmacion}
-						maxlength="128"
-					/>
-				</FormField>
-			{/if}
+	{#if formError}
+		<div
+			class="mb-4 rounded-lg bg-peligro/10 border border-peligro/30 px-3 py-2.5 text-sm text-peligro"
+			role="alert"
+		>
+			{formError}
 		</div>
+	{/if}
 
-		<!-- Opciones -->
-		<div class="mt-2 space-y-2.5">
+	<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+		<FormField
+			label="Nombre de usuario"
+			required
+			hint="Solo letras, números, puntos, guiones. Sin espacios."
+		>
+			<input
+				class="input font-mono"
+				placeholder="jperez"
+				bind:value={form.username}
+				maxlength="50"
+				disabled={editando}
+			/>
+		</FormField>
+		<FormField label="Nombre completo" required>
+			<input class="input" placeholder="Ej: Juan Pérez" bind:value={form.nombre} maxlength="100" />
+		</FormField>
+		<FormField label="Rol" required>
+			<select class="input" bind:value={form.rol}>
+				{#each lists?.rolesDisponibles ?? ['Administrador', 'Supervisor', 'Operador'] as r (r)}
+					<option value={r}>{r}</option>
+				{/each}
+			</select>
+		</FormField>
+		<FormField label="Email">
+			<input
+				class="input"
+				type="email"
+				placeholder="usuario@correo.com"
+				bind:value={form.email}
+				maxlength="100"
+			/>
+		</FormField>
+
+		{#if !editando}
+			<div class="col-span-full mt-1 mb-1">
+				<h3
+					class="text-xs font-bold uppercase tracking-wider text-primary mb-3 flex items-center gap-2"
+				>
+					<span
+						class="w-4 h-4 rounded-md bg-primary/10 flex items-center justify-center text-[10px]"
+						>1</span
+					>
+					Contraseña inicial
+				</h3>
+			</div>
+			<FormField
+				label="Contraseña"
+				required
+				hint="Mínimo 8 caracteres: mayúscula, minúscula, número y símbolo."
+			>
+				<input
+					class="input"
+					type="password"
+					autocomplete="new-password"
+					bind:value={form.password}
+					maxlength="128"
+				/>
+			</FormField>
+			<FormField label="Confirmar contraseña" required>
+				<input
+					class="input"
+					type="password"
+					autocomplete="new-password"
+					bind:value={confirmacion}
+					maxlength="128"
+				/>
+			</FormField>
+		{/if}
+	</div>
+
+	<!-- Opciones -->
+	<div class="mt-2 space-y-2.5">
+		<button
+			type="button"
+			role="switch"
+			aria-checked={form.activo}
+			class="w-full flex items-center justify-between gap-3 rounded-xl border border-border bg-alt-row/50 px-4 py-3 text-left transition-colors hover:border-primary/40"
+			onclick={() => (form.activo = !form.activo)}
+		>
+			<div>
+				<p class="text-sm font-semibold text-text-primary">Cuenta activa</p>
+				<p class="text-xs text-text-secondary mt-0.5">Puede iniciar sesión con esta cuenta.</p>
+			</div>
+			<span
+				class={'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ' +
+					(form.activo ? 'bg-estado-activo' : 'bg-text-secondary/40')}
+				aria-hidden="true"
+			>
+				<span
+					class={'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ' +
+						(form.activo ? 'translate-x-6' : 'translate-x-1')}
+				></span>
+			</span>
+		</button>
+		{#if !editando}
 			<button
 				type="button"
 				role="switch"
-				aria-checked={form.activo}
+				aria-checked={form.debeCambiarPassword}
 				class="w-full flex items-center justify-between gap-3 rounded-xl border border-border bg-alt-row/50 px-4 py-3 text-left transition-colors hover:border-primary/40"
-				onclick={() => (form.activo = !form.activo)}
+				onclick={() => (form.debeCambiarPassword = !form.debeCambiarPassword)}
 			>
 				<div>
-					<p class="text-sm font-semibold text-text-primary">Cuenta activa</p>
-					<p class="text-xs text-text-secondary mt-0.5">Puede iniciar sesión con esta cuenta.</p>
+					<p class="text-sm font-semibold text-text-primary">
+						Obligar cambio de contraseña en el próximo ingreso
+					</p>
+					<p class="text-xs text-text-secondary mt-0.5">
+						Recomendado para cuentas nuevas. Se pide cambiarla al iniciar sesión.
+					</p>
 				</div>
 				<span
 					class={'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ' +
-						(form.activo ? 'bg-estado-activo' : 'bg-text-secondary/40')}
+						(form.debeCambiarPassword ? 'bg-primary' : 'bg-text-secondary/40')}
 					aria-hidden="true"
 				>
 					<span
 						class={'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ' +
-							(form.activo ? 'translate-x-6' : 'translate-x-1')}
+							(form.debeCambiarPassword ? 'translate-x-6' : 'translate-x-1')}
 					></span>
 				</span>
 			</button>
-			{#if !editando}
-				<button
-					type="button"
-					role="switch"
-					aria-checked={form.debeCambiarPassword}
-					class="w-full flex items-center justify-between gap-3 rounded-xl border border-border bg-alt-row/50 px-4 py-3 text-left transition-colors hover:border-primary/40"
-					onclick={() => (form.debeCambiarPassword = !form.debeCambiarPassword)}
-				>
-					<div>
-						<p class="text-sm font-semibold text-text-primary">
-							Obligar cambio de contraseña en el próximo ingreso
-						</p>
-						<p class="text-xs text-text-secondary mt-0.5">
-							Recomendado para cuentas nuevas. Se pide cambiarla al iniciar sesión.
-						</p>
-					</div>
-					<span
-						class={'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ' +
-							(form.debeCambiarPassword ? 'bg-primary' : 'bg-text-secondary/40')}
-						aria-hidden="true"
-					>
-						<span
-							class={'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ' +
-								(form.debeCambiarPassword ? 'translate-x-6' : 'translate-x-1')}
-						></span>
-					</span>
-				</button>
-			{/if}
-		</div>
-	{/snippet}
+		{/if}
+	</div>
 
 	{#snippet footer()}
 		<button class="btn-ghost" onclick={() => (modalOpen = false)} disabled={guardando}
@@ -712,38 +705,36 @@
 	width="max-w-md"
 	dismissible={!forcando}
 >
-	{#snippet children()}
-		{#if forzarError}
-			<div
-				class="mb-4 rounded-lg bg-peligro/10 border border-peligro/30 px-3 py-2.5 text-sm text-peligro"
-				role="alert"
-			>
-				{forzarError}
-			</div>
-		{/if}
-		<FormField
-			label="Nueva contraseña"
-			required
-			hint="Mínimo 8 caracteres: mayúscula, minúscula, número y símbolo."
+	{#if forzarError}
+		<div
+			class="mb-4 rounded-lg bg-peligro/10 border border-peligro/30 px-3 py-2.5 text-sm text-peligro"
+			role="alert"
 		>
-			<input
-				class="input"
-				type="password"
-				autocomplete="new-password"
-				bind:value={nuevaPassword}
-				maxlength="128"
-			/>
-		</FormField>
-		<FormField label="Confirmar nueva contraseña" required>
-			<input
-				class="input"
-				type="password"
-				autocomplete="new-password"
-				bind:value={confirmPassword}
-				maxlength="128"
-			/>
-		</FormField>
-	{/snippet}
+			{forzarError}
+		</div>
+	{/if}
+	<FormField
+		label="Nueva contraseña"
+		required
+		hint="Mínimo 8 caracteres: mayúscula, minúscula, número y símbolo."
+	>
+		<input
+			class="input"
+			type="password"
+			autocomplete="new-password"
+			bind:value={nuevaPassword}
+			maxlength="128"
+		/>
+	</FormField>
+	<FormField label="Confirmar nueva contraseña" required>
+		<input
+			class="input"
+			type="password"
+			autocomplete="new-password"
+			bind:value={confirmPassword}
+			maxlength="128"
+		/>
+	</FormField>
 
 	{#snippet footer()}
 		<button class="btn-ghost" onclick={() => (forzarUsuario = null)} disabled={forcando}

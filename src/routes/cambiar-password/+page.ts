@@ -9,7 +9,7 @@
 // «atrás» regrese a esta página.
 
 import { redirect } from '@sveltejs/kit';
-import { session } from '$lib/stores/session.svelte';
+import { session } from '#lib/stores/session.svelte.js';
 
 export function load() {
 	// Sin sesión: el layout ya redirige a /login, pero por defensa en

@@ -11,17 +11,17 @@
 		type AlertaKm,
 		type Auto,
 		type BusinessLists
-	} from '$lib/api';
-	import { session } from '$lib/stores/session.svelte';
-	import { toast } from '$lib/stores/toast.svelte';
-	import { formatCOP, formatDate, formatLocalDateISO } from '$lib/utils/format';
-	import { guardSesion, haySesion } from '$lib/utils/guards';
-	import DataTable from '$lib/components/DataTable.svelte';
-	import Modal from '$lib/components/Modal.svelte';
-	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
-	import FormField from '$lib/components/FormField.svelte';
-	import SearchSelect, { type SearchSelectOpcion } from '$lib/components/SearchSelect.svelte';
-	import Icon from '$lib/components/Icon.svelte';
+	} from '#lib/api.js';
+	import { session } from '#lib/stores/session.svelte.js';
+	import { toast } from '#lib/stores/toast.svelte.js';
+	import { formatCOP, formatDate, formatLocalDateISO } from '#lib/utils/format.js';
+	import { guardSesion, haySesion } from '#lib/utils/guards.js';
+	import DataTable from '#lib/components/DataTable.svelte';
+	import Modal from '#lib/components/Modal.svelte';
+	import ConfirmDialog from '#lib/components/ConfirmDialog.svelte';
+	import FormField from '#lib/components/FormField.svelte';
+	import SearchSelect, { type SearchSelectOpcion } from '#lib/components/SearchSelect.svelte';
+	import Icon from '#lib/components/Icon.svelte';
 
 	const sid = () => session.token ?? '';
 
@@ -310,7 +310,7 @@
 				<div class="grow">
 					<p class="text-sm font-semibold text-text-primary">Alertas por kilometraje</p>
 					<ul class="mt-1 space-y-0.5">
-						{#each alertas as a}
+						{#each alertas as a (a.placa + a.tipo)}
 							<li class="text-xs {a.critica ? 'text-peligro font-medium' : 'text-text-secondary'}">
 								<span class="font-mono font-semibold">{a.placa}</span> · {textoAlerta(a)}
 							</li>
@@ -338,7 +338,7 @@
 			<p class="text-[11px] font-bold uppercase tracking-wider text-text-secondary">Por placa</p>
 			<div class="mt-1 space-y-1">
 				{#if totales && totales.porPlaca.length > 0}
-					{#each totales.porPlaca.slice(0, 3) as t}
+					{#each totales.porPlaca.slice(0, 3) as t (t.clave)}
 						<div class="flex items-center justify-between text-sm">
 							<span class="font-mono text-xs text-primary font-semibold">{t.clave}</span>
 							<span class="tabular-nums text-text-primary">{formatCOP(t.total, true)}</span>
@@ -353,7 +353,7 @@
 			<p class="text-[11px] font-bold uppercase tracking-wider text-text-secondary">Por tipo</p>
 			<div class="mt-1 space-y-1">
 				{#if totales && totales.porTipo.length > 0}
-					{#each totales.porTipo.slice(0, 3) as t}
+					{#each totales.porTipo.slice(0, 3) as t (t.clave)}
 						<div class="flex items-center justify-between text-sm">
 							<span class="text-xs text-text-secondary font-medium">{t.clave}</span>
 							<span class="tabular-nums text-text-primary">{formatCOP(t.total, true)}</span>
@@ -391,13 +391,13 @@
 		</div>
 		<select class="input w-auto" bind:value={placaFiltro} aria-label="Filtrar por placa">
 			<option value="">Todas las placas</option>
-			{#each autos as a}
+			{#each autos as a (a.placa)}
 				<option value={a.placa}>{a.placa}</option>
 			{/each}
 		</select>
 		<select class="input w-auto" bind:value={tipoFiltro} aria-label="Filtrar por tipo">
 			<option value="">Todos los tipos</option>
-			{#each tiposMantenimiento as t}
+			{#each tiposMantenimiento as t (t)}
 				<option value={t}>{t}</option>
 			{/each}
 		</select>
@@ -530,85 +530,82 @@
 	onClose={() => (modalOpen = false)}
 	width="max-w-lg"
 >
-	{#snippet children()}
-		{#if formError}
-			<div
-				class="mb-4 rounded-lg bg-peligro/10 border border-peligro/30 px-3 py-2.5 text-sm text-peligro"
-				role="alert"
-			>
-				{formError}
-			</div>
-		{/if}
+	{#if formError}
+		<div
+			class="mb-4 rounded-lg bg-peligro/10 border border-peligro/30 px-3 py-2.5 text-sm text-peligro"
+			role="alert"
+		>
+			{formError}
+		</div>
+	{/if}
 
-		<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
-			<SearchSelect
-				label="Vehículo"
-				required
-				value={form.placa}
-				opciones={opcionesAutos}
-				onchange={(v) => {
-					form.placa = v;
-					alCambiarPlacaForm();
-				}}
-				placeholder="Buscar placa, marca o modelo…"
-				vacioLabel="Selecciona..."
+	<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+		<SearchSelect
+			label="Vehículo"
+			required
+			value={form.placa}
+			opciones={opcionesAutos}
+			onchange={(v) => {
+				form.placa = v;
+				alCambiarPlacaForm();
+			}}
+			placeholder="Buscar placa, marca o modelo…"
+			vacioLabel="Selecciona..."
+		/>
+		<FormField label="Tipo de mantenimiento" required>
+			<select class="input" bind:value={form.tipo}>
+				<option value="">Selecciona...</option>
+				{#each tiposMantenimiento as t (t)}
+					<option value={t}>{t}</option>
+				{/each}
+			</select>
+		</FormField>
+		<FormField label="Fecha" required>
+			<input class="input" type="date" bind:value={form.fecha} />
+		</FormField>
+		<FormField label="Costo (COP)" required>
+			<input
+				class="input tabular-nums"
+				inputmode="decimal"
+				placeholder="Ej: 350000"
+				bind:value={form.costo}
 			/>
-			<FormField label="Tipo de mantenimiento" required>
-				<select class="input" bind:value={form.tipo}>
-					<option value="">Selecciona...</option>
-					{#each tiposMantenimiento as t}
-						<option value={t}>{t}</option>
-					{/each}
-				</select>
-			</FormField>
-			<FormField label="Fecha" required>
-				<input class="input" type="date" bind:value={form.fecha} />
-			</FormField>
-			<FormField label="Costo (COP)" required>
+		</FormField>
+		<div class="col-span-full">
+			<FormField label="Descripción">
 				<input
-					class="input tabular-nums"
-					inputmode="decimal"
-					placeholder="Ej: 350000"
-					bind:value={form.costo}
+					class="input"
+					placeholder="Ej: Cambio de aceite 15W-40 y filtro"
+					bind:value={form.descripcion}
+					maxlength="250"
 				/>
 			</FormField>
-			<div class="col-span-full">
-				<FormField label="Descripción">
-					<input
-						class="input"
-						placeholder="Ej: Cambio de aceite 15W-40 y filtro"
-						bind:value={form.descripcion}
-						maxlength="250"
-					/>
-				</FormField>
-			</div>
-			<div class="col-span-full">
-				<FormField
-					label="Km próximo cambio de aceite"
-					hint="Se sincroniza con el vehículo para las alertas por kilometraje."
-				>
-					<input
-						class="input tabular-nums"
-						type="number"
-						min="0"
-						step="1"
-						placeholder="Ej: 50000"
-						bind:value={form.kmProximoCambioAceite}
-					/>
-				</FormField>
-			</div>
-			<div class="col-span-full">
-				<FormField label="Observaciones">
-					<textarea
-						class="input min-h-20 resize-y"
-						placeholder="Detalles adicionales (opcional)"
-						bind:value={form.observaciones}
-						maxlength="2000"
-					></textarea>
-				</FormField>
-			</div>
 		</div>
-	{/snippet}
+		<div class="col-span-full">
+			<FormField
+				label="Km próximo cambio de aceite"
+				hint="Se sincroniza con el vehículo para las alertas por kilometraje."
+			>
+				<input
+					class="input tabular-nums"
+					type="number"
+					min="0"
+					step="1"
+					placeholder="Ej: 50000"
+					bind:value={form.kmProximoCambioAceite}
+				/>
+			</FormField>
+		</div>
+		<div class="col-span-full">
+			<FormField label="Observaciones">
+				<textarea
+					class="input min-h-20 resize-y"
+					placeholder="Detalles adicionales (opcional)"
+					bind:value={form.observaciones}
+					maxlength="2000"></textarea>
+			</FormField>
+		</div>
+	</div>
 
 	{#snippet footer()}
 		<button class="btn-ghost" onclick={() => (modalOpen = false)} disabled={guardando}

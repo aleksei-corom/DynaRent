@@ -58,7 +58,7 @@
 		<table class="w-full text-sm">
 			<thead>
 				<tr class="bg-alt-row/70 border-b border-border">
-					{#each columns as col}
+					{#each columns as col (col.key)}
 						<th
 							class="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-text-secondary whitespace-nowrap {alignClass(
 								col.align
@@ -81,7 +81,7 @@
 						<tr
 							class="border-b border-border/60 last:border-0 hover:bg-alt-row/50 transition-colors"
 						>
-							{#each columns as col}
+							{#each columns as col (col.key)}
 								<td
 									class="px-4 py-3 align-middle text-text-primary {alignClass(
 										col.align

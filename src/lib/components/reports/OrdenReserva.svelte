@@ -6,10 +6,10 @@
 	// window.print(); las reglas @media print de app.css muestran solo el área
 	// .print-area cuando el body tiene la clase .printing.
 	import { onMount } from 'svelte';
-	import type { Reserva } from '$lib/api';
-	import { formatCOP, formatDate } from '$lib/utils/format';
-	import { empresa } from '$lib/stores/empresa.svelte';
-	import { sid } from '$lib/stores/session.svelte';
+	import type { Reserva } from '#lib/api.js';
+	import { formatCOP, formatDate } from '#lib/utils/format.js';
+	import { empresa } from '#lib/stores/empresa.svelte.js';
+	import { sid } from '#lib/stores/session.svelte.js';
 
 	// Datos + logo de la empresa (setup inicial); fallback estático si no hay config.
 	onMount(() => {

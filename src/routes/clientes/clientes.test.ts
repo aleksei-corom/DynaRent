@@ -2,8 +2,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/svelte';
 import { tauri } from '../../test/tauri';
-import { session } from '$lib/stores/session.svelte';
-import type { Cliente, ClienteConPii, ClienteDatos, BusinessLists } from '$lib/api';
+import { session } from '#lib/stores/session.svelte.js';
+import type { Cliente, ClienteConPii, ClienteDatos, BusinessLists } from '#lib/api.js';
 import ClientesPage from './+page.svelte';
 
 function cliente(overrides: Partial<Cliente> = {}): Cliente {

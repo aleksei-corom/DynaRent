@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { authApi, ApiError } from '$lib/api';
-	import { session } from '$lib/stores/session.svelte';
+	import { authApi, ApiError } from '#lib/api.js';
+	import { session } from '#lib/stores/session.svelte.js';
 
 	let currentPassword = $state('');
 	let newPassword = $state('');
@@ -19,7 +19,7 @@
 	// $effect es el respaldo reactivo para ese caso y para el post-submit.
 	$effect(() => {
 		if (session.debeCambiarPassword !== true) {
-			goto('/dashboard', { replaceState: true });
+			goto('/dashboard', { replace: true });
 		}
 	});
 
@@ -159,7 +159,7 @@
 
 				<!-- Requisitos -->
 				<div class="mb-5 grid grid-cols-1 gap-1.5">
-					{#each passwordHints as hint}
+					{#each passwordHints as hint (hint.label)}
 						<div
 							class="flex items-center gap-2 text-xs"
 							class:text-exito={hint.check()}

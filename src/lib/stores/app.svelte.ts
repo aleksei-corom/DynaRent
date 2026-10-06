@@ -1,6 +1,6 @@
 // app.svelte.ts — Datos de la aplicación (versión real y telemetría de BD)
 import { getVersion } from '@tauri-apps/api/app';
-import { appApi } from '$lib/api/app';
+import { appApi } from '#lib/api/app.js';
 
 class AppStore {
 	/** Versión del binario instalado (null mientras no se lee / sin runtime Tauri). */

@@ -5,6 +5,6 @@
  *
  * Contrato TypeScript generado por ts-rs en `src/lib/types/generated/Pago.ts`
  * (Bloque 4 / TAREA 4.3). El frontend puede importarlo con:
- *   `import type { Pago } from '$lib/types/generated/Pago';`
+ *   `import type { Pago } from '#lib/types/generated/Pago';`
  */
 export type Pago = { id: bigint, idRenta: bigint, fecha: string, monto: string, metodoPago: string, concepto: string, observaciones: string | null, usuario: string | null, };

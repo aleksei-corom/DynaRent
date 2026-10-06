@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { authApi, ApiError, type LoginStatus } from '$lib/api';
-	import { session } from '$lib/stores/session.svelte';
-	import { empresa } from '$lib/stores/empresa.svelte';
-	import { appInfo as app } from '$lib/stores/app.svelte';
+	import { authApi, ApiError, type LoginStatus } from '#lib/api.js';
+	import { session } from '#lib/stores/session.svelte.js';
+	import { empresa } from '#lib/stores/empresa.svelte.js';
+	import { appInfo as app } from '#lib/stores/app.svelte.js';
 
 	let username = $state('');
 	let password = $state('');

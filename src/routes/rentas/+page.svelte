@@ -18,31 +18,31 @@
 		type Auto,
 		type BusinessLists,
 		type Reserva
-	} from '$lib/api';
-	import { sid, session } from '$lib/stores/session.svelte';
-	import { businessLists } from '$lib/stores/business.svelte';
-	import { toast } from '$lib/stores/toast.svelte';
-	import { formatCOP, formatContrato, formatDate, formatLocalDateISO } from '$lib/utils/format';
-	import { calcularDiasHoras } from '$lib/utils/calcularDiasHoras';
-	import { guardSesion, haySesion } from '$lib/utils/guards';
-	import DataTable from '$lib/components/DataTable.svelte';
-	import Modal from '$lib/components/Modal.svelte';
-	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
-	import FormField from '$lib/components/FormField.svelte';
-	import SearchSelect, { type SearchSelectOpcion } from '$lib/components/SearchSelect.svelte';
-	import ClienteFormModal from '$lib/components/ClienteFormModal.svelte';
-	import OrdenRenta from '$lib/components/reports/OrdenRenta.svelte';
-	import ContratoRenta from '$lib/components/reports/ContratoRenta.svelte';
-	import AvisoImpresion from '$lib/components/AvisoImpresion.svelte';
-	import Icon from '$lib/components/Icon.svelte';
+	} from '#lib/api.js';
+	import { sid, session } from '#lib/stores/session.svelte.js';
+	import { businessLists } from '#lib/stores/business.svelte.js';
+	import { toast } from '#lib/stores/toast.svelte.js';
+	import { formatCOP, formatContrato, formatDate, formatLocalDateISO } from '#lib/utils/format.js';
+	import { calcularDiasHoras } from '#lib/utils/calcularDiasHoras.js';
+	import { guardSesion, haySesion } from '#lib/utils/guards.js';
+	import DataTable from '#lib/components/DataTable.svelte';
+	import Modal from '#lib/components/Modal.svelte';
+	import ConfirmDialog from '#lib/components/ConfirmDialog.svelte';
+	import FormField from '#lib/components/FormField.svelte';
+	import SearchSelect, { type SearchSelectOpcion } from '#lib/components/SearchSelect.svelte';
+	import ClienteFormModal from '#lib/components/ClienteFormModal.svelte';
+	import OrdenRenta from '#lib/components/reports/OrdenRenta.svelte';
+	import ContratoRenta from '#lib/components/reports/ContratoRenta.svelte';
+	import AvisoImpresion from '#lib/components/AvisoImpresion.svelte';
+	import Icon from '#lib/components/Icon.svelte';
 	import ModalCierreRenta from './components/ModalCierreRenta.svelte';
 	import ModalCambiarAuto from './components/ModalCambiarAuto.svelte';
 	import ModalPagoRenta from './components/ModalPagoRenta.svelte';
 	import ModalInspeccionRenta from './components/ModalInspeccionRenta.svelte';
 	import ModalEditarCerrada from './components/ModalEditarCerrada.svelte';
 	import ModalExtenderRenta from './components/ModalExtenderRenta.svelte';
-	import { imprimirDocumento } from '$lib/utils/imprimir';
-	import { useDebouncedEffect } from '$lib/utils/debounce.svelte';
+	import { imprimirDocumento } from '#lib/utils/imprimir.js';
+	import { useDebouncedEffect } from '#lib/utils/debounce.svelte.js';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 
@@ -404,7 +404,7 @@
 					e instanceof ApiError ? e.message : 'No se pudo cargar la reserva para crear la renta.'
 				);
 			} finally {
-				goto('/rentas', { replaceState: true });
+				goto('/rentas', { replace: true });
 			}
 		}
 	});
@@ -912,13 +912,13 @@
 		</div>
 		<select class="input w-auto" bind:value={estadoFiltro} aria-label="Filtrar por estado">
 			<option value="">Todos los estados</option>
-			{#each ['Activo', 'Cerrada', 'Cancelada'] as est}
+			{#each ['Activo', 'Cerrada', 'Cancelada'] as est (est)}
 				<option value={est}>{est}</option>
 			{/each}
 		</select>
 		<select class="input w-auto" bind:value={placaFiltro} aria-label="Filtrar por placa">
 			<option value="">Todas las placas</option>
-			{#each autos as a}
+			{#each autos as a (a.placa)}
 				<option value={a.placa}>{a.placa} · {a.marca} {a.modelo}</option>
 			{/each}
 		</select>
@@ -1144,581 +1144,63 @@
 	fullHeight
 	rawBody
 >
-	{#snippet children()}
-		<div class="flex grow min-h-0">
-			<!-- ── Panel izquierdo: campos (scrollable solo si es necesario) ── -->
-			<div class="flex-1 min-w-0 overflow-y-auto din-scroll px-5 py-4">
-				{#if formError}
-					<div
-						class="mb-4 rounded-lg bg-peligro/10 border border-peligro/30 px-3 py-2.5 text-sm text-peligro"
-						role="alert"
-					>
-						{formError}
-					</div>
-				{/if}
-
-				<!-- ── 1. Cliente ── -->
-				<div class="flex items-center gap-2 mb-2.5">
-					<span
-						class="w-5 h-5 rounded-md bg-primary/10 text-primary flex items-center justify-center text-[11px] font-bold"
-						>1</span
-					>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="w-3.5 h-3.5 text-primary"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="2"
-						><path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
-						/></svg
-					>
-					<h3 class="text-[11px] font-bold uppercase tracking-wider text-primary">Cliente</h3>
-				</div>
-				<div class="grid grid-cols-2 gap-x-3 mb-3">
-					<div class="col-span-2">
-						<div class="flex items-end gap-2">
-							<SearchSelect
-								class="grow"
-								label="Cliente registrado"
-								hint="Opcional: busca por nombre o número de documento; se autocompleta el resto."
-								dense
-								value={form.idCliente === null ? '' : String(form.idCliente)}
-								opciones={opcionesClientes}
-								onchange={onClienteChange}
-								placeholder="Buscar por nombre o documento…"
-								vacioLabel="— Sin cliente registrado —"
-							/>
-							<button
-								type="button"
-								class="mb-3 shrink-0 inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold border border-primary text-primary hover:bg-primary hover:text-white transition-colors"
-								onclick={() => (clienteModalOpen = true)}
-								title="Crear nuevo cliente"
-								aria-label="Crear nuevo cliente"
-							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="w-3.5 h-3.5"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									stroke-width="2"
-									><path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d="M12 4.5v15m7.5-7.5h-15"
-									/></svg
-								>
-								<span class="hidden xl:inline">Nuevo</span>
-							</button>
-						</div>
-					</div>
-					<FormField label="Nombre del cliente" required dense>
-						<input
-							class="input"
-							placeholder="Nombre para la renta"
-							bind:value={form.nombreCliente}
-							maxlength="200"
-						/>
-					</FormField>
-					<div class="grid grid-cols-2 gap-x-3">
-						<FormField label="Nacionalidad" dense>
-							<input
-								class="input"
-								placeholder="Ej: Colombiana"
-								bind:value={form.nacionalidad}
-								maxlength="80"
-							/>
-						</FormField>
-						<FormField label="No. licencia" dense>
-							<input
-								class="input"
-								placeholder="LC-102345678"
-								bind:value={form.noLicencia}
-								maxlength="50"
-							/>
-						</FormField>
-					</div>
-				</div>
-
-				<!-- ── 2. Vehículo ── -->
-				<div class="flex items-center gap-2 mb-2.5 mt-2">
-					<span
-						class="w-5 h-5 rounded-md bg-primary/10 text-primary flex items-center justify-center text-[11px] font-bold"
-						>2</span
-					>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="w-3.5 h-3.5 text-primary"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="2"
-						><path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"
-						/></svg
-					>
-					<h3 class="text-[11px] font-bold uppercase tracking-wider text-primary">Vehículo</h3>
-				</div>
-				<div class="grid grid-cols-3 gap-x-3 mb-3">
-					<SearchSelect
-						label="Placa"
-						required
-						dense
-						hint={editando
-							? 'Para cambiar el auto de una renta activa usa la acción «Cambiar vehículo» de la lista.'
-							: 'Busca por placa, marca o modelo; autocompleta km'}
-						value={form.placa ?? ''}
-						opciones={opcionesAutos}
-						onchange={onPlacaChange}
-						placeholder="Buscar placa, marca o modelo…"
-						vacioLabel="— Seleccionar —"
-						disabled={editando}
-					/>
-					<FormField label="Km de salida" dense>
-						<input
-							class="input"
-							inputmode="numeric"
-							placeholder="Ej: 42000"
-							bind:value={form.kmSalida}
-						/>
-					</FormField>
-					<FormField label="Tanque salida" dense>
-						<select class="input" bind:value={form.tanqueSalida}>
-							{#each lists?.nivelTanque ?? ['Lleno', '3/4', '1/2', '1/4', 'Vacío'] as t}
-								<option value={t}>{t}</option>
-							{/each}
-						</select>
-					</FormField>
-				</div>
-
-				<!-- ── 3. Itinerario ── -->
-				<div class="flex items-center gap-2 mb-2.5 mt-2">
-					<span
-						class="w-5 h-5 rounded-md bg-primary/10 text-primary flex items-center justify-center text-[11px] font-bold"
-						>3</span
-					>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="w-3.5 h-3.5 text-primary"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="2"
-						><path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
-						/></svg
-					>
-					<h3 class="text-[11px] font-bold uppercase tracking-wider text-primary">Itinerario</h3>
-				</div>
-				<div class="grid grid-cols-3 gap-x-3 mb-3">
-					<FormField label="Fecha recogida" required dense>
-						<input
-							class="input"
-							type="date"
-							bind:value={form.fechaRecogida}
-							onchange={recalcularDias}
-						/>
-					</FormField>
-					<FormField label="Hora recogida" dense>
-						<input
-							class="input"
-							type="time"
-							bind:value={form.horaRecogida}
-							onchange={recalcularDias}
-						/>
-					</FormField>
-					<FormField label="Lugar recogida" dense>
-						<input
-							class="input"
-							placeholder="Aeropuerto, oficina…"
-							bind:value={form.ubicacionRecogida}
-							maxlength="200"
-						/>
-					</FormField>
-					<FormField label="Fecha retorno" required dense>
-						<input
-							class="input"
-							type="date"
-							bind:value={form.fechaRetorno}
-							onchange={recalcularDias}
-						/>
-					</FormField>
-					<FormField label="Hora retorno" dense>
-						<input
-							class="input"
-							type="time"
-							bind:value={form.horaRetorno}
-							onchange={recalcularDias}
-						/>
-					</FormField>
-					<FormField label="Lugar retorno" dense>
-						<input
-							class="input"
-							placeholder="Aeropuerto, oficina…"
-							bind:value={form.ubicacionRetorno}
-							maxlength="200"
-						/>
-					</FormField>
-				</div>
-
-				<!-- ── 4. Tarifas base ── -->
-				<div class="flex items-center gap-2 mb-2.5 mt-2">
-					<span
-						class="w-5 h-5 rounded-md bg-primary/10 text-primary flex items-center justify-center text-[11px] font-bold"
-						>4</span
-					>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="w-3.5 h-3.5 text-primary"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="2"
-						><path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z"
-						/></svg
-					>
-					<h3 class="text-[11px] font-bold uppercase tracking-wider text-primary">Tarifas base</h3>
-				</div>
-				<div class="grid grid-cols-4 gap-x-3 mb-3">
-					<FormField label="Valor por día" hint="COP" dense>
-						<input
-							class="input"
-							inputmode="decimal"
-							placeholder="150000"
-							bind:value={form.valorDia}
-						/>
-					</FormField>
-					<FormField label="Días calculados" hint="Auto desde fechas" dense>
-						<input class="input" type="number" min="0" step="1" bind:value={form.diasCalculados} />
-					</FormField>
-					<FormField label="Valor hora extra" hint="COP" dense>
-						<input
-							class="input"
-							inputmode="decimal"
-							placeholder="10000"
-							bind:value={form.valorHoraExtra}
-						/>
-					</FormField>
-					<FormField label="Horas extras" dense>
-						<input class="input" type="number" min="0" step="1" bind:value={form.horasExtras} />
-					</FormField>
-				</div>
-				<label
-					class="flex items-center gap-2 text-sm text-text-primary cursor-pointer rounded-lg border border-border px-3 py-2 hover:bg-alt-row/60 transition-colors mb-3 w-fit"
+	<div class="flex grow min-h-0">
+		<!-- ── Panel izquierdo: campos (scrollable solo si es necesario) ── -->
+		<div class="flex-1 min-w-0 overflow-y-auto din-scroll px-5 py-4">
+			{#if formError}
+				<div
+					class="mb-4 rounded-lg bg-peligro/10 border border-peligro/30 px-3 py-2.5 text-sm text-peligro"
+					role="alert"
 				>
-					<input type="checkbox" class="accent-primary" bind:checked={form.cobraIva} />
-					Cobrar IVA
-					<span class="text-xs text-text-secondary">({tasaIva}% — solo si se marca)</span>
-				</label>
-				<label
-					class="flex items-center gap-2 text-sm text-text-primary cursor-pointer rounded-lg border border-border px-3 py-2 hover:bg-alt-row/60 transition-colors mb-3 w-fit"
-				>
-					<input type="checkbox" class="accent-primary" bind:checked={form.cobrarHorasExtra} />
-					Cobrar Horas Extra
-					<span class="text-xs text-text-secondary">(si el cliente llega tarde)</span>
-				</label>
-
-				<!-- ── 5. Costos adicionales (colapsable) ── -->
-				<button
-					type="button"
-					onclick={() => (costosOpen = !costosOpen)}
-					class="w-full flex items-center gap-2 mb-2 mt-2 group text-left"
-					aria-expanded={costosOpen}
-				>
-					<span
-						class="w-5 h-5 rounded-md bg-primary/10 text-primary flex items-center justify-center text-[11px] font-bold"
-						>5</span
-					>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="w-3.5 h-3.5 text-primary"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="2"
-						><path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z"
-						/></svg
-					>
-					<h3 class="text-[11px] font-bold uppercase tracking-wider text-primary">
-						Costos adicionales
-					</h3>
-					<span class="text-[10px] text-text-secondary bg-alt-row px-1.5 py-0.5 rounded">
-						{costosOpen ? '8 campos' : '8 opcionales · ocultos'}
-					</span>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="ml-auto w-4 h-4 text-text-secondary group-hover:text-text-primary transition-transform {costosOpen
-							? 'rotate-90'
-							: ''}"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="2"
-						><path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							d="M8.25 4.5l7.5 7.5-7.5 7.5"
-						/></svg
-					>
-				</button>
-				{#if costosOpen}
-					<div class="grid grid-cols-3 gap-x-3 mb-3 animate-[modal-fade-in_150ms_ease-out]">
-						<FormField label="Valor día extra" hint="COP" dense>
-							<input
-								class="input"
-								inputmode="decimal"
-								placeholder="50000"
-								bind:value={form.valorDiaExtra}
-							/>
-						</FormField>
-						<FormField label="Costo lavado" hint="COP" dense>
-							<input
-								class="input"
-								inputmode="decimal"
-								placeholder="25000"
-								bind:value={form.costoLavado}
-							/>
-						</FormField>
-						<FormField label="Silla de bebé" hint="COP" dense>
-							<input
-								class="input"
-								inputmode="decimal"
-								placeholder="15000"
-								bind:value={form.costoSilla}
-							/>
-						</FormField>
-						<FormField label="Recogida/retorno" hint="COP" dense>
-							<input
-								class="input"
-								inputmode="decimal"
-								placeholder="30000"
-								bind:value={form.costoRetorno}
-							/>
-						</FormField>
-						<FormField label="Domicilio" hint="COP" dense>
-							<input
-								class="input"
-								inputmode="decimal"
-								placeholder="20000"
-								bind:value={form.costoDomicilio}
-							/>
-						</FormField>
-						<FormField label="Cables" hint="COP" dense>
-							<input
-								class="input"
-								inputmode="decimal"
-								placeholder="10000"
-								bind:value={form.costoCables}
-							/>
-						</FormField>
-						<FormField label="Inversor" hint="COP" dense>
-							<input
-								class="input"
-								inputmode="decimal"
-								placeholder="8000"
-								bind:value={form.costoInversor}
-							/>
-						</FormField>
-						<FormField label="Gasolina" hint="COP" dense>
-							<input
-								class="input"
-								inputmode="decimal"
-								placeholder="30000"
-								bind:value={form.valorGasolina}
-							/>
-						</FormField>
-					</div>
-				{/if}
-
-				<!-- ── 6. Descuento y abono ── -->
-				<div class="grid grid-cols-2 gap-x-3">
-					<FormField label="Descuento" hint="COP" dense>
-						<input
-							class="input"
-							inputmode="decimal"
-							placeholder="5000"
-							bind:value={form.descuento}
-						/>
-					</FormField>
-					<FormField label="Abono inicial" hint="COP" dense>
-						<input class="input" inputmode="decimal" placeholder="100000" bind:value={form.abono} />
-					</FormField>
+					{formError}
 				</div>
-				<label
-					class="flex items-center gap-2 text-sm text-text-primary cursor-pointer rounded-lg border border-border px-3 py-2 hover:bg-alt-row/60 transition-colors mt-3 w-fit"
+			{/if}
+
+			<!-- ── 1. Cliente ── -->
+			<div class="flex items-center gap-2 mb-2.5">
+				<span
+					class="w-5 h-5 rounded-md bg-primary/10 text-primary flex items-center justify-center text-[11px] font-bold"
+					>1</span
 				>
-					<input type="checkbox" class="accent-primary" bind:checked={form.tieneComision} />
-					Cobrar comisión
-					<span class="text-xs text-text-secondary">(se resta del total → valor neto)</span>
-				</label>
-				{#if form.tieneComision}
-					<div class="mt-2 max-w-60">
-						<FormField label="Valor comisión" hint="COP" dense>
-							<input
-								class="input"
-								inputmode="decimal"
-								placeholder="50000"
-								bind:value={form.comision}
-							/>
-						</FormField>
-					</div>
-				{/if}
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="w-3.5 h-3.5 text-primary"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+					stroke-width="2"
+					><path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
+					/></svg
+				>
+				<h3 class="text-[11px] font-bold uppercase tracking-wider text-primary">Cliente</h3>
 			</div>
-
-			<!-- ── Panel derecho: resumen + observaciones + acciones (sticky) ── -->
-			<div class="w-72 xl:w-80 shrink-0 border-l border-border bg-alt-row/40 flex flex-col">
-				<!-- Resumen en vivo (siempre visible) -->
-				<div class="px-4 py-3 border-b border-border">
-					<div class="flex items-center gap-2 mb-2.5">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="w-3.5 h-3.5 text-primary"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-							stroke-width="2"
-							><path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"
-							/></svg
+			<div class="grid grid-cols-2 gap-x-3 mb-3">
+				<div class="col-span-2">
+					<div class="flex items-end gap-2">
+						<SearchSelect
+							class="grow"
+							label="Cliente registrado"
+							hint="Opcional: busca por nombre o número de documento; se autocompleta el resto."
+							dense
+							value={form.idCliente === null ? '' : String(form.idCliente)}
+							opciones={opcionesClientes}
+							onchange={onClienteChange}
+							placeholder="Buscar por nombre o documento…"
+							vacioLabel="— Sin cliente registrado —"
+						/>
+						<button
+							type="button"
+							class="mb-3 shrink-0 inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold border border-primary text-primary hover:bg-primary hover:text-white transition-colors"
+							onclick={() => (clienteModalOpen = true)}
+							title="Crear nuevo cliente"
+							aria-label="Crear nuevo cliente"
 						>
-						<h3 class="text-[11px] font-bold uppercase tracking-wider text-primary">
-							Resumen en vivo
-						</h3>
-					</div>
-					<!-- Total destacado -->
-					<div
-						class="rounded-lg bg-linear-to-br from-primary to-primary-hover px-3 py-2.5 text-white mb-2"
-					>
-						<p class="text-[10px] uppercase tracking-wide opacity-80 font-semibold">
-							Total estimado
-						</p>
-						<p class="text-xl font-black tabular-nums leading-tight">{formatCOP(totalCalc)}</p>
-						<p class="text-[10px] opacity-80 mt-0.5">
-							{form.cobraIva ? `IVA ${tasaIva}% incluido` : 'Sin IVA (checkbox desactivado)'}
-						</p>
-						{#if form.tieneComision}
-							<p class="text-[10px] opacity-90 mt-0.5 font-semibold">
-								Valor neto: {formatCOP(netoCalc)}
-							</p>
-						{/if}
-					</div>
-					<!-- Desglose compacto -->
-					<div class="space-y-1 text-xs">
-						<div class="flex justify-between">
-							<span class="text-text-secondary">Subtotal</span>
-							<span class="font-semibold text-text-primary tabular-nums"
-								>{formatCOP(subtotalCalc)}</span
-							>
-						</div>
-						{#if form.cobraIva}
-							<div class="flex justify-between">
-								<span class="text-text-secondary">IVA ({tasaIva}%)</span>
-								<span class="font-semibold text-text-primary tabular-nums"
-									>{formatCOP(ivaCalc)}</span
-								>
-							</div>
-						{/if}
-						{#if form.tieneComision}
-							<div class="flex justify-between">
-								<span class="text-text-secondary">Comisión</span>
-								<span class="font-semibold text-text-primary tabular-nums"
-									>-{formatCOP(comisionCalc)}</span
-								>
-							</div>
-							<div class="flex justify-between">
-								<span class="text-text-secondary font-semibold">Valor neto</span>
-								<span class="font-bold text-text-primary tabular-nums">{formatCOP(netoCalc)}</span>
-							</div>
-						{/if}
-						<div class="flex justify-between">
-							<span class="text-text-secondary">Abono</span>
-							<span class="font-semibold text-text-primary tabular-nums"
-								>{formatCOP(form.abono)}</span
-							>
-						</div>
-						<div class="flex justify-between pt-1 border-t border-border">
-							<span class="text-text-secondary font-semibold">Saldo</span>
-							<span class="font-bold text-exito tabular-nums text-sm">{formatCOP(saldoCalc)}</span>
-						</div>
-					</div>
-				</div>
-
-				<!-- Observaciones -->
-				<div class="px-4 py-3 grow flex flex-col min-h-0">
-					<span class="label flex items-center gap-1.5">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="w-3 h-3"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-							stroke-width="2"
-							><path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"
-							/><path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"
-							/></svg
-						>
-						Observaciones
-					</span>
-					<textarea
-						class="input flex-1 min-h-15 resize-none text-xs"
-						placeholder="Aparecen en el documento imprimible…"
-						bind:value={form.observaciones}
-						maxlength="2000"
-					></textarea>
-					<p class="text-[10px] text-text-secondary/70 mt-1">
-						{(form.observaciones ?? '').length}/2000
-					</p>
-				</div>
-
-				<!-- Acciones -->
-				<div class="px-4 py-3 border-t border-border bg-surface/50 flex flex-col gap-2">
-					<button class="btn-primary w-full" onclick={guardar} disabled={guardando}>
-						{#if guardando}
-							<svg
-								class="animate-spin h-4 w-4"
-								xmlns="http://www.w3.org/2000/svg"
-								fill="none"
-								viewBox="0 0 24 24"
-								><circle
-									class="opacity-25"
-									cx="12"
-									cy="12"
-									r="10"
-									stroke="currentColor"
-									stroke-width="4"
-								></circle><path
-									class="opacity-75"
-									fill="currentColor"
-									d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-								></path></svg
-							>
-							Guardando...
-						{:else}
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
-								class="w-4 h-4"
+								class="w-3.5 h-3.5"
 								fill="none"
 								viewBox="0 0 24 24"
 								stroke="currentColor"
@@ -1726,19 +1208,524 @@
 								><path
 									stroke-linecap="round"
 									stroke-linejoin="round"
-									d="M4.5 12.75l6 6 9-13.5"
+									d="M12 4.5v15m7.5-7.5h-15"
 								/></svg
 							>
-							{editando ? 'Guardar cambios' : 'Crear renta'}
-						{/if}
-					</button>
-					<button class="btn-ghost w-full" onclick={() => (modalOpen = false)} disabled={guardando}
-						>Cancelar</button
-					>
+							<span class="hidden xl:inline">Nuevo</span>
+						</button>
+					</div>
+				</div>
+				<FormField label="Nombre del cliente" required dense>
+					<input
+						class="input"
+						placeholder="Nombre para la renta"
+						bind:value={form.nombreCliente}
+						maxlength="200"
+					/>
+				</FormField>
+				<div class="grid grid-cols-2 gap-x-3">
+					<FormField label="Nacionalidad" dense>
+						<input
+							class="input"
+							placeholder="Ej: Colombiana"
+							bind:value={form.nacionalidad}
+							maxlength="80"
+						/>
+					</FormField>
+					<FormField label="No. licencia" dense>
+						<input
+							class="input"
+							placeholder="LC-102345678"
+							bind:value={form.noLicencia}
+							maxlength="50"
+						/>
+					</FormField>
 				</div>
 			</div>
+
+			<!-- ── 2. Vehículo ── -->
+			<div class="flex items-center gap-2 mb-2.5 mt-2">
+				<span
+					class="w-5 h-5 rounded-md bg-primary/10 text-primary flex items-center justify-center text-[11px] font-bold"
+					>2</span
+				>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="w-3.5 h-3.5 text-primary"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+					stroke-width="2"
+					><path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"
+					/></svg
+				>
+				<h3 class="text-[11px] font-bold uppercase tracking-wider text-primary">Vehículo</h3>
+			</div>
+			<div class="grid grid-cols-3 gap-x-3 mb-3">
+				<SearchSelect
+					label="Placa"
+					required
+					dense
+					hint={editando
+						? 'Para cambiar el auto de una renta activa usa la acción «Cambiar vehículo» de la lista.'
+						: 'Busca por placa, marca o modelo; autocompleta km'}
+					value={form.placa ?? ''}
+					opciones={opcionesAutos}
+					onchange={onPlacaChange}
+					placeholder="Buscar placa, marca o modelo…"
+					vacioLabel="— Seleccionar —"
+					disabled={editando}
+				/>
+				<FormField label="Km de salida" dense>
+					<input
+						class="input"
+						inputmode="numeric"
+						placeholder="Ej: 42000"
+						bind:value={form.kmSalida}
+					/>
+				</FormField>
+				<FormField label="Tanque salida" dense>
+					<select class="input" bind:value={form.tanqueSalida}>
+						{#each lists?.nivelTanque ?? ['Lleno', '3/4', '1/2', '1/4', 'Vacío'] as t (t)}
+							<option value={t}>{t}</option>
+						{/each}
+					</select>
+				</FormField>
+			</div>
+
+			<!-- ── 3. Itinerario ── -->
+			<div class="flex items-center gap-2 mb-2.5 mt-2">
+				<span
+					class="w-5 h-5 rounded-md bg-primary/10 text-primary flex items-center justify-center text-[11px] font-bold"
+					>3</span
+				>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="w-3.5 h-3.5 text-primary"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+					stroke-width="2"
+					><path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
+					/></svg
+				>
+				<h3 class="text-[11px] font-bold uppercase tracking-wider text-primary">Itinerario</h3>
+			</div>
+			<div class="grid grid-cols-3 gap-x-3 mb-3">
+				<FormField label="Fecha recogida" required dense>
+					<input
+						class="input"
+						type="date"
+						bind:value={form.fechaRecogida}
+						onchange={recalcularDias}
+					/>
+				</FormField>
+				<FormField label="Hora recogida" dense>
+					<input
+						class="input"
+						type="time"
+						bind:value={form.horaRecogida}
+						onchange={recalcularDias}
+					/>
+				</FormField>
+				<FormField label="Lugar recogida" dense>
+					<input
+						class="input"
+						placeholder="Aeropuerto, oficina…"
+						bind:value={form.ubicacionRecogida}
+						maxlength="200"
+					/>
+				</FormField>
+				<FormField label="Fecha retorno" required dense>
+					<input
+						class="input"
+						type="date"
+						bind:value={form.fechaRetorno}
+						onchange={recalcularDias}
+					/>
+				</FormField>
+				<FormField label="Hora retorno" dense>
+					<input
+						class="input"
+						type="time"
+						bind:value={form.horaRetorno}
+						onchange={recalcularDias}
+					/>
+				</FormField>
+				<FormField label="Lugar retorno" dense>
+					<input
+						class="input"
+						placeholder="Aeropuerto, oficina…"
+						bind:value={form.ubicacionRetorno}
+						maxlength="200"
+					/>
+				</FormField>
+			</div>
+
+			<!-- ── 4. Tarifas base ── -->
+			<div class="flex items-center gap-2 mb-2.5 mt-2">
+				<span
+					class="w-5 h-5 rounded-md bg-primary/10 text-primary flex items-center justify-center text-[11px] font-bold"
+					>4</span
+				>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="w-3.5 h-3.5 text-primary"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+					stroke-width="2"
+					><path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z"
+					/></svg
+				>
+				<h3 class="text-[11px] font-bold uppercase tracking-wider text-primary">Tarifas base</h3>
+			</div>
+			<div class="grid grid-cols-4 gap-x-3 mb-3">
+				<FormField label="Valor por día" hint="COP" dense>
+					<input
+						class="input"
+						inputmode="decimal"
+						placeholder="150000"
+						bind:value={form.valorDia}
+					/>
+				</FormField>
+				<FormField label="Días calculados" hint="Auto desde fechas" dense>
+					<input class="input" type="number" min="0" step="1" bind:value={form.diasCalculados} />
+				</FormField>
+				<FormField label="Valor hora extra" hint="COP" dense>
+					<input
+						class="input"
+						inputmode="decimal"
+						placeholder="10000"
+						bind:value={form.valorHoraExtra}
+					/>
+				</FormField>
+				<FormField label="Horas extras" dense>
+					<input class="input" type="number" min="0" step="1" bind:value={form.horasExtras} />
+				</FormField>
+			</div>
+			<label
+				class="flex items-center gap-2 text-sm text-text-primary cursor-pointer rounded-lg border border-border px-3 py-2 hover:bg-alt-row/60 transition-colors mb-3 w-fit"
+			>
+				<input type="checkbox" class="accent-primary" bind:checked={form.cobraIva} />
+				Cobrar IVA
+				<span class="text-xs text-text-secondary">({tasaIva}% — solo si se marca)</span>
+			</label>
+			<label
+				class="flex items-center gap-2 text-sm text-text-primary cursor-pointer rounded-lg border border-border px-3 py-2 hover:bg-alt-row/60 transition-colors mb-3 w-fit"
+			>
+				<input type="checkbox" class="accent-primary" bind:checked={form.cobrarHorasExtra} />
+				Cobrar Horas Extra
+				<span class="text-xs text-text-secondary">(si el cliente llega tarde)</span>
+			</label>
+
+			<!-- ── 5. Costos adicionales (colapsable) ── -->
+			<button
+				type="button"
+				onclick={() => (costosOpen = !costosOpen)}
+				class="w-full flex items-center gap-2 mb-2 mt-2 group text-left"
+				aria-expanded={costosOpen}
+			>
+				<span
+					class="w-5 h-5 rounded-md bg-primary/10 text-primary flex items-center justify-center text-[11px] font-bold"
+					>5</span
+				>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="w-3.5 h-3.5 text-primary"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+					stroke-width="2"
+					><path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z"
+					/></svg
+				>
+				<h3 class="text-[11px] font-bold uppercase tracking-wider text-primary">
+					Costos adicionales
+				</h3>
+				<span class="text-[10px] text-text-secondary bg-alt-row px-1.5 py-0.5 rounded">
+					{costosOpen ? '8 campos' : '8 opcionales · ocultos'}
+				</span>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="ml-auto w-4 h-4 text-text-secondary group-hover:text-text-primary transition-transform {costosOpen
+						? 'rotate-90'
+						: ''}"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+					stroke-width="2"
+					><path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d="M8.25 4.5l7.5 7.5-7.5 7.5"
+					/></svg
+				>
+			</button>
+			{#if costosOpen}
+				<div class="grid grid-cols-3 gap-x-3 mb-3 animate-[modal-fade-in_150ms_ease-out]">
+					<FormField label="Valor día extra" hint="COP" dense>
+						<input
+							class="input"
+							inputmode="decimal"
+							placeholder="50000"
+							bind:value={form.valorDiaExtra}
+						/>
+					</FormField>
+					<FormField label="Costo lavado" hint="COP" dense>
+						<input
+							class="input"
+							inputmode="decimal"
+							placeholder="25000"
+							bind:value={form.costoLavado}
+						/>
+					</FormField>
+					<FormField label="Silla de bebé" hint="COP" dense>
+						<input
+							class="input"
+							inputmode="decimal"
+							placeholder="15000"
+							bind:value={form.costoSilla}
+						/>
+					</FormField>
+					<FormField label="Recogida/retorno" hint="COP" dense>
+						<input
+							class="input"
+							inputmode="decimal"
+							placeholder="30000"
+							bind:value={form.costoRetorno}
+						/>
+					</FormField>
+					<FormField label="Domicilio" hint="COP" dense>
+						<input
+							class="input"
+							inputmode="decimal"
+							placeholder="20000"
+							bind:value={form.costoDomicilio}
+						/>
+					</FormField>
+					<FormField label="Cables" hint="COP" dense>
+						<input
+							class="input"
+							inputmode="decimal"
+							placeholder="10000"
+							bind:value={form.costoCables}
+						/>
+					</FormField>
+					<FormField label="Inversor" hint="COP" dense>
+						<input
+							class="input"
+							inputmode="decimal"
+							placeholder="8000"
+							bind:value={form.costoInversor}
+						/>
+					</FormField>
+					<FormField label="Gasolina" hint="COP" dense>
+						<input
+							class="input"
+							inputmode="decimal"
+							placeholder="30000"
+							bind:value={form.valorGasolina}
+						/>
+					</FormField>
+				</div>
+			{/if}
+
+			<!-- ── 6. Descuento y abono ── -->
+			<div class="grid grid-cols-2 gap-x-3">
+				<FormField label="Descuento" hint="COP" dense>
+					<input class="input" inputmode="decimal" placeholder="5000" bind:value={form.descuento} />
+				</FormField>
+				<FormField label="Abono inicial" hint="COP" dense>
+					<input class="input" inputmode="decimal" placeholder="100000" bind:value={form.abono} />
+				</FormField>
+			</div>
+			<label
+				class="flex items-center gap-2 text-sm text-text-primary cursor-pointer rounded-lg border border-border px-3 py-2 hover:bg-alt-row/60 transition-colors mt-3 w-fit"
+			>
+				<input type="checkbox" class="accent-primary" bind:checked={form.tieneComision} />
+				Cobrar comisión
+				<span class="text-xs text-text-secondary">(se resta del total → valor neto)</span>
+			</label>
+			{#if form.tieneComision}
+				<div class="mt-2 max-w-60">
+					<FormField label="Valor comisión" hint="COP" dense>
+						<input
+							class="input"
+							inputmode="decimal"
+							placeholder="50000"
+							bind:value={form.comision}
+						/>
+					</FormField>
+				</div>
+			{/if}
 		</div>
-	{/snippet}
+
+		<!-- ── Panel derecho: resumen + observaciones + acciones (sticky) ── -->
+		<div class="w-72 xl:w-80 shrink-0 border-l border-border bg-alt-row/40 flex flex-col">
+			<!-- Resumen en vivo (siempre visible) -->
+			<div class="px-4 py-3 border-b border-border">
+				<div class="flex items-center gap-2 mb-2.5">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="w-3.5 h-3.5 text-primary"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						stroke-width="2"
+						><path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"
+						/></svg
+					>
+					<h3 class="text-[11px] font-bold uppercase tracking-wider text-primary">
+						Resumen en vivo
+					</h3>
+				</div>
+				<!-- Total destacado -->
+				<div
+					class="rounded-lg bg-linear-to-br from-primary to-primary-hover px-3 py-2.5 text-white mb-2"
+				>
+					<p class="text-[10px] uppercase tracking-wide opacity-80 font-semibold">Total estimado</p>
+					<p class="text-xl font-black tabular-nums leading-tight">{formatCOP(totalCalc)}</p>
+					<p class="text-[10px] opacity-80 mt-0.5">
+						{form.cobraIva ? `IVA ${tasaIva}% incluido` : 'Sin IVA (checkbox desactivado)'}
+					</p>
+					{#if form.tieneComision}
+						<p class="text-[10px] opacity-90 mt-0.5 font-semibold">
+							Valor neto: {formatCOP(netoCalc)}
+						</p>
+					{/if}
+				</div>
+				<!-- Desglose compacto -->
+				<div class="space-y-1 text-xs">
+					<div class="flex justify-between">
+						<span class="text-text-secondary">Subtotal</span>
+						<span class="font-semibold text-text-primary tabular-nums"
+							>{formatCOP(subtotalCalc)}</span
+						>
+					</div>
+					{#if form.cobraIva}
+						<div class="flex justify-between">
+							<span class="text-text-secondary">IVA ({tasaIva}%)</span>
+							<span class="font-semibold text-text-primary tabular-nums">{formatCOP(ivaCalc)}</span>
+						</div>
+					{/if}
+					{#if form.tieneComision}
+						<div class="flex justify-between">
+							<span class="text-text-secondary">Comisión</span>
+							<span class="font-semibold text-text-primary tabular-nums"
+								>-{formatCOP(comisionCalc)}</span
+							>
+						</div>
+						<div class="flex justify-between">
+							<span class="text-text-secondary font-semibold">Valor neto</span>
+							<span class="font-bold text-text-primary tabular-nums">{formatCOP(netoCalc)}</span>
+						</div>
+					{/if}
+					<div class="flex justify-between">
+						<span class="text-text-secondary">Abono</span>
+						<span class="font-semibold text-text-primary tabular-nums">{formatCOP(form.abono)}</span
+						>
+					</div>
+					<div class="flex justify-between pt-1 border-t border-border">
+						<span class="text-text-secondary font-semibold">Saldo</span>
+						<span class="font-bold text-exito tabular-nums text-sm">{formatCOP(saldoCalc)}</span>
+					</div>
+				</div>
+			</div>
+
+			<!-- Observaciones -->
+			<div class="px-4 py-3 grow flex flex-col min-h-0">
+				<span class="label flex items-center gap-1.5">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="w-3 h-3"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						stroke-width="2"
+						><path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"
+						/><path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"
+						/></svg
+					>
+					Observaciones
+				</span>
+				<textarea
+					class="input flex-1 min-h-15 resize-none text-xs"
+					placeholder="Aparecen en el documento imprimible…"
+					bind:value={form.observaciones}
+					maxlength="2000"></textarea>
+				<p class="text-[10px] text-text-secondary/70 mt-1">
+					{(form.observaciones ?? '').length}/2000
+				</p>
+			</div>
+
+			<!-- Acciones -->
+			<div class="px-4 py-3 border-t border-border bg-surface/50 flex flex-col gap-2">
+				<button class="btn-primary w-full" onclick={guardar} disabled={guardando}>
+					{#if guardando}
+						<svg
+							class="animate-spin h-4 w-4"
+							xmlns="http://www.w3.org/2000/svg"
+							fill="none"
+							viewBox="0 0 24 24"
+							><circle
+								class="opacity-25"
+								cx="12"
+								cy="12"
+								r="10"
+								stroke="currentColor"
+								stroke-width="4"
+							></circle><path
+								class="opacity-75"
+								fill="currentColor"
+								d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+							></path></svg
+						>
+						Guardando...
+					{:else}
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="w-4 h-4"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+							stroke-width="2"
+							><path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								d="M4.5 12.75l6 6 9-13.5"
+							/></svg
+						>
+						{editando ? 'Guardar cambios' : 'Crear renta'}
+					{/if}
+				</button>
+				<button class="btn-ghost w-full" onclick={() => (modalOpen = false)} disabled={guardando}
+					>Cancelar</button
+				>
+			</div>
+		</div>
+	</div>
 </Modal>
 <!-- Modal cierre -->
 <!-- Modal cierre -->
@@ -1831,12 +1818,10 @@
 	onClose={cerrarImpresion}
 	width="max-w-3xl"
 >
-	{#snippet children()}
-		{#if imprimirRenta}
-			<AvisoImpresion />
-			<OrdenRenta renta={imprimirRenta} />
-		{/if}
-	{/snippet}
+	{#if imprimirRenta}
+		<AvisoImpresion />
+		<OrdenRenta renta={imprimirRenta} />
+	{/if}
 
 	{#snippet footer()}
 		<button class="btn-ghost print-hidden" onclick={cerrarImpresion}>Cerrar</button>
@@ -1885,16 +1870,14 @@
 	onClose={cerrarContrato}
 	width="max-w-3xl"
 >
-	{#snippet children()}
-		{#if imprimirContrato}
-			<AvisoImpresion />
-			<ContratoRenta
-				renta={imprimirContrato}
-				cliente={clientes.find((c) => c.cliente.id === imprimirContrato?.idCliente)?.cliente}
-				auto={autos.find((a) => a.placa === imprimirContrato?.placa)}
-			/>
-		{/if}
-	{/snippet}
+	{#if imprimirContrato}
+		<AvisoImpresion />
+		<ContratoRenta
+			renta={imprimirContrato}
+			cliente={clientes.find((c) => c.cliente.id === imprimirContrato?.idCliente)?.cliente}
+			auto={autos.find((a) => a.placa === imprimirContrato?.placa)}
+		/>
+	{/if}
 
 	{#snippet footer()}
 		<button class="btn-ghost print-hidden" onclick={cerrarContrato}>Cerrar</button>

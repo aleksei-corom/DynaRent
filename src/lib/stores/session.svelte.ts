@@ -1,7 +1,7 @@
 // session.svelte.ts — Store de sesión (Svelte 5 runes)
 // Persiste el token en localStorage (mismo rol que SessionManager en Rust).
 
-import { authApi, type LoginResult, type SessionData } from '$lib/api';
+import { authApi, type LoginResult, type SessionData } from '#lib/api.js';
 
 const TOKEN_KEY = 'dynarent.session.token';
 const USER_KEY = 'dynarent.session.user';
@@ -101,7 +101,7 @@ export const session = new SessionStore();
  * 15 rutas. Importar desde el store:
  *
  * ```ts
- * import { sid } from '$lib/stores/session.svelte';
+ * import { sid } from '#lib/stores/session.svelte.js';
  * // …
  * autoApi.listar(sid(), …);
  * ```

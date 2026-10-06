@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/svelte';
 import { tauri } from '../../test/tauri';
-import { session } from '$lib/stores/session.svelte';
+import { session } from '#lib/stores/session.svelte.js';
 import type {
 	Renta,
 	RentaDatos,
@@ -14,7 +14,7 @@ import type {
 	Auto,
 	BusinessLists,
 	Reserva
-} from '$lib/api';
+} from '#lib/api.js';
 import RentasPage from './+page.svelte';
 
 function renta(overrides: Partial<Renta> = {}): Renta {
