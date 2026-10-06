@@ -134,7 +134,7 @@ body > div {
 	h2,
 	h3,
 	h4 {
-		text-wrap: balance;
+		@apply text-balance;
 	}
 }
 
@@ -330,7 +330,6 @@ select.input {
 		margin: 0 !important;
 		padding: 12mm !important;
 		border-radius: 0 !important;
-		color-adjust: exact !important;
 		-webkit-print-color-adjust: exact !important;
 		print-color-adjust: exact !important;
 	}
@@ -360,7 +359,6 @@ select.input {
 		margin: 0 !important;
 		padding: 12mm !important;
 		border-radius: 0 !important;
-		color-adjust: exact !important;
 		-webkit-print-color-adjust: exact !important;
 		print-color-adjust: exact !important;
 	}
