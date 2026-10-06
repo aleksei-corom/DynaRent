@@ -122,6 +122,10 @@ body {
 	font-size: 13px;
 }
 
+body > div {
+	display: contents;
+}
+
 /* Títulos: evita viudas y reparte mejor las líneas. Solo en pantalla: en la
    impresión (contrato/orden) el balanceo de líneas podría alterar la
    paginación verificada, así que se excluye del medio print. */
