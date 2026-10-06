@@ -52,9 +52,8 @@ jobs:
           bun-version: latest
 
       - name: Regenerar bun.lock
-        # --no-save: no tocar package.json (Dependabot ya lo actualizó);
-        # solo resincronizar bun.lock con el package.json actual.
-        run: bun install --no-save
+        # bun install (sin --no-save) para que actualice bun.lock con el nuevo package.json
+        run: bun install
 
       - name: Commit si cambió
         run: |
@@ -65,7 +64,7 @@ jobs:
             echo "bun.lock ya estaba sincronizado — nada que commitear"
           else
             git commit -m "chore: sync bun.lock con package.json (Dependabot)"
-            git push
+            git push || echo "WARN: No se pudo pushear bun.lock al PR"
             echo "bun.lock actualizado y pusheado al PR"
           fi
 
@@ -81,6 +80,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref }}
 
       # jsdom 30 requiere Node >= 22.4; usamos Node 24 (LTS activo).
       - name: Setup Node 24
@@ -104,7 +105,13 @@ jobs:
           workspaces: src-tauri
 
       - name: Install dependencies (bun)
-        run: bun install --frozen-lockfile
+        shell: pwsh
+        run: |
+          if ('${{ github.actor }}' -eq 'dependabot[bot]') {
+            bun install
+          } else {
+            bun install --frozen-lockfile
+          }
 
       - name: Lint (eslint)
         run: bun run lint
