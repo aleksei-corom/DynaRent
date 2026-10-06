@@ -229,7 +229,7 @@
 			</span>
 			{#if tieneRol(['Administrador'])}
 				<button
-					class="btn-outline !px-2.5 !py-1 text-[11px] shrink-0"
+					class="btn-outline px-2.5! py-1! text-[11px] shrink-0"
 					onclick={() => (piiDialogOpen = true)}
 				>
 					<span class="inline-flex items-center gap-1.5"

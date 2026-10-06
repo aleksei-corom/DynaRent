@@ -236,7 +236,7 @@
 
 		<div class="flex flex-wrap items-center gap-2 mt-2">
 			<button
-				class="btn-outline !px-3 !py-1.5 text-xs"
+				class="btn-outline px-3! py-1.5! text-xs"
 				onclick={probar}
 				disabled={probando || guardando}
 			>
@@ -266,7 +266,7 @@
 			</button>
 			{#if tieneClave}
 				<button
-					class="btn-ghost !px-3 !py-1.5 text-xs text-peligro hover:text-peligro"
+					class="btn-ghost px-3! py-1.5! text-xs text-peligro hover:text-peligro"
 					onclick={eliminar}
 					disabled={guardando}
 				>

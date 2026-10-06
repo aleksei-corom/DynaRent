@@ -589,7 +589,7 @@
 					</div>
 					<button
 						onclick={() => appInfo.verificarDb()}
-						class="btn-outline !py-0.5 !px-2.5 text-xs border-peligro/50 text-peligro hover:bg-peligro/10"
+						class="btn-outline py-0.5! px-2.5! text-xs border-peligro/50 text-peligro hover:bg-peligro/10"
 						disabled={appInfo.dbVerificando}
 					>
 						{appInfo.dbVerificando ? 'Reconectando…' : 'Reconectar ahora'}

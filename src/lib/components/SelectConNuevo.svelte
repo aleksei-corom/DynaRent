@@ -83,7 +83,7 @@
 			/>
 			<button
 				type="button"
-				class="btn-outline !px-3 shrink-0"
+				class="btn-outline px-3! shrink-0"
 				onclick={confirmarNuevo}
 				title="Agregar"
 				aria-label="Agregar"

@@ -146,7 +146,7 @@
 					: 's'}
 			</p>
 		</div>
-		<button class="btn-ghost !px-3 !py-1.5 text-xs" onclick={limpiarFiltros}>
+		<button class="btn-ghost px-3! py-1.5! text-xs" onclick={limpiarFiltros}>
 			Limpiar filtros
 		</button>
 	</div>
@@ -260,14 +260,14 @@
 			</p>
 			<div class="flex items-center gap-1.5">
 				<button
-					class="btn-ghost !px-3 !py-1.5 text-xs"
+					class="btn-ghost px-3! py-1.5! text-xs"
 					disabled={pagina <= 1}
 					onclick={() => irPagina(pagina - 1)}
 				>
 					← Anterior
 				</button>
 				{#if pagina > 3}
-					<button class="btn-ghost !px-2.5 !py-1.5 text-xs" onclick={() => irPagina(1)}>1</button>
+					<button class="btn-ghost px-2.5! py-1.5! text-xs" onclick={() => irPagina(1)}>1</button>
 					<span class="text-xs text-text-secondary/60">…</span>
 				{/if}
 				{#each Array.from({ length: Math.min(5, totalPaginas) }, (_, i) => {
@@ -286,12 +286,12 @@
 				{/each}
 				{#if pagina < totalPaginas - 2}
 					<span class="text-xs text-text-secondary/60">…</span>
-					<button class="btn-ghost !px-2.5 !py-1.5 text-xs" onclick={() => irPagina(totalPaginas)}>
+					<button class="btn-ghost px-2.5! py-1.5! text-xs" onclick={() => irPagina(totalPaginas)}>
 						{totalPaginas}
 					</button>
 				{/if}
 				<button
-					class="btn-ghost !px-3 !py-1.5 text-xs"
+					class="btn-ghost px-3! py-1.5! text-xs"
 					disabled={pagina >= totalPaginas}
 					onclick={() => irPagina(pagina + 1)}
 				>
