@@ -6,6 +6,26 @@ Las versiones se publican como [releases en GitHub](https://github.com/CORJAR-Co
 
 ---
 
+## [v1.2.5] — 2026-10-06
+
+### Corregido
+- **Auto-update**: la `pubkey` de `src-tauri/tauri.conf.json` quedó alineada con la clave
+  que realmente firma los instaladores (`TAURI_SIGNING_PRIVATE_KEY` en GitHub Actions /
+  `~/.tauri/dynarent.key`, key ID `73F96EF7F5E69FCE`). Todas las releases (v1.0.14 → v1.2.5)
+  estaban firmadas con esa clave, pero los builds anteriores a esta versión embebían otra
+  pubkey, así que su verificación de update fallaba.
+
+### ⚠️ Importante — si vienes de v1.2.4 o anterior
+- Esas instalaciones fallan el auto-update con:
+  *"The signature was created with a different key than the one provided"* (la app vieja
+  valida con la pubkey `4BB969BC7B0ED52F`, que nunca firmó ninguna release).
+- **Solución (una sola vez): reinstalar manualmente** `DynaRent_1.2.5_x64-setup.exe` desde
+  los assets de la release. A partir de v1.2.5 el auto-update vuelve a funcionar solo.
+- No se puede automatizar a propósito: el updater de la app vieja solo acepta firmas de su
+  pubkey original, que es exactamente lo que garantiza la firma.
+
+---
+
 ## [v1.0.21] — 2026-08-20
 
 ### Corregido
