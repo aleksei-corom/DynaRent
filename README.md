@@ -49,7 +49,7 @@ Solo instala la v1.0.30 encima (o desinstala y reinstala conservando `%APPDATA%\
 ## 📋 Configuración Rápida
 
 ### 1. Requisitos Previos
-- [Node.js](https://nodejs.org/) (v18+) o [Bun](https://bun.sh/) (recomendado)
+- [Node.js](https://nodejs.org/) (**v22.17+**, requisito mínimo de SvelteKit 3) o [Bun](https://bun.sh/) (recomendado)
 - [Rust](https://www.rust-lang.org/) (1.70+)
 - Dependencias de sistema operativo para compilar Tauri (ver [documentación oficial](https://v2.tauri.app/start/prerequisites/)).
 
@@ -77,7 +77,9 @@ bun run tauri build
 
 | Capa | Tecnología |
 |------|------------|
-| **Frontend (UI)** | SvelteKit 2 + Svelte 5 (runes) + Tailwind CSS v4 |
+| **Frontend (UI)** | SvelteKit **3** + Svelte 5 (runes) + Tailwind CSS v4 |
+| **Lint / Formato** | **ESLint 10** (flat config, `eslint.config.js`) + `eslint-plugin-svelte` 3 + Prettier 3 (`prettier-plugin-svelte` 4) |
+| **Módulos** | Imports con el alias **`#lib/...`** (SvelteKit 3 reemplazó a `$lib`) |
 | **Backend (Lógica)** | Rust (módulos `services/`) |
 | **Acceso a datos** | `rsfbclient` (consultas explícitas) |
 | **Base de datos** | **Firebird Embedded 5.0** (archivo portable `.fdb`) |
@@ -96,7 +98,7 @@ DynaRent/
 │   ├── routes/             # Vistas de la aplicación (Dashboard, Rentas, Flota, etc.)
 │   ├── lib/                # Componentes Svelte, utils de UI y estilos
 │   │   ├── api/            # Módulos de API (capa de abstracción sobre invoke)
-│   │   ├── stores/         # Stores reactivos Svelte
+│   │   ├── stores/         # Stores reactivos Svelte (`.svelte.ts` con runes)
 │   │   └── components/     # Componentes reutilizables
 │   └── app.html            # Template HTML principal
 ├── src-tauri/              # Backend (Rust + Tauri V2)
@@ -111,6 +113,10 @@ DynaRent/
 │   ├── Cargo.toml          # Dependencias de Rust
 │   └── tauri.conf.json     # Configuración de Tauri (ventana, NSIS, updater)
 ├── .github/workflows/      # CI (lint + check + tests + cargo audit + release)
+├── vite.config.ts          # Vite + config de SvelteKit 3 (adapter, prerender)
+│                           #   ⚠️ SvelteKit 3 ya NO usa svelte.config.js
+├── eslint.config.js        # ESLint 10 (flat config) + reglas de eslint-plugin-svelte 3
+├── tsconfig.json           # Extiende $app/tsconfig (generado por svelte-kit sync)
 ├── dynarent-patches/       # Parches de mejoras aplicados secuencialmente
 ├── package.json            # Dependencias Node.js / scripts
 └── bun.lock                # Lockfile de Bun
