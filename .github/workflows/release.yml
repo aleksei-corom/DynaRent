@@ -52,7 +52,7 @@ jobs:
       # y el 504 deja de ser posible. restore-keys permite reusar tools aunque
       # cambie el hash del lockfile (solo se invalida al hacer upgrade del CLI).
       - name: Cache Tauri bundler tools (~/.tauri)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~\.tauri
           key: tauri-tools-${{ runner.os }}-tauri2-${{ hashFiles('**/bun.lock') }}
