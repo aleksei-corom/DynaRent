@@ -83,3 +83,5 @@ fix
 # Vite timestamps
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+# Cobertura de tests (vitest --coverage)
+coverage

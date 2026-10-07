@@ -100,16 +100,28 @@ describe('panel copiar cliente', () => {
 		renderModal();
 		const input = await abrirPanel();
 
-		// 1 carácter → no dispara la búsqueda
-		await fireEvent.input(input, { target: { value: 'a' } });
-		await sleep(350); // supera el debounce de 300 ms
-		expect(listar).not.toHaveBeenCalled();
+		// Timers falsos: el debounce deja de depender del reloj real y el test no
+		// expira cuando la suite corre en paralelo con la CPU saturada (flake
+		// medido: 3/3 fallos con paralelismo completo, 3/3 pases aislado, y 296/296
+		// con --maxWorkers=2). Las aserciones y los tiempos son los mismos.
+		vi.useFakeTimers();
+		try {
+			// 1 carácter → no dispara la búsqueda
+			await fireEvent.input(input, { target: { value: 'a' } });
+			await vi.advanceTimersByTimeAsync(400); // supera el debounce de 300 ms
+			expect(listar).not.toHaveBeenCalled();
 
-		// Escritura rápida → una sola llamada (debounce) con el término final
-		await fireEvent.input(input, { target: { value: 'lu' } });
-		await fireEvent.input(input, { target: { value: 'lui' } });
-		await fireEvent.input(input, { target: { value: 'luis' } });
-		await waitFor(() => expect(listar).toHaveBeenCalledTimes(1), { timeout: 2000 });
+			// Escritura rápida → una sola llamada (debounce) con el término final
+			await fireEvent.input(input, { target: { value: 'lu' } });
+			await fireEvent.input(input, { target: { value: 'lui' } });
+			await fireEvent.input(input, { target: { value: 'luis' } });
+			await vi.advanceTimersByTimeAsync(400);
+			expect(listar).toHaveBeenCalledTimes(1);
+		} finally {
+			// Los timers reales vuelven antes de las búsquedas del DOM (findByText),
+			// que sí esperan con el reloj real.
+			vi.useRealTimers();
+		}
 		const args = listar.mock.calls[0][0] as { busqueda: string | null };
 		expect(args.busqueda).toBe('luis');
 

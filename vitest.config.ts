@@ -40,6 +40,26 @@ export default defineConfig({
 		globals: true,
 		setupFiles: ['./src/test/setup.ts'],
 		include: ['src/**/*.test.ts'],
-		css: false
+		css: false,
+		// Presupuesto de reloj: con cobertura v8 instrumentada y la suite en
+		// paralelo, la CPU se satura y tests de ~1 s superan los 5 s por defecto
+		// (flake medido: 4 timeouts con --coverage, 0 sin él). Las aserciones no
+		// cambian, solo cuánto esperan.
+		testTimeout: 15_000,
+		hookTimeout: 15_000,
+		// Cobertura (Vitest 4: `coverage` va DENTRO de `test`; a nivel superior
+		// se ignora silenciosamente y no se aplican los umbrales).
+		coverage: {
+			provider: 'v8',
+			reporter: ['text', 'lcov'],
+			// Umbral mínimo exigido (pedido): 80 % en las 4 métricas. Si baja de
+			// aquí, `vitest --coverage` sale con código distinto de 0.
+			thresholds: {
+				statements: 80,
+				branches: 80,
+				functions: 80,
+				lines: 80
+			}
+		}
 	}
 });
