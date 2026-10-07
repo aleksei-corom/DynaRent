@@ -296,3 +296,191 @@ describe('página de Autos', () => {
 		expect(screen.queryByText(/Copiar datos de un vehículo existente/)).not.toBeInTheDocument();
 	});
 });
+
+// ── Tanda de cobertura de ramas: alertas de vencimientos, errores de carga
+//    y guardado con validación de campo ──
+
+function deferido<T>() {
+	let resolve!: (v: T) => void;
+	let reject!: (e: unknown) => void;
+	const promise = new Promise<T>((res, rej) => {
+		resolve = res;
+		reject = rej;
+	});
+	return { promise, resolve, reject };
+}
+
+const isoLocal = (d: Date) =>
+	`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+describe('ramas de gestión de la página de Autos', () => {
+	it('muestra el panel de alertas con chips crítica y no crítica', async () => {
+		tauri.register('listar_autos', () => [auto()]);
+		tauri.register('alertas_autos', () => [
+			{
+				placa: 'ABC123',
+				tipo: 'SOAT',
+				detalle: 'Vencido hace 5 días',
+				critica: true
+			},
+			{
+				placa: 'XYZ987',
+				tipo: 'Técnico',
+				detalle: 'Vence en 10 días',
+				critica: false
+			}
+		]);
+
+		render(AutosPage);
+		await screen.findByText('ABC123');
+
+		expect(await screen.findByText(/2 vencimientos próximos/)).toBeInTheDocument();
+		expect(screen.getByTitle('Vencido hace 5 días')).toBeInTheDocument();
+		expect(screen.getByText(/ABC123 · SOAT · Vencido hace 5 días/)).toBeInTheDocument();
+		expect(screen.getByText(/XYZ987 · Técnico · Vence en 10 días/)).toBeInTheDocument();
+	});
+
+	it('con una sola alerta el título va en singular', async () => {
+		tauri.register('listar_autos', () => [auto()]);
+		tauri.register('alertas_autos', () => [
+			{ placa: 'ABC123', tipo: 'Batería', detalle: 'Vence mañana', critica: false }
+		]);
+
+		render(AutosPage);
+		expect(await screen.findByText(/1 vencimiento próximo/)).toBeInTheDocument();
+	});
+
+	it('sin panel de alertas cuando alertas_autos falla', async () => {
+		tauri.register('listar_autos', () => [auto()]);
+		tauri.register('alertas_autos', () => {
+			throw { kind: 'database', message: 'no se pudo' };
+		});
+
+		render(AutosPage);
+		await screen.findByText('ABC123');
+		// El panel de alertas («N vencimiento(s) próximo…») no se pinta; el
+		// subtítulo de la cabecera que contiene «vencimientos» sí es permanente.
+		expect(screen.queryByText(/vencimientos? próximo/)).not.toBeInTheDocument();
+	});
+
+	it('pinta vencidos, próximos y lejos en la tabla (y omite los nulos)', async () => {
+		tauri.register('listar_autos', () => [
+			auto({
+				placa: 'VENC01',
+				vencimientoSoat: '2026-01-01', // vencido
+				vencimientoTecnico: isoLocal(new Date(Date.now() + 10 * 86400000)), // 10 días
+				vencimientoExtintor: isoLocal(new Date(Date.now() + 60 * 86400000)) // 60 días
+			}),
+			auto({
+				placa: 'SINFECH',
+				version: null,
+				color: null,
+				vencimientoSoat: null,
+				vencimientoTecnico: null,
+				vencimientoExtintor: null
+			})
+		]);
+
+		render(AutosPage);
+		await screen.findByText('VENC01');
+
+		// Vencido → «Xd venc» con título SOAT
+		expect(screen.getByText(/\d+d venc/)).toBeInTheDocument();
+		expect(screen.getByTitle(/^SOAT: /)).toBeInTheDocument();
+		// Próximo (10 días) y lejano (60 días) → «Xd» sin «venc»
+		expect(screen.getByText(/· 10d$/)).toBeInTheDocument();
+		expect(screen.getByText(/· 60d$/)).toBeInTheDocument();
+		// Sin fechas → ningún badge en esa fila; sin versión/color → sin sufijos
+		expect(screen.getByText('SINFECH')).toBeInTheDocument();
+		expect(screen.getByText(/Corolla$/)).toBeInTheDocument();
+	});
+
+	it('cargar con error muestra la tabla vacía y el filtro de estado recarga', async () => {
+		const listar = vi.fn((args: { estado?: string | null }) => {
+			if (!args.estado) {
+				throw { kind: 'database', message: 'fallo de la BD' };
+			}
+			return [auto({ estado: 'Rentado' })];
+		});
+		tauri.register('listar_autos', listar);
+
+		render(AutosPage);
+		expect(await screen.findByText(/No hay vehículos/i)).toBeInTheDocument();
+		expect(listar).toHaveBeenCalledTimes(1);
+
+		// Filtro de estado → recarga con el estado elegido (salida del catch)
+		await fireEvent.change(screen.getByLabelText('Filtrar por estado'), {
+			target: { value: 'Rentado' }
+		});
+		await waitFor(() => expect(listar).toHaveBeenCalledTimes(2), { timeout: 3000 });
+		expect(listar.mock.calls[1][0]).toMatchObject({ estado: 'Rentado' });
+		expect(await screen.findByText('ABC123')).toBeInTheDocument();
+	});
+
+	it('crear: error de campo, «Guardando...», error del backend y éxito', async () => {
+		tauri.register('listar_autos', () => []);
+		const d = deferido<Auto>();
+		tauri.register('crear_auto', () => d.promise);
+
+		render(AutosPage);
+		await screen.findByText(/No hay vehículos/i);
+		await fireEvent.click(screen.getByRole('button', { name: 'Nuevo Auto' }));
+		const dialogo = await screen.findByRole('dialog');
+		expect(dialogo).toHaveTextContent('Registra un vehículo en la flota.');
+
+		// Obligatorias + error de campo «Obligatoria» en el FormField de placa
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Crear vehículo' }));
+		expect(await within(dialogo).findByRole('alert')).toHaveTextContent(
+			'La placa, marca y modelo son obligatorios.'
+		);
+		expect(within(dialogo).getByText('Obligatoria')).toBeInTheDocument();
+
+		// Con placa escrita el error de campo desaparece
+		await fireEvent.input(screen.getByPlaceholderText('ABC123'), {
+			target: { value: 'NUEVA1' }
+		});
+		expect(within(dialogo).queryByText('Obligatoria')).not.toBeInTheDocument();
+		await fireEvent.input(screen.getByPlaceholderText('Ej: Toyota'), {
+			target: { value: 'Mazda' }
+		});
+		await fireEvent.input(screen.getByPlaceholderText('Ej: Corolla'), {
+			target: { value: 'CX-5' }
+		});
+
+		// Pendiente en el backend
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Crear vehículo' }));
+		const guardando = await within(dialogo).findByRole('button', { name: /Guardando/ });
+		expect(guardando).toBeDisabled();
+		d.reject({ kind: 'validacion', message: 'La placa ya está registrada.' });
+		expect(await within(dialogo).findByRole('alert')).toHaveTextContent(
+			'La placa ya está registrada.'
+		);
+		expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+		// Éxito
+		const crear = vi.fn((_args: { sessionId: string; datos: AutoDatos }) =>
+			auto({ placa: 'NUEVA1' })
+		);
+		tauri.register('crear_auto', crear);
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Crear vehículo' }));
+		await waitFor(() => expect(crear).toHaveBeenCalledTimes(1));
+		expect(crear.mock.calls[0][0]).toMatchObject({ datos: { placa: 'NUEVA1', marca: 'Mazda' } });
+		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+	});
+
+	it('eliminar con error deja el diálogo abierto', async () => {
+		tauri.register('listar_autos', () => [auto()]);
+		tauri.register('eliminar_auto', () => {
+			throw { kind: 'generic', message: 'El vehículo tiene rentas activas.' };
+		});
+
+		render(AutosPage);
+		await screen.findByText('ABC123');
+		await fireEvent.click(screen.getByLabelText('Eliminar vehículo ABC123'));
+		const dialogo = await screen.findByRole('dialog');
+		const confirmar = within(dialogo).getByRole('button', { name: 'Eliminar' });
+		await fireEvent.click(confirmar);
+		await waitFor(() => expect(confirmar).toBeEnabled());
+		expect(screen.getByRole('dialog')).toBeInTheDocument();
+	});
+});

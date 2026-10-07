@@ -1,16 +1,37 @@
 // src/routes/comparendos/comparendos.test.ts — Tests de la página de Comparendos
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/svelte';
 import { tauri } from '../../test/tauri';
 import { session } from '#lib/stores/session.svelte.js';
+import { toasts } from '#lib/stores/toast.svelte.js';
 import type {
 	Comparendo,
 	ComparendoDatos,
 	Auto,
 	BusinessLists,
-	InfoAgenteSimit
+	InfoAgenteSimit,
+	ResultadoSincronizacion,
+	RegistroSimit,
+	EventoProgresoSimit,
+	EventoLogSimit
 } from '#lib/api.js';
 import ComparendosPage from './+page.svelte';
+
+// Mock del runtime de eventos de Tauri: guarda los handlers para poder
+// disparar los eventos de sincronización SIMIT desde los tests.
+const eventos = vi.hoisted(() => {
+	const handlers = new Map<string, (evt: { payload: unknown }) => void>();
+	return {
+		handlers,
+		listen: vi.fn((nombre: string, cb: (evt: { payload: unknown }) => void) => {
+			handlers.set(nombre, cb);
+			return Promise.resolve(() => {
+				handlers.delete(nombre);
+			});
+		})
+	};
+});
+vi.mock('@tauri-apps/api/event', () => ({ listen: eventos.listen }));
 
 function comparendo(overrides: Partial<Comparendo> = {}): Comparendo {
 	return {
@@ -112,6 +133,8 @@ function setSesion(rol = 'Administrador') {
 beforeEach(() => {
 	session.clear();
 	setSesion();
+	toasts.splice(0); // notificaciones del test anterior
+	document.getElementById('print-clone')?.remove(); // higiene de impresión
 	tauri.register('get_business_lists', () => LISTS);
 	tauri.register('listar_autos', () => [auto('ABC123'), auto('XYZ987', 'Mazda', 'CX-5')]);
 });
@@ -609,6 +632,590 @@ describe('página de Comparendos', () => {
 		await waitFor(() => expect(listar).toHaveBeenCalledTimes(2), { timeout: 2000 });
 		const args = listar.mock.calls[1][0] as { sessionId: string; estado: string | null };
 		expect(args.estado).toBe('Pagado');
+	});
+});
+
+// ── Helpers para las ramas de sincronización / exportación / eventos ──
+function registroSimit(overrides: Partial<RegistroSimit> = {}): RegistroSimit {
+	return {
+		numero: 'TEST-250010000000999',
+		placa: 'ABC123',
+		fechaInfraccion: '2026-08-01',
+		horaInfraccion: '14:30',
+		monto: '580000.00',
+		estado: 'Pendiente',
+		organismo: 'Policía de Tránsito',
+		codigoInfraccion: 'C24',
+		descripcion: 'Exceso de velocidad',
+		esComparendo: true,
+		nuevo: true,
+		id: 1,
+		...overrides
+	};
+}
+
+function resultadoSimit(overrides: Partial<ResultadoSincronizacion> = {}): ResultadoSincronizacion {
+	return {
+		sincronizadoEn: '2026-08-17T10:30:00-05:00',
+		placasConsultadas: 2,
+		placasConError: 0,
+		encontrados: 2,
+		insertados: 1,
+		duplicados: 1,
+		totalPendiente: '900000.00',
+		registros: [registroSimit()],
+		errores: [],
+		reporteHtml: null,
+		metricas: {
+			tiempoTotalMs: 1200,
+			tiempoPromedioPlacaMs: 600,
+			tiempoCaptchaMs: 400,
+			tiempoConsultaMs: 700,
+			totalReintentos: 0,
+			circuitBreakerState: 'Closed',
+			placasExitosas: 2,
+			placasTimeout: 0,
+			placasErrorRed: 0
+		},
+		...overrides
+	};
+}
+
+function deferido<T>() {
+	let resolve!: (valor: T) => void;
+	let reject!: (motivo: unknown) => void;
+	const promise = new Promise<T>((res, rej) => {
+		resolve = res;
+		reject = rej;
+	});
+	return { promise, resolve, reject };
+}
+
+function emitir<T>(nombre: string, payload: T): void {
+	const cb = eventos.handlers.get(nombre);
+	if (!cb) throw new Error(`No hay listener registrado para «${nombre}»`);
+	cb({ payload });
+}
+
+function hayToast(tipo: 'success' | 'error', mensaje: string): boolean {
+	return toasts.some((t) => t.type === tipo && t.message === mensaje);
+}
+
+/** Rellena la combobox de placa del modal (escribir + Enter selecciona). */
+async function escribirPlacaEnModal(dialogo: HTMLElement, placa: string): Promise<void> {
+	const combo = within(dialogo).getByPlaceholderText('Buscar placa, marca o modelo…');
+	await fireEvent.focus(combo);
+	await fireEvent.input(combo, { target: { value: placa } });
+	await fireEvent.keyDown(combo, { key: 'Enter' });
+}
+
+describe('ramas de sincronización, exportación y eventos del Agente SIMIT', () => {
+	// ── Stub de URL.createObjectURL (jsdom no lo implementa) ──
+	const urlGlobal = URL as unknown as Record<string, unknown>;
+	let createPrevio: unknown = 'ausente';
+	let revokePrevio: unknown = 'ausente';
+	let clickAnchor: ReturnType<typeof vi.spyOn> | null = null;
+	let revokeSpy: ReturnType<typeof vi.fn> | null = null;
+
+	function instalarUrlBlobs(implementacion?: (blob: Blob) => string): ReturnType<typeof vi.fn> {
+		createPrevio = urlGlobal.createObjectURL;
+		revokePrevio = urlGlobal.revokeObjectURL;
+		const createSpy = vi.fn(implementacion ?? (() => 'blob:simit-test'));
+		urlGlobal.createObjectURL = createSpy;
+		revokeSpy = vi.fn();
+		urlGlobal.revokeObjectURL = revokeSpy;
+		return createSpy;
+	}
+
+	afterEach(() => {
+		revokeSpy = null;
+		if (createPrevio === 'ausente') delete urlGlobal.createObjectURL;
+		else urlGlobal.createObjectURL = createPrevio;
+		if (revokePrevio === 'ausente') delete urlGlobal.revokeObjectURL;
+		else urlGlobal.revokeObjectURL = revokePrevio;
+		createPrevio = 'ausente';
+		revokePrevio = 'ausente';
+		clickAnchor?.mockRestore();
+		clickAnchor = null;
+	});
+
+	it('sincroniza ahora: botón bloqueado, singular, resultado y refresco', async () => {
+		const listar = vi.fn(() => [comparendo()]);
+		tauri.register('listar_comparendos', listar);
+		tauri.register('simit_sync_status', () => infoAgente());
+		const d = deferido<ResultadoSincronizacion>();
+		const sincronizar = vi.fn(() => d.promise);
+		tauri.register('simit_sync_now', sincronizar);
+
+		render(ComparendosPage);
+		const boton = await screen.findByRole('button', { name: 'Sincronizar ahora' });
+		await fireEvent.click(boton);
+		// Mientras está pendiente el botón muestra «Sincronizando...» y está deshabilitado
+		const pendiente = await screen.findByRole('button', { name: /Sincronizando/ });
+		expect(pendiente).toBeDisabled();
+		// Un segundo clic no dispara otra corrida (guarda `if (sincronizando) return`)
+		await fireEvent.click(boton);
+		expect(sincronizar).toHaveBeenCalledTimes(1);
+
+		d.resolve(resultadoSimit({ insertados: 1, duplicados: 0 }));
+		await waitFor(() =>
+			expect(hayToast('success', 'Agente SIMIT: 1 comparendo nuevo registrado.')).toBe(true)
+		);
+		// El panel muestra el resultado de la corrida y la lista se recarga
+		expect(await screen.findByText(/Placas consultadas/)).toBeInTheDocument();
+		await waitFor(() => expect(listar.mock.calls.length).toBeGreaterThanOrEqual(2));
+		expect(await screen.findByRole('button', { name: 'Sincronizar ahora' })).toBeEnabled();
+	});
+
+	it('sincroniza ahora sin registros nuevos → toast «sin comparendos nuevos»', async () => {
+		tauri.register('listar_comparendos', () => []);
+		tauri.register('simit_sync_status', () => infoAgente());
+		tauri.register('simit_sync_now', () =>
+			resultadoSimit({ insertados: 0, duplicados: 2, registros: [] })
+		);
+
+		render(ComparendosPage);
+		await fireEvent.click(await screen.findByRole('button', { name: 'Sincronizar ahora' }));
+
+		await waitFor(() =>
+			expect(
+				hayToast('success', 'Agente SIMIT: sincronización completada sin comparendos nuevos.')
+			).toBe(true)
+		);
+	});
+
+	it('sincroniza ahora con error → toast de error y botón recuperado', async () => {
+		tauri.register('listar_comparendos', () => []);
+		tauri.register('simit_sync_status', () => infoAgente());
+		tauri.register('simit_sync_now', () => {
+			throw { kind: 'generic', message: 'Portal SIMIT inalcanzable' };
+		});
+
+		render(ComparendosPage);
+		await fireEvent.click(await screen.findByRole('button', { name: 'Sincronizar ahora' }));
+
+		await waitFor(() => expect(hayToast('error', 'Portal SIMIT inalcanzable')).toBe(true));
+		// finally → vuelve el botón habilitado
+		expect(screen.getByRole('button', { name: 'Sincronizar ahora' })).toBeEnabled();
+	});
+
+	it('la lista de comparendos con error muestra el estado vacío y el toast', async () => {
+		tauri.register('listar_comparendos', () => {
+			throw { kind: 'database', message: 'Tabla comparendos corrupta' };
+		});
+
+		render(ComparendosPage);
+
+		await waitFor(() => expect(hayToast('error', 'Tabla comparendos corrupta')).toBe(true));
+		expect(await screen.findByText('No hay comparendos')).toBeInTheDocument();
+	});
+
+	it('si listar_autos falla el filtro de placa queda vacío', async () => {
+		tauri.register('listar_comparendos', () => [comparendo()]);
+		tauri.register('listar_autos', () => {
+			throw { kind: 'database', message: 'sin autos' };
+		});
+
+		render(ComparendosPage);
+		await screen.findByText('Exceso de velocidad');
+
+		const selectPlaca = screen.getByLabelText('Filtrar por placa');
+		expect(within(selectPlaca).getAllByRole('option')).toHaveLength(1);
+		expect(
+			within(selectPlaca).getByRole('option', { name: 'Todas las placas' })
+		).toBeInTheDocument();
+	});
+
+	it('descarga el Excel del SIMIT cuando hay registros', async () => {
+		tauri.register('listar_comparendos', () => []);
+		tauri.register('simit_sync_status', () => infoAgente({ ultimoResultado: resultadoSimit() }));
+		const createSpy = instalarUrlBlobs();
+		clickAnchor = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+		render(ComparendosPage);
+		const boton = await screen.findByRole('button', { name: 'Descargar Excel' });
+		expect(boton).toBeEnabled();
+		await fireEvent.click(boton);
+
+		await waitFor(() => expect(createSpy).toHaveBeenCalledTimes(1), { timeout: 5000 });
+		expect(revokeSpy).toHaveBeenCalledTimes(1);
+		expect(clickAnchor).toHaveBeenCalledTimes(1);
+		expect(toasts.filter((t) => t.type === 'error')).toHaveLength(0);
+	});
+
+	it('descarga el Excel con fallo de generación → toast de error', async () => {
+		tauri.register('listar_comparendos', () => []);
+		tauri.register('simit_sync_status', () => infoAgente({ ultimoResultado: resultadoSimit() }));
+		instalarUrlBlobs(() => {
+			throw new Error('blob no soportado');
+		});
+		clickAnchor = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+		render(ComparendosPage);
+		await fireEvent.click(await screen.findByRole('button', { name: 'Descargar Excel' }));
+
+		await waitFor(() =>
+			expect(hayToast('error', 'No se pudo generar el Excel: blob no soportado')).toBe(true)
+		);
+	});
+
+	it('descargar sin registros (botón deshabilitado) → toast «No hay registros»', async () => {
+		tauri.register('listar_comparendos', () => []);
+		tauri.register('simit_sync_status', () => infoAgente());
+
+		render(ComparendosPage);
+		const boton = await screen.findByRole('button', { name: 'Descargar Excel' });
+		expect(boton).toBeDisabled();
+		await fireEvent.click(boton);
+
+		await waitFor(() =>
+			expect(
+				hayToast(
+					'error',
+					'No hay registros del SIMIT para exportar. Ejecuta primero una sincronización.'
+				)
+			).toBe(true)
+		);
+	});
+
+	it('el evento simit-sync-complete refresca el panel y la lista', async () => {
+		const listar = vi.fn(() => [comparendo()]);
+		tauri.register('listar_comparendos', listar);
+		const estado = vi.fn(() => infoAgente());
+		tauri.register('simit_sync_status', estado);
+
+		render(ComparendosPage);
+		await screen.findByText('Exceso de velocidad');
+
+		// insertados > 0 → toast singular/plural y refresco
+		emitir<ResultadoSincronizacion>('simit-sync-complete', resultadoSimit({ insertados: 2 }));
+		await waitFor(() =>
+			expect(hayToast('success', 'Agente SIMIT: 2 comparendos nuevos registrados.')).toBe(true)
+		);
+		await waitFor(() => expect(listar.mock.calls.length).toBeGreaterThanOrEqual(2));
+		expect(estado.mock.calls.length).toBeGreaterThanOrEqual(2);
+
+		// insertados = 0 → sin toast adicional (rama else de `if (insertados > 0)`)
+		emitir<ResultadoSincronizacion>(
+			'simit-sync-complete',
+			resultadoSimit({ insertados: 0, registros: [] })
+		);
+		await waitFor(() => expect(listar.mock.calls.length).toBeGreaterThanOrEqual(3));
+		expect(
+			hayToast('success', 'Agente SIMIT: sincronización completada sin comparendos nuevos.')
+		).toBe(false);
+	});
+
+	it('el progreso de sincronización pinta contador, barra y se limpia al completar', async () => {
+		tauri.register('listar_comparendos', () => []);
+		tauri.register('simit_sync_status', () => infoAgente({ ejecutando: true }));
+
+		render(ComparendosPage);
+		await screen.findByText('Agente SIMIT');
+		// Spinner del panel sin progreso todavía
+		expect(screen.getByText(/Consultando SIMIT/)).toBeInTheDocument();
+
+		// tipo 'inicio' → contador sin barra de progreso
+		emitir<EventoProgresoSimit>('simit-sync-progress', {
+			tipo: 'inicio',
+			placaActual: null,
+			progreso: 0,
+			mensaje: 'Iniciando sincronización',
+			timestamp: '2026-08-17T10:30:00-05:00',
+			indicePlaca: 0,
+			totalPlacas: 5
+		});
+		expect(await screen.findByText(/0\/5/)).toBeInTheDocument();
+		expect(screen.queryByTitle('Consultando placa ABC123')).not.toBeInTheDocument();
+
+		// tipo 'procesando' → barra de progreso con el mensaje actual
+		emitir<EventoProgresoSimit>('simit-sync-progress', {
+			tipo: 'procesando',
+			placaActual: 'ABC123',
+			progreso: 60,
+			mensaje: 'Consultando placa ABC123',
+			timestamp: '2026-08-17T10:30:01-05:00',
+			indicePlaca: 3,
+			totalPlacas: 5
+		});
+		expect(await screen.findByText(/3\/5/)).toBeInTheDocument();
+		expect(screen.getByTitle('Consultando placa ABC123')).toBeInTheDocument();
+
+		// tipo 'completado' → tras 2 s el progreso se limpia
+		vi.useFakeTimers();
+		try {
+			emitir<EventoProgresoSimit>('simit-sync-progress', {
+				tipo: 'completado',
+				placaActual: null,
+				progreso: 100,
+				mensaje: 'Sincronización completada',
+				timestamp: '2026-08-17T10:31:00-05:00',
+				indicePlaca: 5,
+				totalPlacas: 5
+			});
+			await vi.advanceTimersByTimeAsync(2100);
+			expect(screen.queryByText(/5\/5/)).not.toBeInTheDocument();
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('los eventos de log abren el panel, acumulan y se pueden limpiar', async () => {
+		tauri.register('listar_comparendos', () => []);
+		tauri.register('simit_sync_status', () =>
+			infoAgente({
+				ultimoResultado: resultadoSimit({
+					metricas: { ...resultadoSimit().metricas, circuitBreakerState: 'Open' }
+				})
+			})
+		);
+
+		render(ComparendosPage);
+		await screen.findByText('Agente SIMIT');
+
+		// El primer log auto-muestra el panel (rama `logs.length === 1`)
+		emitir<EventoLogSimit>('simit-sync-log', {
+			timestamp: '10:30:00',
+			level: 'info',
+			message: 'Iniciando sincronización',
+			placa: null,
+			detail: null
+		});
+		expect(await screen.findByText('📋 Logs en tiempo real')).toBeInTheDocument();
+		expect(screen.getByText('Iniciando sincronización')).toBeInTheDocument();
+		expect(screen.getByText('INFO')).toBeInTheDocument();
+
+		// El segundo log ya no auto-muestra (rama else) y agrega la fila ERROR
+		emitir<EventoLogSimit>('simit-sync-log', {
+			timestamp: '10:30:05',
+			level: 'error',
+			message: 'Timeout consultando ABC123',
+			placa: 'ABC123',
+			detail: 'gateway timeout'
+		});
+		expect(await screen.findByText('ERROR')).toBeInTheDocument();
+		expect(screen.getByText('Timeout consultando ABC123')).toBeInTheDocument();
+		// El botón alterna «Ocultar logs» / «Ver logs (2)»
+		expect(screen.getByRole('button', { name: 'Ocultar logs' })).toBeInTheDocument();
+		await fireEvent.click(screen.getByRole('button', { name: 'Ocultar logs' }));
+		await waitFor(() =>
+			expect(screen.queryByText('📋 Logs en tiempo real')).not.toBeInTheDocument()
+		);
+		const verLogs = screen.getByRole('button', { name: 'Ver logs (2)' });
+		await fireEvent.click(verLogs);
+		expect(await screen.findByText('📋 Logs en tiempo real')).toBeInTheDocument();
+
+		// «Limpiar» vacía los logs → panel y botón desaparecen
+		await fireEvent.click(screen.getByRole('button', { name: 'Limpiar' }));
+		await waitFor(() =>
+			expect(screen.queryByText('📋 Logs en tiempo real')).not.toBeInTheDocument()
+		);
+		expect(screen.queryByRole('button', { name: /Ver logs|Ocultar logs/ })).not.toBeInTheDocument();
+
+		// Métricas con circuit breaker en estado Open (lado «text-alerta» del ternario)
+		await fireEvent.click(screen.getByRole('button', { name: 'Ver métricas' }));
+		expect(await screen.findByText('Open')).toBeInTheDocument();
+		expect(screen.getByText('Open').className).toContain('text-alerta');
+	});
+
+	it('pinta métricas, errores de placas y el reporte HTML (Closed)', async () => {
+		tauri.register('listar_comparendos', () => []);
+		tauri.register('simit_sync_status', () =>
+			infoAgente({
+				ultimoResultado: resultadoSimit({
+					reporteHtml: 'simit_2026-08-17.html',
+					errores: [{ placa: 'XYZ987', error: 'Tiempo de espera agotado' }],
+					placasConError: 1
+				})
+			})
+		);
+
+		render(ComparendosPage);
+		await screen.findByText(/Placas consultadas/);
+
+		// Resumen con errores + reporte HTML
+		expect(screen.getByText(/Placas con error/)).toBeInTheDocument();
+		expect(screen.getByText(/XYZ987: Tiempo de espera agotado/)).toBeInTheDocument();
+		expect(screen.getByTitle('simit_2026-08-17.html')).toBeInTheDocument();
+
+		// Panel de métricas (todo el bloque `mostrarMetricas && r.metricas`)
+		await fireEvent.click(screen.getByRole('button', { name: 'Ver métricas' }));
+		expect(await screen.findByText('📊 Métricas de Rendimiento')).toBeInTheDocument();
+		expect(screen.getByText('Ocultar métricas')).toBeInTheDocument();
+		expect(screen.getByText('1.2s')).toBeInTheDocument();
+		expect(screen.getByText('600ms')).toBeInTheDocument();
+		const cerrado = screen.getByText('Closed');
+		expect(cerrado.className).toContain('text-exito');
+		// Recuento de errores en el resumen: el bloque `{#if r.errores.length > 0}`
+		expect(screen.getByText(/Placas con error/).querySelector('strong')).toHaveTextContent('1');
+	});
+
+	it('valida fecha y hora de la infracción antes de guardar', async () => {
+		tauri.register('listar_comparendos', () => []);
+		const crear = vi.fn((_args: { sessionId: string; datos: ComparendoDatos }) =>
+			comparendo({ id: 9 })
+		);
+		tauri.register('crear_comparendo', crear);
+
+		render(ComparendosPage);
+		await screen.findByText('No hay comparendos');
+		await fireEvent.click(screen.getByRole('button', { name: 'Registrar Comparendo' }));
+		const dialogo = await screen.findByRole('dialog');
+		await escribirPlacaEnModal(dialogo, 'ABC123');
+
+		// La hora viene vacía por defecto → error de hora (la fecha sí está hoy)
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Registrar comparendo' }));
+		expect(await within(dialogo).findByRole('alert')).toHaveTextContent(
+			'La hora de la infracción es obligatoria.'
+		);
+
+		// Con hora informada pero fecha vaciada → error de fecha
+		await fireEvent.input(screen.getByPlaceholderText('HH:MM'), {
+			target: { value: '14:30' }
+		});
+		const fecha = within(dialogo).getByDisplayValue(/\d{4}-\d{2}-\d{2}/);
+		await fireEvent.input(fecha, { target: { value: '' } });
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Registrar comparendo' }));
+		expect(await within(dialogo).findByRole('alert')).toHaveTextContent(
+			'La fecha de la infracción es obligatoria.'
+		);
+		expect(crear).not.toHaveBeenCalled();
+	});
+
+	it('un error del backend al guardar muestra la alerta y no cierra el modal', async () => {
+		tauri.register('listar_comparendos', () => []);
+		tauri.register('crear_comparendo', () => {
+			throw { kind: 'validacion', message: 'La placa ABC123 no existe en el RUNT.' };
+		});
+
+		render(ComparendosPage);
+		await screen.findByText('No hay comparendos');
+		await fireEvent.click(screen.getByRole('button', { name: 'Registrar Comparendo' }));
+		const dialogo = await screen.findByRole('dialog');
+		await escribirPlacaEnModal(dialogo, 'ABC123');
+		await fireEvent.input(screen.getByPlaceholderText('Ej: 580000'), {
+			target: { value: '580000' }
+		});
+		await fireEvent.input(screen.getByPlaceholderText('HH:MM'), {
+			target: { value: '14:30' }
+		});
+
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Registrar comparendo' }));
+		expect(await within(dialogo).findByRole('alert')).toHaveTextContent(
+			'La placa ABC123 no existe en el RUNT.'
+		);
+		expect(screen.getByRole('dialog')).toBeInTheDocument();
+	});
+
+	it('un error al marcar como pagado cierra el diálogo y avisa', async () => {
+		tauri.register('listar_comparendos', () => [comparendo({ id: 3 })]);
+		tauri.register('marcar_pagado_comparendo', () => {
+			throw { kind: 'generic', message: 'Estado inválido para pagos' };
+		});
+
+		render(ComparendosPage);
+		await screen.findByText('Exceso de velocidad');
+		await fireEvent.click(screen.getByTitle('Marcar como pagado'));
+		const dialogo = await screen.findByRole('dialog');
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Marcar pagado' }));
+
+		await waitFor(() => expect(hayToast('error', 'Estado inválido para pagos')).toBe(true));
+		// catch → pagandoId = null → el diálogo se cierra
+		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+	});
+
+	it('un error al eliminar cierra el diálogo y avisa', async () => {
+		tauri.register('listar_comparendos', () => [comparendo({ id: 3 })]);
+		tauri.register('eliminar_comparendo', () => {
+			throw { kind: 'database', message: 'FK: el comparendo tiene rentas asociadas' };
+		});
+
+		render(ComparendosPage);
+		await screen.findByText('Exceso de velocidad');
+		await fireEvent.click(screen.getByTitle('Eliminar'));
+		const dialogo = await screen.findByRole('dialog');
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Eliminar' }));
+
+		await waitFor(() =>
+			expect(hayToast('error', 'FK: el comparendo tiene rentas asociadas')).toBe(true)
+		);
+		// A diferencia del pago, aquí el catch NO limpia eliminarId: el diálogo
+		// permanece abierto para que el usuario reintente o cancele.
+		expect(screen.getByRole('dialog')).toBeInTheDocument();
+	});
+
+	it('cancelar los diálogos de pago y eliminación no ejecuta la acción', async () => {
+		tauri.register('listar_comparendos', () => [comparendo({ id: 3 })]);
+		const pagar = vi.fn();
+		tauri.register('marcar_pagado_comparendo', pagar);
+		const eliminar = vi.fn();
+		tauri.register('eliminar_comparendo', eliminar);
+
+		render(ComparendosPage);
+		await screen.findByText('Exceso de velocidad');
+
+		await fireEvent.click(screen.getByTitle('Marcar como pagado'));
+		let dialogo = await screen.findByRole('dialog');
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Cancelar' }));
+		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+		expect(pagar).not.toHaveBeenCalled();
+
+		await fireEvent.click(screen.getByTitle('Eliminar'));
+		dialogo = await screen.findByRole('dialog');
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Cancelar' }));
+		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+		expect(eliminar).not.toHaveBeenCalled();
+	});
+
+	it('imprime la notificación y la cierra desde el pie del modal', async () => {
+		tauri.register('listar_comparendos', () => [comparendo({ id: 5 })]);
+		const printSpy = vi.spyOn(window, 'print').mockImplementation(() => {});
+
+		render(ComparendosPage);
+		await screen.findByText('Exceso de velocidad');
+		await fireEvent.click(screen.getByTitle('Imprimir notificación'));
+		const dialogo = await screen.findByRole('dialog');
+
+		await fireEvent.click(within(dialogo).getByRole('button', { name: /Imprimir documento/ }));
+		await waitFor(() => expect(printSpy).toHaveBeenCalledTimes(1), { timeout: 4000 });
+		// afterprint limpia el clon de impresión (si no, contamina otros tests)
+		window.dispatchEvent(new Event('afterprint'));
+		expect(document.getElementById('print-clone')).not.toBeInTheDocument();
+		printSpy.mockRestore();
+
+		// Cerrar desde el pie (rama `cerrarImpresion`); el header también tiene
+		// un botón «Cerrar» (aria-label), por eso se elige el del pie por texto.
+		const cerrar = within(screen.getByRole('dialog'))
+			.getAllByRole('button', { name: 'Cerrar' })
+			.find((b) => b.textContent?.trim() === 'Cerrar');
+		expect(cerrar).toBeDefined();
+		await fireEvent.click(cerrar!);
+		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+	});
+
+	it('recarga con la búsqueda (debounce) y con el filtro de placa', async () => {
+		const listar = vi.fn(() => [comparendo()]);
+		tauri.register('listar_comparendos', listar);
+
+		render(ComparendosPage);
+		await screen.findByText('Exceso de velocidad');
+		expect(listar).toHaveBeenCalledTimes(1);
+
+		await fireEvent.input(screen.getByPlaceholderText('Buscar por placa u observaciones...'), {
+			target: { value: 'velo' }
+		});
+		await waitFor(
+			() => expect(listar).toHaveBeenLastCalledWith(expect.objectContaining({ busqueda: 'velo' })),
+			{ timeout: 2000 }
+		);
+
+		await fireEvent.change(screen.getByLabelText('Filtrar por placa'), {
+			target: { value: 'XYZ987' }
+		});
+		await waitFor(
+			() => expect(listar).toHaveBeenLastCalledWith(expect.objectContaining({ placa: 'XYZ987' })),
+			{ timeout: 2000 }
+		);
 	});
 });
 

@@ -1,5 +1,5 @@
 // src/routes/rentas/rentas.test.ts — Tests de la página de Rentas
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/svelte';
 import { tauri } from '../../test/tauri';
 import { session } from '#lib/stores/session.svelte.js';
@@ -13,7 +13,9 @@ import type {
 	ExtensionDatos,
 	Auto,
 	BusinessLists,
-	Reserva
+	Reserva,
+	Cliente,
+	ClienteConPii
 } from '#lib/api.js';
 import RentasPage from './+page.svelte';
 
@@ -170,6 +172,13 @@ beforeEach(() => {
 	tauri.register('listar_autos', () => [auto('ABC123'), auto('XYZ987', 'Mazda', 'CX-5')]);
 	// Restablece la URL (el stub de $app/state lee window.location)
 	window.history.replaceState({}, '', '/rentas');
+});
+
+// Higiene: la impresión deja un clon en <body> fuera del árbol del render;
+// si un test fallara antes de cerrar, contaminaría los tests siguientes.
+afterEach(() => {
+	document.getElementById('print-clone')?.remove();
+	document.body.classList.remove('printing', 'printing-clone');
 });
 
 describe('página de Rentas', () => {
@@ -805,5 +814,690 @@ describe('página de Rentas', () => {
 		await waitFor(() => expect(listar).toHaveBeenCalledTimes(2), { timeout: 2000 });
 		const args = listar.mock.calls[1][0] as { sessionId: string; estado: string | null };
 		expect(args.estado).toBe('Cerrada');
+	});
+});
+
+// ── Tanda de cobertura de ramas: flujos de error, filtros, cálculo en vivo ──
+// Cada bloque apunta a ramas concretas de +page.svelte que el resto de los
+// tests no tocaba (catch de cargar/guardar/cancelar, validaciones de edición,
+// resumen con IVA, autocompletado y cierre con cálculo automático).
+
+function deferido<T>() {
+	let resolve!: (v: T) => void;
+	let reject!: (e: unknown) => void;
+	const promise = new Promise<T>((res, rej) => {
+		resolve = res;
+		reject = rej;
+	});
+	return { promise, resolve, reject };
+}
+
+function clientePii(over: Partial<Cliente> = {}): ClienteConPii {
+	return {
+		cliente: {
+			id: 1,
+			tipoDoc: 'CC',
+			noDoc: '102345678',
+			nombres: 'María Fernanda',
+			apellidos: 'López',
+			nombreCompleto: 'María Fernanda López',
+			celular: null,
+			celular2: null,
+			email: null,
+			ciudad: null,
+			estadoRegion: null,
+			pais: null,
+			nacionalidad: 'Colombiana',
+			dirResidencia: null,
+			dirTemporal: null,
+			hotel: null,
+			habitacion: null,
+			noLicencia: 'LC-998877',
+			tipoLicencia: null,
+			vencimientoLicencia: null,
+			estado: 'Activo',
+			createdAt: null,
+			...over
+		},
+		piiOculto: false
+	};
+}
+
+// Dispara input + change: el binding de Svelte actualiza en `input` y los
+// handlers onchange (recalcularDias, onCalcular) corren con el estado ya nuevo.
+async function fijar(el: Element, valor: string) {
+	await fireEvent.input(el, { target: { value: valor } });
+	await fireEvent.change(el, { target: { value: valor } });
+}
+
+describe('ramas de error y cálculo de la página de Rentas', () => {
+	it('muestra el estado de carga mientras listar_rentas no resuelve', async () => {
+		const d = deferido<Renta[]>();
+		tauri.register('listar_rentas', () => d.promise);
+
+		render(RentasPage);
+
+		expect(screen.getByText('Cargando rentas...')).toBeInTheDocument();
+		d.resolve([renta()]);
+		expect(await screen.findByText('Cliente de Prueba')).toBeInTheDocument();
+		expect(screen.queryByText('Cargando rentas...')).not.toBeInTheDocument();
+	});
+
+	it('cuando listar_rentas falla muestra la tabla vacía en vez de romper', async () => {
+		tauri.register('listar_rentas', () => {
+			throw { kind: 'database', message: 'fallo de la BD' };
+		});
+
+		render(RentasPage);
+
+		expect(await screen.findByText('No hay rentas')).toBeInTheDocument();
+		expect(screen.queryByText('Cargando rentas...')).not.toBeInTheDocument();
+	});
+
+	it('edita una renta: precarga, valida fechas y actualiza', async () => {
+		tauri.register('listar_rentas', () => [renta({ id: 3, noContrato: 44 })]);
+		const actualizar = vi.fn((_args: { sessionId: string; id: number; datos: RentaDatos }) =>
+			renta({ id: 3, valorDia: '180000.00' })
+		);
+		tauri.register('actualizar_renta', actualizar);
+
+		render(RentasPage);
+		await screen.findByText('Cliente de Prueba');
+
+		await fireEvent.click(screen.getByTitle('Editar'));
+		const dialogo = await screen.findByRole('dialog');
+		expect(dialogo).toHaveTextContent('Editar renta #3');
+		expect(dialogo).toHaveTextContent('Modifica los datos y guarda los cambios.');
+		// Precarga desde la renta
+		expect(screen.getByDisplayValue('150000.00')).toBeInTheDocument();
+
+		const fechas = dialogo.querySelectorAll('input[type="date"]');
+		expect(fechas).toHaveLength(2);
+		// Retorno anterior a la recogida → validación
+		await fijar(fechas[0], '2026-08-10');
+		await fijar(fechas[1], '2026-08-05');
+		await fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+		expect(await within(dialogo).findByRole('alert')).toHaveTextContent(
+			'La fecha de retorno no puede ser anterior a la recogida.'
+		);
+		expect(actualizar).not.toHaveBeenCalled();
+
+		// Fecha vacía → validación
+		await fijar(fechas[0], '');
+		await fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+		expect(await within(dialogo).findByRole('alert')).toHaveTextContent(
+			'Las fechas de recogida y retorno son obligatorias.'
+		);
+		expect(actualizar).not.toHaveBeenCalled();
+
+		// Guardado válido
+		await fijar(fechas[0], '2026-08-01');
+		await fijar(fechas[1], '2026-08-04');
+		await fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+		await waitFor(() => expect(actualizar).toHaveBeenCalledTimes(1));
+		const args = actualizar.mock.calls[0][0] as {
+			sessionId: string;
+			id: number;
+			datos: RentaDatos;
+		};
+		expect(args.id).toBe(3);
+		expect(args.datos.fechaRecogida).toBe('2026-08-01');
+		expect(args.datos.fechaRetorno).toBe('2026-08-04');
+		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+	});
+
+	it('fuerza cobrarHorasExtra al guardar cuando hay horas y tarifa por hora', async () => {
+		tauri.register('listar_rentas', () => []);
+		const crear = vi.fn((_args: { sessionId: string; datos: RentaDatos }) => renta({ id: 8 }));
+		tauri.register('crear_renta', crear);
+
+		render(RentasPage);
+		await screen.findByText('No hay rentas');
+		await fireEvent.click(screen.getByRole('button', { name: 'Nueva Renta' }));
+		const dialogo = await screen.findByRole('dialog');
+
+		await fireEvent.input(screen.getByPlaceholderText('Nombre para la renta'), {
+			target: { value: 'Cliente Horas' }
+		});
+		const spin = within(dialogo).getAllByRole('spinbutton');
+		await fireEvent.input(spin[1], { target: { value: '2' } }); // horas extras
+		await fireEvent.input(screen.getByPlaceholderText('10000'), { target: { value: '15000' } });
+		// Desactivar «Cobrar Horas Extra»: al guardar debe reactivarse solo
+		await fireEvent.click(screen.getByLabelText(/Cobrar Horas Extra/));
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Crear renta' }));
+		await waitFor(() => expect(crear).toHaveBeenCalledTimes(1));
+		const args = crear.mock.calls[0][0] as { sessionId: string; datos: RentaDatos };
+		expect(args.datos.horasExtras).toBe(2);
+		expect(args.datos.cobrarHorasExtra).toBe(true);
+	});
+
+	it('muestra «Guardando...» mientras crea y el error del backend si falla', async () => {
+		tauri.register('listar_rentas', () => []);
+		const d = deferido<Renta>();
+		tauri.register('crear_renta', () => d.promise);
+
+		render(RentasPage);
+		await screen.findByText('No hay rentas');
+		await fireEvent.click(screen.getByRole('button', { name: 'Nueva Renta' }));
+		const dialogo = await screen.findByRole('dialog');
+		await fireEvent.input(screen.getByPlaceholderText('Nombre para la renta'), {
+			target: { value: 'Cliente Pendiente' }
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Crear renta' }));
+		const guardando = await screen.findByRole('button', { name: /Guardando/ });
+		expect(guardando).toBeDisabled();
+
+		d.reject({ kind: 'validacion', message: 'El vehículo no está disponible.' });
+		expect(await within(dialogo).findByRole('alert')).toHaveTextContent(
+			'El vehículo no está disponible.'
+		);
+		// El modal permanece abierto para corregir
+		expect(screen.getByRole('dialog')).toBeInTheDocument();
+	});
+
+	it('recalcula el resumen en vivo con IVA, costos colapsables y descuento', async () => {
+		tauri.register('listar_rentas', () => []);
+
+		render(RentasPage);
+		await screen.findByText('No hay rentas');
+		await fireEvent.click(screen.getByRole('button', { name: 'Nueva Renta' }));
+		const dialogo = await screen.findByRole('dialog');
+
+		await fireEvent.input(screen.getByPlaceholderText('150000'), { target: { value: '100000' } });
+		// Costos adicionales ocultos por defecto
+		expect(screen.queryByPlaceholderText('25000')).not.toBeInTheDocument();
+		const btnCostos = screen.getByRole('button', { name: /Costos adicionales/ });
+		expect(btnCostos).toHaveAttribute('aria-expanded', 'false');
+		await fireEvent.click(btnCostos);
+		expect(screen.getByText('8 campos')).toBeInTheDocument();
+		await fireEvent.input(screen.getByPlaceholderText('25000'), { target: { value: '25000' } });
+
+		// Sin IVA (rama por defecto) → subtotal 125.000
+		expect(within(dialogo).getByText(/Sin IVA \(checkbox desactivado\)/)).toBeInTheDocument();
+		await fireEvent.click(screen.getByLabelText(/Cobrar IVA/));
+		// 125.000 × 19% = 23.750
+		expect(within(dialogo).getByText(/IVA 19% incluido/)).toBeInTheDocument();
+		expect(within(dialogo).getByText(/IVA \(19%\)/)).toBeInTheDocument();
+		expect(within(dialogo).getByText(/23\.750/)).toBeInTheDocument();
+
+		// Descuento mayor que el bruto → subtotal clamp a 0 (Math.max)
+		await fireEvent.input(screen.getByPlaceholderText('5000'), { target: { value: '999999' } });
+		expect(within(dialogo).queryByText(/23\.750/)).not.toBeInTheDocument();
+	});
+
+	it('recalcula días y horas desde el itinerario con y sin cobro de horas', async () => {
+		tauri.register('listar_rentas', () => []);
+
+		render(RentasPage);
+		await screen.findByText('No hay rentas');
+		await fireEvent.click(screen.getByRole('button', { name: 'Nueva Renta' }));
+		const dialogo = await screen.findByRole('dialog');
+		const fechas = dialogo.querySelectorAll('input[type="date"]');
+		const horas = dialogo.querySelectorAll('input[type="time"]');
+		const spin = within(dialogo).getAllByRole('spinbutton'); // [dias, horasExtras]
+
+		// 2026-08-01 09:00 → 2026-08-04 11:00 = 3 días + 2 h
+		await fijar(fechas[0], '2026-08-01');
+		await fijar(horas[0], '09:00');
+		await fijar(fechas[1], '2026-08-04');
+		await fijar(horas[1], '11:00');
+		expect(spin[0]).toHaveValue(3);
+		expect(spin[1]).toHaveValue(2);
+
+		// Sin cobrar horas extras → el excedente no se factura
+		await fireEvent.click(screen.getByLabelText(/Cobrar Horas Extra/));
+		await fijar(horas[1], '12:00');
+		expect(spin[0]).toHaveValue(3);
+		expect(spin[1]).toHaveValue(0);
+	});
+
+	it('autocompleta cliente y placa en el formulario', async () => {
+		tauri.register('listar_rentas', () => []);
+		tauri.register('listar_clientes', () => [
+			clientePii(),
+			clientePii({
+				id: 2,
+				tipoDoc: null,
+				noDoc: null,
+				nombreCompleto: 'Ana Sin Documentos',
+				noLicencia: null,
+				nacionalidad: null
+			})
+		]);
+		tauri.register('listar_autos', () => [
+			auto('ABC123'),
+			{ ...auto('QWE987', 'Mazda', 'CX-5'), color: 'Rojo' }
+		]);
+		const crear = vi.fn((_args: { sessionId: string; datos: RentaDatos }) => renta({ id: 11 }));
+		tauri.register('crear_renta', crear);
+
+		render(RentasPage);
+		await screen.findByText('No hay rentas');
+		await fireEvent.click(screen.getByRole('button', { name: 'Nueva Renta' }));
+		const dialogo = await screen.findByRole('dialog');
+
+		// Cliente por nombre → autocompleta nombre, nacionalidad y licencia
+		const comboCliente = within(dialogo).getByPlaceholderText('Buscar por nombre o documento…');
+		await fireEvent.focus(comboCliente);
+		await fireEvent.input(comboCliente, { target: { value: 'María' } });
+		await fireEvent.keyDown(comboCliente, { key: 'Enter' });
+		await waitFor(() =>
+			expect(screen.getAllByDisplayValue('María Fernanda López').length).toBeGreaterThan(0)
+		);
+		expect(screen.getByDisplayValue('LC-998877')).toBeInTheDocument();
+
+		// Placa por marca/modelo → autocompleta km de salida
+		const comboPlaca = within(dialogo).getByPlaceholderText('Buscar placa, marca o modelo…');
+		await fireEvent.focus(comboPlaca);
+		await fireEvent.input(comboPlaca, { target: { value: 'QWE' } });
+		await fireEvent.keyDown(comboPlaca, { key: 'Enter' });
+		await waitFor(() => expect(screen.getByDisplayValue('42000')).toBeInTheDocument());
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Crear renta' }));
+		await waitFor(() => expect(crear).toHaveBeenCalledTimes(1));
+		const args = crear.mock.calls[0][0] as { sessionId: string; datos: RentaDatos };
+		expect(args.datos.idCliente).toBe(1);
+		expect(args.datos.nombreCliente).toBe('María Fernanda López');
+		expect(args.datos.placa).toBe('QWE987');
+	});
+
+	it('cancela una renta: éxito y manejo de error sin cerrar el diálogo', async () => {
+		tauri.register('listar_rentas', () => [renta({ id: 4 })]);
+		const cancelar = vi.fn((_args: { sessionId: string; id: number }) => ({
+			renta: renta({ id: 4, estado: 'Cancelada' }),
+			cancelada: true
+		}));
+		tauri.register('cancelar_renta', cancelar);
+
+		render(RentasPage);
+		await screen.findByText('Cliente de Prueba');
+
+		// Éxito
+		await fireEvent.click(screen.getByTitle('Cancelar renta'));
+		let dialogo = await screen.findByRole('dialog');
+		expect(dialogo).toHaveTextContent('¿Seguro que deseas cancelar la renta de Cliente de Prueba?');
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Cancelar renta' }));
+		await waitFor(() => expect(cancelar).toHaveBeenCalledTimes(1));
+		expect(cancelar.mock.calls[0][0]).toMatchObject({ id: 4 });
+		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+
+		// Error: el diálogo queda abierto para reintentar
+		tauri.register('cancelar_renta', () => {
+			throw { kind: 'generic', message: 'No se pudo cancelar la renta.' };
+		});
+		await fireEvent.click(screen.getByTitle('Cancelar renta'));
+		dialogo = await screen.findByRole('dialog');
+		const confirmar = within(dialogo).getByRole('button', { name: 'Cancelar renta' });
+		await fireEvent.click(confirmar);
+		await waitFor(() => expect(confirmar).toBeEnabled());
+		expect(screen.getByRole('dialog')).toBeInTheDocument();
+	});
+
+	it('cambia el vehículo con opciones filtradas y maneja el error', async () => {
+		tauri.register('listar_rentas', () => [renta({ id: 5, placa: 'ABC123' })]);
+		tauri.register('listar_autos', () => [
+			{ ...auto('ABC123'), estado: 'Alquilado' },
+			auto('XYZ789', 'Mazda', 'CX-5')
+		]);
+		const cambiar = vi.fn((_args: { sessionId: string; id: number; placa: string }) =>
+			renta({ id: 5, placa: 'XYZ789' })
+		);
+		tauri.register('cambiar_auto_renta', cambiar);
+
+		render(RentasPage);
+		await screen.findByText('Cliente de Prueba');
+
+		await fireEvent.click(screen.getByTitle('Cambiar vehículo sin cerrar la renta'));
+		const dialogo = await screen.findByRole('dialog');
+		expect(dialogo).toHaveTextContent('Cambiar vehículo — renta #5');
+		// El auto «Alquilado» solo entra por ser la placa actual de la renta
+		const select = within(dialogo).getByRole('combobox');
+		// placeholder vacío + placa actual (Alquilado, entra por ser la actual) + disponibles
+		const opciones = within(select).getAllByRole('option');
+		expect(opciones.map((o) => (o as HTMLOptionElement).value)).toEqual(
+			expect.arrayContaining(['ABC123', 'XYZ789'])
+		);
+		await fireEvent.change(select, { target: { value: 'XYZ789' } });
+		await fireEvent.click(within(dialogo).getByRole('button', { name: /Cambiar vehículo/ }));
+		await waitFor(() => expect(cambiar).toHaveBeenCalledTimes(1));
+		expect(cambiar.mock.calls[0][0]).toMatchObject({ id: 5, placa: 'XYZ789' });
+		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+
+		// Error: alerta dentro del diálogo
+		tauri.register('cambiar_auto_renta', () => {
+			throw { kind: 'validacion', message: 'El auto ya no está disponible.' };
+		});
+		await fireEvent.click(screen.getByTitle('Cambiar vehículo sin cerrar la renta'));
+		const dlg2 = await screen.findByRole('dialog');
+		await fireEvent.change(within(dlg2).getByRole('combobox'), {
+			target: { value: 'XYZ789' }
+		});
+		await fireEvent.click(within(dlg2).getByRole('button', { name: /Cambiar vehículo/ }));
+		expect(await within(dlg2).findByRole('alert')).toHaveTextContent(
+			'El auto ya no está disponible.'
+		);
+	});
+
+	it('extiende con validaciones, error del backend y tipo días', async () => {
+		tauri.register('listar_rentas', () => [renta({ id: 6 })]);
+		// Historial: el error se ignora y el modal sigue operativo
+		tauri.register('listar_extensiones', () => {
+			throw { kind: 'generic', message: 'sin historial' };
+		});
+		tauri.register('extender_renta', () => {
+			throw { kind: 'generic', message: 'La renta ya fue cerrada.' };
+		});
+
+		render(RentasPage);
+		await screen.findByText('Cliente de Prueba');
+		await fireEvent.click(screen.getByTitle('Extender renta (agregar horas/días)'));
+		const dialogo = await screen.findByRole('dialog');
+		const aplicar = within(dialogo).getByRole('button', { name: 'Aplicar extensión' });
+
+		// Valor faltante
+		await fireEvent.click(aplicar);
+		expect(await within(dialogo).findByRole('alert')).toHaveTextContent(
+			'El valor de la extensión es obligatorio y debe ser mayor a cero.'
+		);
+		// Valor cero
+		await fireEvent.input(within(dialogo).getByPlaceholderText('$0'), {
+			target: { value: '0' }
+		});
+		await fireEvent.click(aplicar);
+		expect(await within(dialogo).findByRole('alert')).toHaveTextContent(
+			'El valor de la extensión es obligatorio y debe ser mayor a cero.'
+		);
+		// Cantidad cero
+		await fireEvent.input(within(dialogo).getByPlaceholderText('$0'), {
+			target: { value: '20000' }
+		});
+		const cantidad = within(dialogo).getByRole('spinbutton');
+		await fireEvent.input(cantidad, { target: { value: '0' } });
+		await fireEvent.click(aplicar);
+		expect(await within(dialogo).findByRole('alert')).toHaveTextContent(
+			'La cantidad debe ser mayor a cero.'
+		);
+		// Error del backend
+		await fireEvent.input(cantidad, { target: { value: '1' } });
+		await fireEvent.click(aplicar);
+		expect(await within(dialogo).findByRole('alert')).toHaveTextContent('La renta ya fue cerrada.');
+
+		// Éxito con tipo «días»
+		tauri.register('extender_renta', () => renta({ id: 6 }));
+		await fireEvent.change(within(dialogo).getByRole('combobox'), {
+			target: { value: 'dias' }
+		});
+		await fireEvent.click(aplicar);
+		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+	});
+
+	it('un pago rechazado por el backend muestra el alerta y no cierra el modal', async () => {
+		tauri.register('listar_rentas', () => [renta({ id: 5, saldoPendiente: '100000.00' })]);
+		tauri.register('registrar_pago_renta', () => {
+			throw { kind: 'validacion', message: 'Supera el saldo pendiente.' };
+		});
+
+		render(RentasPage);
+		await screen.findByText('Cliente de Prueba');
+		await fireEvent.click(screen.getByTitle('Registrar pago'));
+		const dialogo = await screen.findByRole('dialog');
+		await fireEvent.input(screen.getByPlaceholderText('Ej: 200000'), {
+			target: { value: '200000' }
+		});
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Registrar pago' }));
+
+		expect(await within(dialogo).findByRole('alert')).toHaveTextContent(
+			'Supera el saldo pendiente.'
+		);
+		expect(screen.getByRole('dialog')).toBeInTheDocument();
+	});
+
+	it('cierra con cálculo automático de días/horas y maneja el error', async () => {
+		tauri.register('listar_rentas', () => [
+			renta({ id: 5, fechaRecogida: '2026-08-01', horaRecogida: '09:00', cobrarHorasExtra: true })
+		]);
+		tauri.register('cerrar_renta', () => {
+			throw { kind: 'validacion', message: 'Faltan datos para cerrar.' };
+		});
+
+		render(RentasPage);
+		await screen.findByText('Cliente de Prueba');
+		await fireEvent.click(screen.getByTitle('Cerrar renta (devolución)'));
+		const dialogo = await screen.findByRole('dialog');
+		const fecha = dialogo.querySelector('input[type="date"]');
+		const hora = dialogo.querySelector('input[type="time"]');
+		expect(fecha).not.toBeNull();
+		expect(hora).not.toBeNull();
+
+		// Sin hora de devolución aún no se auto-calcula (early return)
+		await fijar(fecha!, '2026-08-04');
+		// Con hora: 2026-08-01 09:00 → 2026-08-04 11:00 = 3 días + 2 h
+		await fijar(hora!, '11:00');
+		const mantener = within(dialogo).getAllByPlaceholderText('Mantener');
+		expect(mantener[0]).toHaveValue(3);
+		expect(mantener[1]).toHaveValue(2);
+
+		// Error del backend
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Cerrar renta' }));
+		expect(await within(dialogo).findByRole('alert')).toHaveTextContent(
+			'Faltan datos para cerrar.'
+		);
+
+		// Éxito
+		const cerrada = renta({ id: 5, estado: 'Cerrada' });
+		tauri.register('cerrar_renta', () => cerrada);
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Cerrar renta' }));
+		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+	});
+
+	it('cambia el tipo de inspección (Salida → Entrada → Salida con km)', async () => {
+		tauri.register('listar_rentas', () => [renta({ id: 5, kmSalida: '42000' })]);
+		tauri.register('registrar_inspeccion_renta', () => ({
+			id: 1,
+			idRenta: 5,
+			tipo: 'Salida',
+			fecha: '2026-08-01',
+			kilometraje: '42000',
+			nivelGasolina: 'Lleno',
+			limpieza: 'Limpio',
+			tieneRepuesto: true,
+			tieneGatoCruceta: true,
+			tieneKitCarretera: true,
+			tieneDocumentos: true,
+			danosCarroceria: null,
+			observaciones: null
+		}));
+
+		render(RentasPage);
+		await screen.findByText('Cliente de Prueba');
+		await fireEvent.click(screen.getByTitle('Registrar inspección'));
+		let dialogo = await screen.findByRole('dialog');
+		expect(dialogo).toHaveTextContent('Inspección de Salida — renta #5');
+
+		// Entrada: reinicia el formulario sin km de salida
+		await fireEvent.click(within(dialogo).getByRole('tab', { name: 'Entrada' }));
+		dialogo = await screen.findByRole('dialog');
+		expect(dialogo).toHaveTextContent('Inspección de Entrada — renta #5');
+		expect(within(dialogo).queryByDisplayValue('42000')).not.toBeInTheDocument();
+
+		// Volver a Salida: autocomplete el km desde la renta
+		await fireEvent.click(within(dialogo).getByRole('tab', { name: 'Salida' }));
+		dialogo = await screen.findByRole('dialog');
+		expect(within(dialogo).getByDisplayValue('42000')).toBeInTheDocument();
+	});
+
+	it('la impresión degrada si obtener_renta falla y cierra orden/contrato', async () => {
+		tauri.register('listar_rentas', () => [renta({ id: 1 })]);
+		tauri.register('obtener_renta', () => {
+			throw { kind: 'database', message: 'no hay detalle' };
+		});
+		const printSpy = vi.spyOn(window, 'print').mockImplementation(() => {});
+
+		render(RentasPage);
+		await screen.findByText('Cliente de Prueba');
+
+		// Sin detalle: se imprime con la data del listado
+		await fireEvent.click(screen.getByTitle('Imprimir orden de renta'));
+		expect(await screen.findByRole('dialog')).toHaveTextContent('Orden de renta #0001');
+		// Cerrar vía el botón de encabezado (aria-label="Cerrar") para no
+		// confundirlo con el «Cerrar» del pie del modal
+		await fireEvent.click(screen.getByLabelText('Cerrar'));
+		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+
+		// Contrato independiente: imprimir + cerrar
+		await fireEvent.click(screen.getByTitle('Imprimir orden de renta'));
+		await screen.findByRole('dialog');
+		await fireEvent.click(screen.getByRole('button', { name: /Ver contrato/ }));
+		expect(await screen.findByRole('dialog')).toHaveTextContent('Contrato de renta #0001');
+		await fireEvent.click(screen.getByRole('button', { name: /Imprimir contrato/ }));
+		// imprimirDocumento espera hasta 1500 ms a imágenes/fuentes antes de print
+		await waitFor(() => expect(printSpy).toHaveBeenCalledTimes(1), { timeout: 4000 });
+		// afterprint limpia el clon y las clases del body (sin esto el clon
+		// contaminaría el DOM de los tests siguientes)
+		window.dispatchEvent(new Event('afterprint'));
+		expect(document.getElementById('print-clone')).not.toBeInTheDocument();
+		expect(document.body.classList.contains('printing')).toBe(false);
+		await fireEvent.click(screen.getByLabelText('Cerrar'));
+		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+
+		printSpy.mockRestore();
+	});
+
+	it('renderiza celdas especiales: cancelada, comisión cero, saldo cero y devolución real', async () => {
+		tauri.register('listar_rentas', () => [
+			renta({
+				id: 1,
+				estado: 'Cancelada',
+				comision: '0.00',
+				saldoPendiente: '0.00',
+				vehiculo: '',
+				horaRecogida: null,
+				horaRetorno: null,
+				nacionalidad: null,
+				horasExtras: 0
+			}),
+			renta({
+				id: 2,
+				noContrato: 43,
+				placa: 'XYZ987',
+				nombreCliente: 'Otra Persona',
+				estado: 'Cerrada',
+				horasExtras: 2,
+				fechaDevolucionReal: '2026-08-10',
+				horaDevolucionReal: '15:30'
+			}),
+			renta({
+				id: 3,
+				noContrato: 44,
+				placa: 'QRS456',
+				nombreCliente: 'Tercer Cliente',
+				estado: 'Pendiente'
+			})
+		]);
+
+		render(RentasPage);
+		// Esperar a la fila real («Cancelada» también es opción del filtro)
+		await screen.findByText('Otra Persona');
+
+		// Horas nulas → «—», comisión 0 → «—», vehículo vacío → «—»
+		expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(2);
+		expect(screen.getByText('Pendiente')).toBeInTheDocument();
+		// Renta con horas extras en la celda de itinerario
+		expect(screen.getByText(/\+ 2h/)).toBeInTheDocument();
+		// Cerrada/con devolución usa la hora real en el itinerario
+		expect(screen.getAllByText('15:30').length).toBeGreaterThan(0);
+	});
+
+	it('recarga con el filtro de placa y con la búsqueda (debounce e inmediato)', async () => {
+		const listar = vi.fn((_args: Record<string, unknown>) => [renta()]);
+		tauri.register('listar_rentas', listar);
+
+		render(RentasPage);
+		await screen.findByText('Cliente de Prueba');
+		expect(listar).toHaveBeenCalledTimes(1);
+
+		// Filtro de placa (vacía la búsqueda → recarga inmediata)
+		await fireEvent.change(screen.getByLabelText('Filtrar por placa'), {
+			target: { value: 'XYZ987' }
+		});
+		await waitFor(() => expect(listar).toHaveBeenCalledTimes(2), { timeout: 3000 });
+		expect(listar.mock.calls[1][0]).toMatchObject({ placa: 'XYZ987' });
+
+		// Búsqueda con debounce (350 ms)
+		await fireEvent.input(screen.getByPlaceholderText('Buscar por cliente, placa o estado...'), {
+			target: { value: 'mazda' }
+		});
+		await waitFor(() => expect(listar).toHaveBeenCalledTimes(3), { timeout: 3000 });
+		expect(listar.mock.calls[2][0]).toMatchObject({ busqueda: 'mazda' });
+
+		// Vaciar la búsqueda → immediateIf recarga sin esperar el timer
+		await fireEvent.input(screen.getByPlaceholderText('Buscar por cliente, placa o estado...'), {
+			target: { value: '' }
+		});
+		await waitFor(() => expect(listar).toHaveBeenCalledTimes(4), { timeout: 3000 });
+		expect(listar.mock.calls[3][0]).toMatchObject({ busqueda: null });
+	});
+
+	it('desdeReserva con error no abre el modal y la página sigue operativa', async () => {
+		tauri.register('listar_rentas', () => []);
+		tauri.register('obtener_reserva', () => {
+			throw { kind: 'not_found', message: 'La reserva no existe.' };
+		});
+		window.history.replaceState({}, '', '/rentas?desdeReserva=9');
+
+		render(RentasPage);
+		expect(await screen.findByText('No hay rentas')).toBeInTheDocument();
+
+		// El catch + finally (goto) corrieron: no quedó modal de precarga
+		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+		await fireEvent.click(screen.getByRole('button', { name: 'Nueva Renta' }));
+		expect(await screen.findByRole('dialog')).toHaveTextContent('Nueva renta');
+	});
+
+	it('editar renta cerrada: motivo obligatorio, campos vacíos y error del backend', async () => {
+		tauri.register('listar_rentas', () => [
+			renta({ id: 7, estado: 'Cerrada', valorDia: '150000.00', descuento: '1000.00' })
+		]);
+		tauri.register('editar_renta_cerrada', () => {
+			throw { kind: 'validacion', message: 'Valor fuera de rango.' };
+		});
+
+		render(RentasPage);
+		await screen.findByText('Cliente de Prueba');
+		await fireEvent.click(screen.getByTitle('Editar renta cerrada (corregir digitación)'));
+		const dialogo = await screen.findByRole('dialog');
+
+		// Sin motivo de auditoría no envía
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Aplicar corrección' }));
+		expect(await within(dialogo).findByRole('alert')).toHaveTextContent(
+			'Debe indicar el motivo de la corrección (obligatorio para auditoría).'
+		);
+
+		// Campo vacío → se envía como undefined; error del backend → alerta
+		await fireEvent.input(screen.getByPlaceholderText('150000'), { target: { value: '' } });
+		await fireEvent.input(
+			screen.getByPlaceholderText('Describe el error de digitación que se corrige...'),
+			{ target: { value: 'Tarifa mal digitada' } }
+		);
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Aplicar corrección' }));
+		expect(await within(dialogo).findByRole('alert')).toHaveTextContent('Valor fuera de rango.');
+
+		// Reintento exitoso con valorDia vacío (undefined en el payload)
+		const editar = vi.fn((_args: { sessionId: string; id: number; datos: RentaCierreEditDatos }) =>
+			renta({ id: 7, estado: 'Cerrada' })
+		);
+		tauri.register('editar_renta_cerrada', editar);
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Aplicar corrección' }));
+		await waitFor(() => expect(editar).toHaveBeenCalledTimes(1));
+		const args = editar.mock.calls[0][0] as {
+			sessionId: string;
+			id: number;
+			datos: RentaCierreEditDatos;
+		};
+		expect(args.datos.valorDia).toBeUndefined();
+		expect(args.datos.observaciones).toBe('Tarifa mal digitada');
+		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 	});
 });
