@@ -184,6 +184,27 @@ async function main(opts) {
   await c.send('Page.enable');
   await c.send('Runtime.enable');
 
+  // La primera carga puede dejar la página en blanco: Vite re-optimiza sus
+  // dependencias en frío y un «504 Outdated Optimize Dep» aborta el
+  // client-entry de SvelteKit sin que nada reintente, con lo que la app
+  // queda sin montar (ni login ni sidebar). Esperar a que haya UI montada
+  // y, si no la hay, recargar; repetir mientras el optimizer termine de
+  // servir el grafo (en frío puede tardar más de un minuto en 4 núcleos).
+  const montada = `document.body.innerText.trim().length > 0 || !!document.querySelector('#username, main, nav')`;
+  console.log('— esperando el montaje de la app…');
+  let montado = false;
+  for (let intento = 1; intento <= 4 && !montado; intento++) {
+    try {
+      await esperar(c, montada, 30000, 'app montada');
+      montado = true;
+    } catch {
+      console.log(`   página en blanco tras 30 s (intento ${intento}/4) → recargando…`);
+      await c.eval('location.reload()').catch(() => {});
+    }
+  }
+  if (!montado) throw new Error('la app no montó la UI tras 4 intentos (¿client-entry sin servir?)');
+  console.log('   app montada ✓');
+
   // 2) Login (o sesión activa)
   console.log('— comprobando sesión…');
   let yaLogueado = false;
@@ -235,37 +256,93 @@ async function main(opts) {
     'tabla rentas'
   );
 
-  const filas = await c.eval(`document.querySelectorAll('main table tbody tr').length`);
+  // DataTable renderiza una fila-placeholder («No hay rentas») dentro de
+  // tbody cuando la tabla está vacía: contarla daría filas=1 y saltaría la
+  // creación de la renta de prueba. El placeholder manda sobre el conteo.
+  const filas = await c.eval(
+    `document.body.innerText.includes('No hay rentas')
+      ? 0
+      : document.querySelectorAll('main table tbody tr').length`
+  );
   console.log('rentas en la tabla:', filas);
 
   if (filas === 0) {
     console.log('— creando una renta de prueba…');
     await c.eval(`[...document.querySelectorAll('button')].find((b) => b.textContent.includes('Nueva Renta'))?.click()`);
-    await esperar(c, `!!document.querySelector('input[placeholder="Nombre para la renta"]')`, 10000, 'modal renta');
+    await esperar(c, `!!document.querySelector('[role="dialog"] input[placeholder="Nombre para la renta"]')`, 10000, 'modal renta');
+    // Los campos se rellenan DENTRO del diálogo (los filtros de la página
+    // también tienen input[type=date]: sin scope, el setter caía en el
+    // filtro y las fechas/tarifas de la renta quedaban vacías → total $0 y
+    // el pago posterior rechazado con «supera el saldo pendiente (0.00)»).
+    // Placeholders según el formulario actual: valor por día «150000».
     await c.eval(`(() => {
-      const set = ${Rellenar};
-      set('input[placeholder="Nombre para la renta"]', 'Cliente Prueba Final');
-      set('input[type="date"]', '2026-08-08');
-      set('input[type="date"]', '2026-08-13');
-      set('input[inputmode="decimal"][placeholder^="Ej: 150"]', '150000');
-      set('input[inputmode="decimal"][placeholder^="Ej: 100"]', '100000');
-      set('input[type="number"][min="0"]', '5');
-      return true;
-    })()`);
+      const root = document.querySelector('[role="dialog"]') || document;
+      const prot = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+      const disparar = (el) => {
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      };
+      const set = (sel, v) => {
+        const el = root.querySelector(sel);
+        if (!el) return false;
+        prot.call(el, v);
+        disparar(el);
+        return true;
+      };
+      const iso = (d) =>
+        \`\${d.getFullYear()}-\${String(d.getMonth() + 1).padStart(2, '0')}-\${String(d.getDate()).padStart(2, '0')}\`;
+      const hoy = new Date();
+      const ini = new Date(hoy.getTime() + 86400000); // mañana
+      const fin = new Date(hoy.getTime() + 6 * 86400000); // +6 → 5 días de diferencia
+      const nombre = set('input[placeholder="Nombre para la renta"]', 'Cliente Prueba Final');
+      const fechas = [...root.querySelectorAll('input[type="date"]')];
+      if (fechas[0]) {
+        prot.call(fechas[0], iso(ini));
+        disparar(fechas[0]);
+      }
+      if (fechas[1]) {
+        prot.call(fechas[1], iso(fin));
+        disparar(fechas[1]);
+      }
+      const tarifa = set('input[placeholder="150000"]', '150000');
+      const dias = set('input[type="number"][min="0"]', '5');
+      return JSON.stringify({ nombre, tarifa, dias, fechas: fechas.length });
+    })()`).then((r) => console.log('   campos del modal:', r));
     await sleep(300);
     await c.eval(`[...document.querySelectorAll('button')].find((b) => b.textContent.includes('Crear renta'))?.click()`);
-    await esperar(c, `document.querySelectorAll('main table tbody tr').length > 0`, 20000, 'renta creada');
+    await esperar(c, `!document.body.innerText.includes('No hay rentas') && document.querySelectorAll('main table tbody tr').length > 0`, 20000, 'renta creada');
     console.log('renta creada OK');
   }
 
   // 4) Pago (para que la orden muestre la tabla de pagos)
   console.log('— registrando un pago…');
+  const hayPago = await c.eval(`!!document.querySelector('button[title="Registrar pago"]')`);
+  if (!hayPago)
+    throw new Error(
+      'no existe el botón «Registrar pago» (la renta de la tabla no está activa)'
+    );
   await c.eval(`document.querySelector('button[title="Registrar pago"]')?.click()`);
   await esperar(c, `!!document.querySelector('input[placeholder="Ej: 200000"]')`, 10000, 'modal pago');
   await c.eval(`(() => { const set = ${Rellenar}; set('input[placeholder="Ej: 200000"]', '100000'); return true; })()`);
   await sleep(200);
   await c.eval(`[...document.querySelectorAll('button')].find((b) => b.textContent.includes('Registrar pago'))?.click()`);
-  await esperar(c, `!document.querySelector('input[placeholder="Ej: 200000"]')`, 10000, 'pago cerrado');
+  try {
+    await esperar(c, `!document.querySelector('input[placeholder="Ej: 200000"]')`, 10000, 'pago cerrado');
+  } catch {
+    // El modal queda abierto cuando el backend rechaza el pago: capturar el
+    // alert de pagoError, el estado «Guardando…» y el final del texto visible
+    // (el modal vive al final del body) para diagnosticar.
+    const diag = await c
+      .eval(`JSON.stringify({
+        alerta: document.querySelector('[role="alert"]')?.innerText ?? null,
+        guardando: [...document.querySelectorAll('button')].some((b) =>
+          b.textContent.includes('Guardando')
+        ),
+        fin: document.body.innerText.replace(/\s+/g, ' ').slice(-400)
+      })`)
+      .catch(() => '()');
+    throw new Error('el modal de pago no cerró — diagnóstico: ' + diag);
+  }
   console.log('pago registrado');
 
   // 5) ORDEN

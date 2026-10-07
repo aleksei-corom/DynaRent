@@ -133,6 +133,11 @@ function limpiarWebView2Policy() {
 
 /** Siembra la BD aislada con seed_ci. */
 function sembrarBd() {
+	// data_dir fresco en cada corrida: un run anterior que falló a mitad
+	// deja la BD (y rentas a medio cerrar) y el smoke posterior hereda una
+	// renta no-activa sin botón «Registrar pago», rompiendo el flujo. El
+	// contrato del orquestador es «BD aislada y VACÍA de rentas».
+	rmSync(DATA_DIR, { recursive: true, force: true });
 	console.log('— sembrando BD aislada (seed_ci)…');
 	mkdirSync(DATA_DIR, { recursive: true });
 	const rs = spawnSync(EXE_SEED, [DATA_DIR], {
@@ -175,6 +180,41 @@ async function levantarVite() {
 	return { fin, cola: () => salida.slice(-1000) };
 }
 
+/** Precalienta el optimizer de Vite pidiendo los módulos de entrada por
+ *  HTTP ANTES de lanzar la app. El client-entry de SvelteKit no reintenta
+ *  si recibe «504 Outdated Optimize Dep»: con el optimizer en frío, la
+ *  primera carga de la app queda en blanco y nada la recarga. Aquí el
+ *  trabajo en frío ocurre antes, cuando aún no hay app que se rompa. */
+async function precalentarVite() {
+	console.log('— precalentando vite (optimizer en frío)…');
+	const base = 'http://localhost:5173';
+	const pedir = async (ruta) => {
+		for (let i = 0; i < 90; i++) {
+			try {
+				const r = await fetch(base + ruta);
+				if (r.ok) return await r.text();
+			} catch {
+				/* servidor aún estabilizándose */
+			}
+			await sleep(1000);
+		}
+		return null;
+	};
+	const html = await pedir('/');
+	if (html === null) throw new Error('vite no sirvió / durante el precalentado');
+	const srcs = [...html.matchAll(/<script[^>]+src="([^"]+)"/g)].map((m) => m[1]);
+	for (const src of srcs) {
+		const txt = await pedir(src);
+		if (txt === null) throw new Error(`vite no sirvió ${src} durante el precalentado`);
+		// Los imports estáticos del entry (rutas del servidor) completan el
+		// grafo: cada bare import que resuelve el optimizer dispara su paquete.
+		for (const m of txt.matchAll(/from\s*["']([^"']+)["']/g)) {
+			if (m[1].startsWith('/')) await pedir(m[1]);
+		}
+	}
+	console.log('   vite precalentado ✓');
+}
+
 /** Ejecuta smoke-test-app.mjs contra el CDP ya arriba. */
 function correrSmoke() {
 	return new Promise((resolveP, rejectP) => {
@@ -192,9 +232,18 @@ async function main() {
 	console.log('== smoke:dev — flujo completo con BD aislada y vacía ==');
 	const esWin = process.platform === 'win32';
 
+	// Vite y SvelteKit guardan cachés derivadas de las dependencias; tras un
+	// upgrade (p. ej. SvelteKit 2→3) una caché vieja produce "504 Outdated
+	// Optimize Dep" y la app arranca en blanco (el client-entry.js no carga y
+	// nada reintenta). Limpiar ambos cachea el optimizer desde cero.
+	const limpiarCaches = () => {
+		rmSync(join(RAIZ, '.svelte-kit'), { recursive: true, force: true });
+		rmSync(join(RAIZ, 'node_modules', '.vite'), { recursive: true, force: true });
+	};
+
 	if (!esWin) {
 		sembrarBd();
-		rmSync(join(RAIZ, '.svelte-kit'), { recursive: true, force: true });
+		limpiarCaches();
 
 		console.log('— lanzando tauri dev (BD aislada + CDP ' + PUERTO_CDP + ')…');
 		const dev = spawn('npm', ['run', 'tauri', 'dev'], {
@@ -240,11 +289,12 @@ async function main() {
 		if (!existsSync(appBin)) throw new Error('no existe el binario compilado: ' + appBin);
 		if (!existsSync(EXE_SEED)) throw new Error('no existe el binario seed_ci: ' + EXE_SEED);
 
-		rmSync(join(RAIZ, '.svelte-kit'), { recursive: true, force: true });
+		limpiarCaches();
 
 		sembrarBd();
 
 		const vite = await levantarVite();
+		await precalentarVite();
 
 		console.log(`— lanzando la app (CDP ${PUERTO_CDP})…`);
 		const app = spawn(appBin, [], {
