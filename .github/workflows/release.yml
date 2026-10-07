@@ -62,6 +62,27 @@ jobs:
       - name: Install dependencies (bun)
         run: bun install --frozen-lockfile
 
+      # ── Guard del auto-updater: la clave de firma DEBE ser la de la pubkey ──
+      # Firma un payload de prueba con el secret y compara su key ID con
+      # `plugins.updater.pubkey` de tauri.conf.json. Si no coinciden, todas las
+      # apps instaladas rechazarían la release con "The signature was created
+      # with a different key than the one provided" (exactamente lo que pasó
+      # con las builds ≤1.2.4). Falla el job ANTES de publicar nada.
+      # Ver SECRET_FIRMA_UPDATER.md y scripts/verificar-pubkey-updater.mjs.
+      - name: Verificar que la clave de firma coincide con la pubkey de tauri.conf.json
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KEY_FILE="$RUNNER_TEMP/firma.key"
+          PAYLOAD="$RUNNER_TEMP/payload-guard.txt"
+          printf '%s\n' "$TAURI_SIGNING_PRIVATE_KEY" > "$KEY_FILE"
+          printf 'guard-pubkey-updater\n' > "$PAYLOAD"
+          bunx tauri signer sign -f "$KEY_FILE" -p "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}" "$PAYLOAD"
+          node scripts/verificar-pubkey-updater.mjs "$PAYLOAD.sig"
+
       # Validación de paginación antes de publicar: orden (1 página Carta),
       # contrato (3-4 páginas con pie) e informe (A4) contra los fixtures, con
       # Chrome/Edge headless (incluido en windows-latest). Si una regresión de
