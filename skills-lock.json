@@ -5,6 +5,21 @@
       "source": "../ECC",
       "sourceType": "local",
       "computedHash": "c5819edfe55a6d135966efc8e6f09ee081dace2eff1d269121041e592877726f"
+    },
+    "production-audit": {
+      "source": "../ECC",
+      "sourceType": "local",
+      "computedHash": "3c38cf12fdb504f6ce53fa9d33f4f0fff1aee3df8e96fbb4fdb76831b5fd51ce"
+    },
+    "security-review": {
+      "source": "../ECC",
+      "sourceType": "local",
+      "computedHash": "90f2b514aa106496fd0911d2a0e0ef5aac28515ce218a82574984ad7d9d6b4d2"
+    },
+    "verification-loop": {
+      "source": "../ECC",
+      "sourceType": "local",
+      "computedHash": "84bdd8616c766582af4e1da711c033b3c22be20690358ff8e546ae3d084c8755"
     }
   }
 }
