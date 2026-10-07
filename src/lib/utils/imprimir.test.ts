@@ -1,67 +1,102 @@
-// imprimir.test.ts — Tests del flujo de impresión (imprimirDocumento).
-// Verifica que al imprimir se renombre document.title con el nombre del
-// documento (para el encabezado propio del diálogo de impresión) y que se
-// restaure al terminar, incluida la limpieza del clon.
+// src/lib/utils/imprimir.test.ts — impresión de documentos:
+// clonado del área imprimible, renombrado de document.title según el
+// documento, guardas (sin área / impresión en curso) y limpieza con
+// el evento afterprint.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { imprimirDocumento } from './imprimir';
 
-function montar(html: string): void {
-	document.body.innerHTML = html;
+function montarArea(clase: string, conImg = false) {
+	const area = document.createElement('div');
+	area.className = `print-area ${clase}`;
+	area.textContent = 'Documento imprimible';
+	if (conImg) {
+		const img = document.createElement('img');
+		img.setAttribute('alt', '');
+		area.appendChild(img);
+	}
+	document.body.appendChild(area);
+	return area;
 }
 
+let printSpy: ReturnType<typeof vi.fn<() => void>>;
+
+beforeEach(() => {
+	printSpy = vi.fn<() => void>();
+	vi.spyOn(window, 'print').mockImplementation(printSpy);
+});
+
+afterEach(() => {
+	// limpiar cualquier clon/estado residual
+	document.getElementById('print-clone')?.remove();
+	document.body.classList.remove('printing', 'printing-clone');
+	document.querySelectorAll('.print-area').forEach((el) => el.remove());
+	vi.restoreAllMocks();
+	vi.useRealTimers();
+});
+
 describe('imprimirDocumento', () => {
-	beforeEach(() => {
-		document.title = 'Rentas — DynaRent ERP';
-		vi.useFakeTimers();
-		// jsdom no implementa window.print; lo reemplazamos por un stub
-		Object.defineProperty(window, 'print', { value: vi.fn(), configurable: true, writable: true });
-	});
-
-	afterEach(() => {
-		document.body.innerHTML = '';
-		vi.useRealTimers();
-	});
-
-	it('renombra el título al imprimir un contrato y lo restaura al terminar', async () => {
-		montar('<div class="print-area contrato-carta">Contrato de prueba</div>');
-
+	it('sin área imprimible no llama a print', () => {
 		imprimirDocumento();
 
-		// El título se cambia en el .then() del clon listo (microtarea)
-		await Promise.resolve();
-		await Promise.resolve();
+		expect(printSpy).not.toHaveBeenCalled();
+		expect(document.getElementById('print-clone')).not.toBeInTheDocument();
+	});
+
+	it('clona el área, renombra el título (contrato) e imprime', async () => {
+		montarArea('contrato-carta');
+		const tituloOriginal = document.title;
+
+		imprimirDocumento();
+		await vi.waitFor(() => expect(printSpy).toHaveBeenCalledTimes(1));
+
+		const clon = document.getElementById('print-clone');
+		expect(clon).toBeInTheDocument();
+		expect(clon?.classList.contains('print-clone')).toBe(true);
+		expect(document.body.classList).toContain('printing');
+		expect(document.body.classList).toContain('printing-clone');
 		expect(document.title).toBe('Contrato de renta');
 
-		// La limpieza ocurre vía setTimeout(1000) (fallback de afterprint)
-		await vi.advanceTimersByTimeAsync(1200);
-		expect(document.title).toBe('Rentas — DynaRent ERP');
-		expect(document.querySelector('#print-clone')).toBeNull();
-		expect(document.body.classList.contains('printing')).toBe(false);
+		// afterprint limpia clon, clases y título
+		window.dispatchEvent(new Event('afterprint'));
+		expect(document.getElementById('print-clone')).not.toBeInTheDocument();
+		expect(document.body.classList).not.toContain('printing');
+		expect(document.title).toBe(tituloOriginal);
 	});
 
-	it('renombra el título al imprimir una orden de renta y lo restaura', async () => {
-		montar('<div class="print-area orden-carta">Orden de prueba</div>');
+	it('renombra el título para la orden', async () => {
+		montarArea('orden-carta');
 
 		imprimirDocumento();
+		await vi.waitFor(() => expect(printSpy).toHaveBeenCalledTimes(1));
 
-		await Promise.resolve();
-		await Promise.resolve();
 		expect(document.title).toBe('Orden de renta');
-
-		await vi.advanceTimersByTimeAsync(1200);
-		expect(document.title).toBe('Rentas — DynaRent ERP');
+		window.dispatchEvent(new Event('afterprint'));
+		expect(document.title).not.toBe('Orden de renta');
 	});
 
-	it('no cambia el título para documentos sin marcador conocido', async () => {
-		montar('<div class="print-area">Otro documento</div>');
+	it('sin clase de documento el título no cambia y espera imágenes', async () => {
+		montarArea('otro-documento', true);
+		const tituloOriginal = document.title;
 
 		imprimirDocumento();
+		// las imágenes del clon pueden demorar (tope de 1500 ms en el código)
+		await vi.waitFor(() => expect(printSpy).toHaveBeenCalledTimes(1), { timeout: 4000 });
 
-		await Promise.resolve();
-		await Promise.resolve();
-		expect(document.title).toBe('Rentas — DynaRent ERP');
+		expect(document.title).toBe(tituloOriginal);
+		window.dispatchEvent(new Event('afterprint'));
+	});
 
-		await vi.advanceTimersByTimeAsync(1200);
-		expect(document.title).toBe('Rentas — DynaRent ERP');
+	it('no duplica el clon si ya hay una impresión en curso', async () => {
+		montarArea('orden-carta');
+		const clonPrevia = document.createElement('div');
+		clonPrevia.id = 'print-clone';
+		document.body.appendChild(clonPrevia);
+
+		imprimirDocumento();
+		await Promise.resolve();
+
+		// la guarda temprana evita una segunda impresión
+		expect(printSpy).not.toHaveBeenCalled();
+		expect(document.querySelectorAll('#print-clone')).toHaveLength(1);
 	});
 });

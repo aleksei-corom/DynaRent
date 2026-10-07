@@ -132,8 +132,11 @@ jobs:
       - name: Svelte check
         run: bunx svelte-kit sync && bunx svelte-check --tsconfig ./tsconfig.json
 
-      - name: Frontend tests (vitest)
-        run: bunx vitest run
+      - name: Frontend tests + gate de cobertura (vitest)
+        # `--coverage` aplica los umbrales de vitest.config.ts (80% en
+        # statements/lines/functions y ratchet de ramas) y sale con código
+        # distinto de 0 si alguna métrica baja del piso.
+        run: bunx vitest run --coverage
 
       - name: Build producción del frontend (vite build)
         run: bun run build
