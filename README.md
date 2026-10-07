@@ -42,7 +42,9 @@ La app pedirá **cambiar la contraseña** en el primer ingreso. En una instalaci
 
 ### 4. Actualizar desde versiones anteriores
 
-Solo instala la v1.0.30 encima (o desinstala y reinstala conservando `%APPDATA%\com.corjar.dynarent\`): el arranque es idempotente y aplica únicamente las migraciones pendientes. **No se pierde ningún dato.**
+Solo instala la última versión encima (o desinstala y reinstala conservando `%APPDATA%\com.corjar.dynarent\`): el arranque es idempotente y aplica únicamente las migraciones pendientes. **No se pierde ningún dato.**
+
+> ⚠️ **Si vienes de la v1.2.4 o anterior**, el auto-update falla con *"The signature was created with a different key than the one provided"*: esas builds embebían una clave de verificación distinta de la que firmó las releases. **Solución (una sola vez):** descarga e instala manualmente la última release desde [GitHub Releases](https://github.com/aleksei-corom/DynaRent/releases). A partir de la v1.2.5 el auto-update vuelve a funcionar solo (ver notas de la release v1.2.5 y `CHANGELOG.md`).
 
 ---
 

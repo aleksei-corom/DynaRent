@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "github-ops": {
+      "source": "../ECC",
+      "sourceType": "local",
+      "computedHash": "c5819edfe55a6d135966efc8e6f09ee081dace2eff1d269121041e592877726f"
+    }
+  }
+}
