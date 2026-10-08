@@ -1,9 +1,10 @@
 // src/routes/auditoria/auditoria.test.ts — Tests de la página de Auditoría
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/svelte';
 import { tauri } from '../../test/tauri';
 import { goto } from '$app/navigation';
 import { session } from '#lib/stores/session.svelte.js';
+import { toasts } from '#lib/stores/toast.svelte.js';
 import type { AuditoriaEvento, AuditoriaResultado } from '#lib/api.js';
 import AuditoriaPage from './+page.svelte';
 
@@ -203,5 +204,120 @@ describe('página de Auditoría', () => {
 		await waitFor(() => expect(listar).toHaveBeenCalledTimes(3), { timeout: 2000 });
 		// El selector vuelve al valor vacío
 		expect(screen.getByLabelText('Filtrar por usuario')).toHaveValue('');
+	});
+});
+
+// ── Ramas de error, badges de acciones sensibles y paginación ──
+describe('ramas de error y paginación de Auditoría', () => {
+	it('muestra el toast cuando listar_auditoria falla', async () => {
+		tauri.register('listar_auditoria', () => {
+			throw { kind: 'database', message: 'Tabla de auditoría corrupta' };
+		});
+
+		render(AuditoriaPage);
+
+		await waitFor(() =>
+			expect(toasts.some((t) => t.message === 'Tabla de auditoría corrupta')).toBe(true)
+		);
+	});
+
+	it('si fallan los desplegables de filtros la tabla sigue cargando', async () => {
+		tauri.register('listar_auditoria', () => resultado([evento()]));
+		tauri.register('usuarios_auditoria', () => {
+			throw { kind: 'generic', message: 'sin usuarios' };
+		});
+		tauri.register('acciones_auditoria', () => {
+			throw { kind: 'generic', message: 'sin acciones' };
+		});
+
+		render(AuditoriaPage);
+		await screen.findByText('LOGIN OK');
+
+		// Cada desplegable queda solo con su opción por defecto
+		const usuarios = screen.getByLabelText('Filtrar por usuario');
+		const acciones = screen.getByLabelText('Filtrar por acción');
+		expect(within(usuarios).getAllByRole('option')).toHaveLength(1);
+		expect(within(acciones).getAllByRole('option')).toHaveLength(1);
+	});
+
+	it('pinta los badges de acciones sensibles', async () => {
+		tauri.register('listar_auditoria', () =>
+			resultado([
+				evento({ id: 1, accion: 'LOGIN FALLIDO' }),
+				evento({ id: 2, accion: 'USUARIO ELIMINADO' }),
+				evento({ id: 3, accion: 'ACCESO DENEGADO' }),
+				evento({ id: 4, accion: 'USUARIO BLOQUEADO' }),
+				evento({ id: 5, accion: 'CONTRASEÑA CAMBIADA' }),
+				evento({ id: 6, accion: 'USUARIO CREADO' }),
+				evento({ id: 7, accion: 'EXPORTACIÓN EXCEL' })
+			])
+		);
+
+		render(AuditoriaPage);
+		await screen.findByText('ACCESO DENEGADO');
+
+		// El mismo texto existe como <option> del filtro: se busca el badge
+		// (span con la píldora `rounded-full`) de la tabla.
+		const badge = (accion: string) =>
+			Array.from(document.querySelectorAll('span')).find(
+				(s) => s.textContent?.trim() === accion && s.className.includes('rounded-full')
+			);
+
+		for (const accion of [
+			'LOGIN FALLIDO',
+			'USUARIO ELIMINADO',
+			'ACCESO DENEGADO',
+			'USUARIO BLOQUEADO'
+		]) {
+			expect(badge(accion)?.className).toContain('bg-peligro/10');
+		}
+		expect(badge('CONTRASEÑA CAMBIADA')?.className).toContain('bg-alerta/10');
+		expect(badge('USUARIO CREADO')?.className).toContain('bg-exito/10');
+		// Rama por defecto del badge
+		expect(badge('EXPORTACIÓN EXCEL')?.className).toContain('bg-primary/10');
+	});
+
+	it('navega por la paginación con más de 50 eventos', async () => {
+		const listar = vi.fn((args: { pagina?: number }) =>
+			resultado([evento()], 1000, args.pagina ?? 1)
+		);
+		tauri.register('listar_auditoria', listar);
+
+		render(AuditoriaPage);
+		expect(await screen.findByText(/Página 1 de 20/)).toBeInTheDocument();
+		expect(listar).toHaveBeenLastCalledWith(
+			expect.objectContaining({ pagina: 1, porPagina: 50 })
+		);
+
+		// Siguiente → página 2
+		await fireEvent.click(screen.getByRole('button', { name: 'Siguiente →' }));
+		await waitFor(() => expect(screen.getByText(/Página 2 de 20/)).toBeInTheDocument());
+
+		// Botón de página → 5 (ventana centrada y cabecera «1 …»)
+		await fireEvent.click(screen.getByRole('button', { name: '5', exact: true }));
+		await waitFor(() => expect(screen.getByText(/Página 5 de 20/)).toBeInTheDocument());
+		expect(screen.getByRole('button', { name: '1', exact: true })).toBeInTheDocument();
+
+		// Cabecera «1» → vuelve a la primera página
+		await fireEvent.click(screen.getByRole('button', { name: '1', exact: true }));
+		await waitFor(() => expect(screen.getByText(/Página 1 de 20/)).toBeInTheDocument());
+
+		// Cola «… 20» → última página
+		await fireEvent.click(screen.getByRole('button', { name: '20', exact: true }));
+		await waitFor(() => expect(screen.getByText(/Página 20 de 20/)).toBeInTheDocument());
+
+		// En la última página «Siguiente» está deshabilitado → guarda irPagina
+		let llamadas = listar.mock.calls.length;
+		await fireEvent.click(screen.getByRole('button', { name: 'Siguiente →' }));
+		expect(listar).toHaveBeenCalledTimes(llamadas);
+		expect(screen.getByText(/Página 20 de 20/)).toBeInTheDocument();
+
+		// Vuelve a la 1 y «Anterior» deshabilitado → guarda irPagina(p < 1)
+		await fireEvent.click(screen.getByRole('button', { name: '1', exact: true }));
+		await waitFor(() => expect(screen.getByText(/Página 1 de 20/)).toBeInTheDocument());
+		llamadas = listar.mock.calls.length;
+		await fireEvent.click(screen.getByRole('button', { name: '← Anterior' }));
+		expect(listar).toHaveBeenCalledTimes(llamadas);
+		expect(screen.getByText(/Página 1 de 20/)).toBeInTheDocument();
 	});
 });
