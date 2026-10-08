@@ -12,19 +12,13 @@ export default defineConfig({
 			$lib: fileURLToPath(new URL('./src/lib', import.meta.url)),
 			// El runtime de SvelteKit no existe en jsdom; las páginas que usen
 			// `goto` (login) resuelven contra este stub.
-			'$app/navigation': fileURLToPath(
-				new URL('./src/test/stubs/navigation.ts', import.meta.url)
-			),
+			'$app/navigation': fileURLToPath(new URL('./src/test/stubs/navigation.ts', import.meta.url)),
 			// Los load que usan `redirect` de @sveltejs/kit (cambiar-password)
 			// resuelven contra este stub.
-			'@sveltejs/kit': fileURLToPath(
-				new URL('./src/test/stubs/sveltekit.ts', import.meta.url)
-			),
+			'@sveltejs/kit': fileURLToPath(new URL('./src/test/stubs/sveltekit.ts', import.meta.url)),
 			// `page` de $app/state (rutas que leen query params, p. ej. rentas
 			// con ?desdeReserva=). Lee window.location de jsdom.
-			'$app/state': fileURLToPath(
-				new URL('./src/test/stubs/state.ts', import.meta.url)
-			)
+			'$app/state': fileURLToPath(new URL('./src/test/stubs/state.ts', import.meta.url))
 		},
 		// Sin esto, Vitest resuelve 'svelte' a index-server.js y `mount()`
 		// falla con lifecycle_function_unavailable. La condición browser
@@ -56,13 +50,14 @@ export default defineConfig({
 			// el 2026-10-07: 80.94 / 82.13 / 80.57 con 45 archivos de test).
 			// RAMAS: la meta final es 80 %. Ratchet histórico medido con lcov:
 			//   61.69 (inicio) → 67.32 (tanda rentas+reservas) →
-			//   72.56 (tanda usuarios+autos+comparendos, 2538/3498 ramas).
-			// Se fija el piso honesto 72 (margen ~0.5 pts entre plataformas) como
+			//   72.56 (tanda usuarios+autos+comparendos, 2538/3498 ramas) →
+			//   75.36 (tanda reports+auditoría+empresa, 2636/3498 ramas).
+			// Se fija el piso honesto 75 (margen ~0.5 pts entre plataformas) como
 			// RATCHET: subir este número junto con cada tanda de tests que
 			// cubra ramas nuevas, nunca bajarlo.
 			thresholds: {
 				statements: 80,
-				branches: 72,
+				branches: 75,
 				functions: 80,
 				lines: 80
 			}

@@ -285,25 +285,23 @@ describe('ramas de error y paginación de Auditoría', () => {
 
 		render(AuditoriaPage);
 		expect(await screen.findByText(/Página 1 de 20/)).toBeInTheDocument();
-		expect(listar).toHaveBeenLastCalledWith(
-			expect.objectContaining({ pagina: 1, porPagina: 50 })
-		);
+		expect(listar).toHaveBeenLastCalledWith(expect.objectContaining({ pagina: 1, porPagina: 50 }));
 
 		// Siguiente → página 2
 		await fireEvent.click(screen.getByRole('button', { name: 'Siguiente →' }));
 		await waitFor(() => expect(screen.getByText(/Página 2 de 20/)).toBeInTheDocument());
 
 		// Botón de página → 5 (ventana centrada y cabecera «1 …»)
-		await fireEvent.click(screen.getByRole('button', { name: '5', exact: true }));
+		await fireEvent.click(screen.getByRole('button', { name: '5' }));
 		await waitFor(() => expect(screen.getByText(/Página 5 de 20/)).toBeInTheDocument());
-		expect(screen.getByRole('button', { name: '1', exact: true })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: /^1$/ })).toBeInTheDocument();
 
 		// Cabecera «1» → vuelve a la primera página
-		await fireEvent.click(screen.getByRole('button', { name: '1', exact: true }));
+		await fireEvent.click(screen.getByRole('button', { name: /^1$/ }));
 		await waitFor(() => expect(screen.getByText(/Página 1 de 20/)).toBeInTheDocument());
 
 		// Cola «… 20» → última página
-		await fireEvent.click(screen.getByRole('button', { name: '20', exact: true }));
+		await fireEvent.click(screen.getByRole('button', { name: '20' }));
 		await waitFor(() => expect(screen.getByText(/Página 20 de 20/)).toBeInTheDocument());
 
 		// En la última página «Siguiente» está deshabilitado → guarda irPagina
@@ -313,7 +311,7 @@ describe('ramas de error y paginación de Auditoría', () => {
 		expect(screen.getByText(/Página 20 de 20/)).toBeInTheDocument();
 
 		// Vuelve a la 1 y «Anterior» deshabilitado → guarda irPagina(p < 1)
-		await fireEvent.click(screen.getByRole('button', { name: '1', exact: true }));
+		await fireEvent.click(screen.getByRole('button', { name: /^1$/ }));
 		await waitFor(() => expect(screen.getByText(/Página 1 de 20/)).toBeInTheDocument());
 		llamadas = listar.mock.calls.length;
 		await fireEvent.click(screen.getByRole('button', { name: '← Anterior' }));

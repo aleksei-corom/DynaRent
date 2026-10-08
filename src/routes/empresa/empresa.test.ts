@@ -132,9 +132,7 @@ describe('logo, país y errores de guardado', () => {
 
 		await waitFor(() =>
 			expect(
-				toasts.some(
-					(t) => t.message === 'Formato de logo no soportado. Usa PNG, JPG, WebP o SVG.'
-				)
+				toasts.some((t) => t.message === 'Formato de logo no soportado. Usa PNG, JPG, WebP o SVG.')
 			).toBe(true)
 		);
 		expect(screen.queryByAltText('Logo de la empresa')).not.toBeInTheDocument();
