@@ -21,6 +21,7 @@
 		"smoke:app": "node scripts/smoke-test-app.mjs",
 		"smoke:dev": "node scripts/smoke-dev.mjs",
 		"gen:devguard": "cd src-tauri && cargo run --features dev --bin gen_devguard",
+		"manual:pdf": "python scripts/generate_manual_pdf.py",
 		"watch:simit": "node scripts/watch-simit.mjs",
 		"check:simit": "node scripts/check-simit.mjs",
 		"test:check-simit": "node scripts/test-check-simit.mjs",
