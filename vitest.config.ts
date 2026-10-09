@@ -81,7 +81,11 @@ export default defineConfig({
 			//          nombre, guard de sesión del botón «Actualizar» y gestión de la
 			//          clave PII desde el aviso — dashboard 99.53/78.37/100, 3018/3702
 			//          ramas; 664 tests; el resto de ramas sin cubrir son los `??`
-			//          de kpis/alertas que el template no lee en estado de error).
+			//          de kpis/alertas que el template no lee en estado de error) →
+			//   81.66 (tanda fallbacks genéricos en usuarios: los 5 catches —cargar,
+			//          guardar, forzar contraseña, eliminar y desbloquear— ejercitados
+			//          con vi.spyOn de módulo; backups ya los tenía de d408785,
+			//          3023/3702 ramas; 669 tests).
 			// Se fija el piso honesto (margen ~0.5-1 pts entre plataformas)
 			// como RATCHET: subir este número junto con cada tanda de tests que
 			// cubra ramas nuevas, nunca bajarlo.

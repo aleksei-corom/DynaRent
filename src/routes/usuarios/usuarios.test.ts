@@ -4,8 +4,9 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/sve
 import { tauri } from '../../test/tauri';
 import { goto } from '$app/navigation';
 import { session } from '#lib/stores/session.svelte.js';
+import { toasts } from '#lib/stores/toast.svelte.js';
 import { formatDateTime } from '#lib/utils/format.js';
-import type { Usuario, BusinessLists } from '#lib/api.js';
+import { usuarioApi, type Usuario, type BusinessLists } from '#lib/api.js';
 import UsuariosPage from './+page.svelte';
 
 function usuario(overrides: Partial<Usuario> = {}): Usuario {
@@ -433,5 +434,121 @@ describe('ramas de gestión de la página de Usuarios', () => {
 		});
 		await waitFor(() => expect(listar).toHaveBeenCalledTimes(3), { timeout: 3000 });
 		expect(listar.mock.calls[2][0]).toMatchObject({ busqueda: null });
+	});
+});
+
+// ── Tanda de fallbacks ApiError: estos rechazos NO pasan por invokeCmd (que
+// normaliza a ApiError), así que cada catch debe caer a su mensaje genérico.
+// Spies a nivel de módulo con mockRejectedValueOnce (auto-limitante) +
+// mockRestore explícito.
+describe('Usuarios — fallbacks genéricos de ApiError', () => {
+	it('fallback genérico al cargar la lista', async () => {
+		setSesion('Administrador');
+		toasts.splice(0);
+		const spy = vi.spyOn(usuarioApi, 'listar').mockRejectedValueOnce(new Error('red muerta'));
+
+		render(UsuariosPage);
+
+		await waitFor(() =>
+			expect(toasts.some((t) => t.message === 'No se pudieron cargar los usuarios.')).toBe(true)
+		);
+		spy.mockRestore();
+	});
+
+	it('fallback genérico al guardar: el modal queda abierto con el aviso', async () => {
+		setSesion('Administrador');
+		tauri.register('listar_usuarios', () => []);
+		const spy = vi.spyOn(usuarioApi, 'crear').mockRejectedValueOnce(new Error('red muerta'));
+
+		render(UsuariosPage);
+		await screen.findByText(/No hay usuarios/i);
+		await fireEvent.click(screen.getByRole('button', { name: 'Nuevo Usuario' }));
+		const dialogo = await screen.findByRole('dialog');
+		await fireEvent.input(screen.getByPlaceholderText('jperez'), { target: { value: 'nuevo' } });
+		await fireEvent.input(screen.getByPlaceholderText('Ej: Juan Pérez'), {
+			target: { value: 'Nuevo Usuario' }
+		});
+		const passInputs = dialogo.querySelectorAll('input[type="password"]');
+		await fireEvent.input(passInputs[0], { target: { value: 'secreta12' } });
+		await fireEvent.input(passInputs[1], { target: { value: 'secreta12' } });
+
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Crear usuario' }));
+
+		expect(await within(dialogo).findByRole('alert')).toHaveTextContent(
+			'No se pudo guardar el usuario.'
+		);
+		// El modal sigue abierto para reintentar
+		expect(screen.getByRole('dialog')).toBeInTheDocument();
+		// El finally rehabilita el botón
+		expect(within(dialogo).getByRole('button', { name: 'Crear usuario' })).toBeEnabled();
+		spy.mockRestore();
+	});
+
+	it('fallback genérico al forzar la contraseña', async () => {
+		setSesion('Administrador');
+		tauri.register('listar_usuarios', () => [
+			usuario({ id: 2, username: 'jperez', nombre: 'Juan Pérez' })
+		]);
+		const spy = vi
+			.spyOn(usuarioApi, 'forzarCambioPassword')
+			.mockRejectedValueOnce(new Error('red muerta'));
+
+		render(UsuariosPage);
+		await screen.findByText('Juan Pérez');
+		await fireEvent.click(screen.getByLabelText('Forzar cambio de contraseña para Juan Pérez'));
+		const dialogo = await screen.findByRole('dialog');
+		const passInputs = dialogo.querySelectorAll('input[type="password"]');
+		await fireEvent.input(passInputs[0], { target: { value: 'secreta12' } });
+		await fireEvent.input(passInputs[1], { target: { value: 'secreta12' } });
+
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Reiniciar contraseña' }));
+
+		expect(await within(dialogo).findByRole('alert')).toHaveTextContent(
+			'No se pudo reiniciar la contraseña.'
+		);
+		expect(screen.getByRole('dialog')).toBeInTheDocument();
+		spy.mockRestore();
+	});
+
+	it('fallback genérico al eliminar', async () => {
+		setSesion('Administrador');
+		toasts.splice(0);
+		tauri.register('listar_usuarios', () => [
+			usuario({ id: 2, username: 'jperez', nombre: 'Juan Pérez' })
+		]);
+		const spy = vi.spyOn(usuarioApi, 'eliminar').mockRejectedValueOnce(new Error('red muerta'));
+
+		render(UsuariosPage);
+		await screen.findByText('Juan Pérez');
+		await fireEvent.click(screen.getByLabelText('Eliminar usuario Juan Pérez'));
+		const dialogo = await screen.findByRole('dialog');
+
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Eliminar' }));
+
+		await waitFor(() =>
+			expect(toasts.some((t) => t.message === 'No se pudo eliminar el usuario.')).toBe(true)
+		);
+		// El diálogo sigue abierto para reintentar
+		expect(screen.getByRole('dialog')).toBeInTheDocument();
+		spy.mockRestore();
+	});
+
+	it('fallback genérico al desbloquear la cuenta', async () => {
+		setSesion('Administrador');
+		toasts.splice(0);
+		tauri.register('listar_usuarios', () => [
+			usuario({ id: 5, username: 'bloq', nombre: 'Bloqueado User', intentosFallidos: 7 })
+		]);
+		const spy = vi.spyOn(usuarioApi, 'desbloquear').mockRejectedValueOnce(new Error('red muerta'));
+
+		render(UsuariosPage);
+		await screen.findByText('Bloqueado User');
+
+		await fireEvent.click(screen.getByLabelText('Desbloquear cuenta de Bloqueado User'));
+
+		await waitFor(() =>
+			expect(toasts.some((t) => t.message === 'No se pudo desbloquear la cuenta.')).toBe(true)
+		);
+		spy.mockRestore();
 	});
 });
