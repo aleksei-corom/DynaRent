@@ -6,6 +6,7 @@
 		mantenimientoApi,
 		rentaApi,
 		comparendoApi,
+		ApiError,
 		type AlertaVencimiento,
 		type AlertaKm,
 		type Renta,
@@ -67,8 +68,13 @@
 			rentas = r;
 			comparendos = c;
 			ultimaActualizacion = new Date();
-		} catch {
-			error = 'No se pudieron cargar las alertas. Verifica la conexión con el backend.';
+		} catch (e) {
+			// Opción A: si el backend respondió con un error estructurado, mostrar
+			// su mensaje real; el genérico queda solo para errores no normalizados.
+			error =
+				e instanceof ApiError
+					? e.message
+					: 'No se pudieron cargar las alertas. Verifica la conexión con el backend.';
 		} finally {
 			loading = false;
 		}

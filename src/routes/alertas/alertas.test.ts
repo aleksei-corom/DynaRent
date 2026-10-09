@@ -3,7 +3,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/svelte';
 import { tauri } from '../../test/tauri';
 import { session } from '#lib/stores/session.svelte.js';
-import type { AlertaVencimiento, AlertaKm, Renta, Comparendo } from '#lib/api.js';
+import {
+	autoApi,
+	type AlertaVencimiento,
+	type AlertaKm,
+	type Renta,
+	type Comparendo
+} from '#lib/api.js';
 import AlertasPage from './+page.svelte';
 
 function setSesion() {
@@ -231,10 +237,26 @@ describe('Alertas — ramas de presentación y error', () => {
 		render(AlertasPage);
 
 		const aviso = await screen.findByRole('alert');
+		// El backend respondió con error estructurado (ApiError) → mensaje real
+		expect(aviso).toHaveTextContent('Backend caído');
+		expect(aviso).not.toHaveTextContent('Verifica la conexión con el backend.');
+		expect(screen.queryByText('Calculando alertas...')).not.toBeInTheDocument();
+	});
+
+	// ── Tanda: fallback «genérico» de `e instanceof ApiError` ejercitado con
+	// vi.spyOn a nivel de módulo de API — el rechazo NO pasa por invokeCmd (que
+	// normaliza a ApiError), así que la página debe caer al mensaje genérico.
+	it('fallback genérico cuando el error no está normalizado', async () => {
+		registrarVacio();
+		const alertasSpy = vi.spyOn(autoApi, 'alertas').mockRejectedValueOnce(new Error('red muerta'));
+
+		render(AlertasPage);
+
+		const aviso = await screen.findByRole('alert');
 		expect(aviso).toHaveTextContent(
 			'No se pudieron cargar las alertas. Verifica la conexión con el backend.'
 		);
-		expect(screen.queryByText('Calculando alertas...')).not.toBeInTheDocument();
+		alertasSpy.mockRestore();
 	});
 
 	it('mientras carga muestra el spinner y luego pinta los datos', async () => {

@@ -62,7 +62,11 @@ export default defineConfig({
 			//   81.19 (tanda Opción A syncWeb: los errores de red propagan y la
 			//          página muestra el fallo real + fallbacks «genérico» de
 			//          ApiError con vi.spyOn a nivel de módulo en rentas,
-			//          reservas y comparendos, 2840/3498 ramas; 609 tests).
+			//          reservas y comparendos, 2840/3498 ramas; 609 tests) →
+			//   81.31 (tanda Opción A en mantenimiento+alertas: fallbacks «genérico»
+			//          con vi.spyOn de módulo; patrón ApiError propagado a
+			//          alertas/calendario/informes; toast de fallo real con
+			//          consultarPendientes en reservas, 2849/3504 ramas; 616 tests).
 			// Se fija el piso honesto (margen ~0.5-1 pts entre plataformas)
 			// como RATCHET: subir este número junto con cada tanda de tests que
 			// cubra ramas nuevas, nunca bajarlo.

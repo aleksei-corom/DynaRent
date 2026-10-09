@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { rentaApi, reservaApi, type Renta, type Reserva } from '#lib/api.js';
+	import { rentaApi, reservaApi, ApiError, type Renta, type Reserva } from '#lib/api.js';
 	import { sid } from '#lib/stores/session.svelte.js';
 	import { toast } from '#lib/stores/toast.svelte.js';
 	import { guardSesion } from '#lib/utils/guards.js';
@@ -84,9 +84,12 @@
 			if (myId !== cargaId) return; // stale: otra carga más reciente ya está en vuelo
 			rentas = r;
 			reservas = rs;
-		} catch {
+		} catch (e) {
 			if (myId !== cargaId) return; // stale: no mostrar error de una carga obsoleta
-			toast.error('No se pudieron cargar los datos del calendario.');
+			// Opción A: el fallo real del backend se muestra; el genérico es el fallback
+			toast.error(
+				e instanceof ApiError ? e.message : 'No se pudieron cargar los datos del calendario.'
+			);
 		} finally {
 			if (myId === cargaId) loading = false;
 		}

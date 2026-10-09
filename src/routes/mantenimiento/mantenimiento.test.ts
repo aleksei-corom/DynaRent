@@ -4,12 +4,13 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/sve
 import { tauri } from '../../test/tauri';
 import { session } from '#lib/stores/session.svelte.js';
 import { toasts } from '#lib/stores/toast.svelte.js';
-import type {
-	Mantenimiento,
-	MantenimientoDatos,
-	TotalesMantenimiento,
-	Auto,
-	BusinessLists
+import {
+	mantenimientoApi,
+	type Mantenimiento,
+	type MantenimientoDatos,
+	type TotalesMantenimiento,
+	type Auto,
+	type BusinessLists
 } from '#lib/api.js';
 import MantenimientoPage from './+page.svelte';
 
@@ -667,5 +668,67 @@ describe('Mantenimiento — ramas de error, filtros y validaciones', () => {
 		expect(await screen.findByText('Guardando...')).toBeInTheDocument();
 		resolver(mantenimiento({ id: 9 }));
 		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+	});
+
+	// ── Tanda: fallbacks «genérico» de `e instanceof ApiError` ejercitados con
+	// vi.spyOn a nivel de módulo de API — el rechazo NO pasa por invokeCmd (que
+	// normaliza a ApiError), así que la página debe caer al mensaje genérico.
+	// Los spies usan mockRejectedValueOnce (auto-limitante) + mockRestore explícito.
+	it('fallback genérico al cargar: el error no normalizado no rompe la tabla', async () => {
+		tauri.register('listar_mantenimientos', () => []);
+		const listarSpy = vi
+			.spyOn(mantenimientoApi, 'listar')
+			.mockRejectedValueOnce(new Error('red muerta'));
+
+		render(MantenimientoPage);
+		await screen.findByText('No hay mantenimientos');
+
+		await waitFor(() =>
+			expect(
+				toasts.some(
+					(t) => t.type === 'error' && t.message === 'No se pudieron cargar los mantenimientos.'
+				)
+			).toBe(true)
+		);
+		listarSpy.mockRestore();
+	});
+
+	it('fallback genérico al guardar: el modal sigue abierto con el aviso', async () => {
+		tauri.register('listar_mantenimientos', () => []);
+		render(MantenimientoPage);
+		await screen.findByText('No hay mantenimientos');
+
+		const crearSpy = vi
+			.spyOn(mantenimientoApi, 'crear')
+			.mockRejectedValueOnce(new Error('red muerta'));
+		await abrirModal({ tipo: 'FRENOS', costo: '150000' });
+		await fireEvent.click(screen.getByRole('button', { name: 'Registrar mantenimiento' }));
+
+		await waitFor(() =>
+			expect(screen.getByRole('alert')).toHaveTextContent('No se pudo guardar el mantenimiento.')
+		);
+		crearSpy.mockRestore();
+	});
+
+	it('fallback genérico al eliminar: el toast lleva el mensaje genérico', async () => {
+		tauri.register('listar_mantenimientos', () => [mantenimiento({ id: 3 })]);
+		render(MantenimientoPage);
+		await screen.findByText('Cambio de aceite 15W-40');
+
+		const eliminarSpy = vi
+			.spyOn(mantenimientoApi, 'eliminar')
+			.mockRejectedValueOnce(new Error('red muerta'));
+		await fireEvent.click(screen.getByTitle('Eliminar'));
+		const dialogo = await screen.findByRole('dialog');
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Eliminar' }));
+
+		await waitFor(() =>
+			expect(
+				toasts.some(
+					(t) => t.type === 'error' && t.message === 'No se pudo eliminar el mantenimiento.'
+				)
+			).toBe(true)
+		);
+		eliminarSpy.mockRestore();
 	});
 });

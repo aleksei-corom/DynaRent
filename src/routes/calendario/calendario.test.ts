@@ -4,7 +4,7 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/sve
 import { tauri } from '../../test/tauri';
 import { session } from '#lib/stores/session.svelte.js';
 import { toasts } from '#lib/stores/toast.svelte.js';
-import type { Renta, Reserva } from '#lib/api.js';
+import { rentaApi, type Renta, type Reserva } from '#lib/api.js';
 import CalendarioPage from './+page.svelte';
 
 function setSesion() {
@@ -218,11 +218,30 @@ describe('Calendario — ramas de navegación, errores y detalle', () => {
 
 		await waitFor(() =>
 			expect(
-				toasts.some((t) => t.message === 'No se pudieron cargar los datos del calendario.')
+				// ApiError (estructurada) → ahora se muestra el mensaje REAL del backend
+				toasts.some((t) => t.message === 'Tabla de rentas caída')
 			).toBe(true)
 		);
 		// loading se libera en el finally → se pinta la rejilla vacía
 		expect(await screen.findByRole('button', { name: 'Hoy' })).toBeInTheDocument();
+	});
+
+	// ── Tanda: fallback «genérico» de `e instanceof ApiError` ejercitado con
+	// vi.spyOn a nivel de módulo de API — el rechazo NO pasa por invokeCmd (que
+	// normaliza a ApiError), así que la página debe caer al mensaje genérico.
+	it('fallback genérico cuando el error no está normalizado', async () => {
+		toasts.splice(0);
+		tauri.register('listar_reservas', () => []);
+		const listarSpy = vi.spyOn(rentaApi, 'listar').mockRejectedValueOnce(new Error('red muerta'));
+
+		render(CalendarioPage);
+
+		await waitFor(() =>
+			expect(
+				toasts.some((t) => t.message === 'No se pudieron cargar los datos del calendario.')
+			).toBe(true)
+		);
+		listarSpy.mockRestore();
 	});
 
 	it('no avisa cuando la carga que falla es obsoleta', async () => {
@@ -251,9 +270,8 @@ describe('Calendario — ramas de navegación, errores y detalle', () => {
 		rechazarPrimera({ kind: 'database', message: 'tarde' });
 		await new Promise((r) => setTimeout(r, 50));
 
-		expect(
-			toasts.some((t) => t.message === 'No se pudieron cargar los datos del calendario.')
-		).toBe(false);
+		// Sin toast de error: ni el real ('tarde') ni el genérico
+		expect(toasts.some((t) => t.type === 'error')).toBe(false);
 	});
 
 	it('lista reservas en el detalle del día ordenadas por recogida', async () => {

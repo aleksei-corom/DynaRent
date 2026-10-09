@@ -5,7 +5,7 @@ import { tauri } from '../../test/tauri';
 import { goto } from '$app/navigation';
 import { session } from '#lib/stores/session.svelte.js';
 import { toasts } from '#lib/stores/toast.svelte.js';
-import type { InformeMensual, BusinessLists } from '#lib/api.js';
+import { informeApi, type InformeMensual, type BusinessLists } from '#lib/api.js';
 import InformesPage from './+page.svelte';
 
 const LISTS: BusinessLists = {
@@ -192,14 +192,29 @@ describe('página de Informes', () => {
 		expect(btn).toBeInTheDocument();
 	});
 
-	it('muestra error si el backend falla', async () => {
+	it('muestra el error real del backend al calcular el informe', async () => {
 		tauri.register('informe_mensual', () => {
-			throw new Error('boom');
+			throw { kind: 'Business', message: 'No hay movimientos en ese rango.' };
 		});
 
 		render(InformesPage);
 
+		// ApiError (estructurada) → se muestra el mensaje real, no el genérico
+		expect(await screen.findByText('No hay movimientos en ese rango.')).toBeInTheDocument();
+	});
+
+	// ── Tanda: fallback «genérico» de `e instanceof ApiError` ejercitado con
+	// vi.spyOn a nivel de módulo de API — el rechazo NO pasa por invokeCmd (que
+	// normaliza a ApiError), así que la página debe caer al mensaje genérico.
+	it('fallback genérico al calcular cuando el error no está normalizado', async () => {
+		const mensualSpy = vi
+			.spyOn(informeApi, 'mensual')
+			.mockRejectedValueOnce(new Error('red muerta'));
+
+		render(InformesPage);
+
 		expect(await screen.findByText(/No se pudo calcular el informe/)).toBeInTheDocument();
+		mensualSpy.mockRestore();
 	});
 });
 

@@ -3,6 +3,7 @@
 	import {
 		informeApi,
 		businessApi,
+		ApiError,
 		type InformeMensual,
 		type UtilidadVehiculo,
 		type BusinessLists
@@ -44,8 +45,9 @@
 		error = '';
 		try {
 			informe = await informeApi.mensual(sid(), fechaInicio, fechaFin);
-		} catch {
-			error = 'No se pudo calcular el informe del mes.';
+		} catch (e) {
+			// Opción A: mensaje real del backend cuando está normalizado (ApiError)
+			error = e instanceof ApiError ? e.message : 'No se pudo calcular el informe del mes.';
 			informe = null;
 		} finally {
 			loading = false;

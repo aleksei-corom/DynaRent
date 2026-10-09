@@ -6,7 +6,15 @@ import { session } from '#lib/stores/session.svelte.js';
 import { toasts } from '#lib/stores/toast.svelte.js';
 import { businessLists } from '#lib/stores/business.svelte.js';
 import { goto } from '$app/navigation';
-import { reservaApi, type Reserva, type Auto, type Cliente, type BusinessLists } from '#lib/api.js';
+import {
+	reservaApi,
+	syncWebApi,
+	ApiError,
+	type Reserva,
+	type Auto,
+	type Cliente,
+	type BusinessLists
+} from '#lib/api.js';
 import ReservasPage from './+page.svelte';
 
 function reserva(overrides: Partial<Reserva> = {}): Reserva {
@@ -923,6 +931,33 @@ describe('Reservas — errores de red y fallbacks de ApiError', () => {
 			expect(
 				toasts.some((t) => t.type === 'error' && t.message === 'No se pudo eliminar la reserva.')
 			).toBe(true)
+		);
+	});
+
+	it('consultarPendientes rechaza con ApiError: el toast muestra el mensaje real', async () => {
+		tauri.register('listar_reservas', () => [reserva()]);
+		toasts.splice(0);
+		// El fallo llega como ApiError (mensaje ya normalizado para el usuario);
+		// el spy persistente cubre también la consulta de arranque del badge.
+		vi.spyOn(syncWebApi, 'consultarPendientes').mockRejectedValue(
+			new ApiError({ kind: 'network', message: 'Servidor web no responde' })
+		);
+
+		render(ReservasPage);
+		await screen.findByText('Juan Perez');
+
+		await fireEvent.click(screen.getByTitle(/Sincronizar reservas pagadas/));
+
+		// sincronizarConWeb: `e instanceof Error` → se muestra el fallo REAL
+		await waitFor(() =>
+			expect(
+				toasts.some((t) => t.type === 'error' && t.message === 'Servidor web no responde')
+			).toBe(true)
+		);
+		// Ni el fallback genérico ni el engañoso «sin pendientes»
+		expect(toasts.some((t) => t.message === 'Error al conectar con el servidor web.')).toBe(false);
+		expect(toasts.some((t) => t.message === 'No hay reservas web pendientes por importar.')).toBe(
+			false
 		);
 	});
 });
