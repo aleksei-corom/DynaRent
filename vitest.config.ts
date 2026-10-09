@@ -76,7 +76,12 @@ export default defineConfig({
 			//          17 de Logs (pestañas/líneas, guard de rol y sesión, truncado con
 			//          confirm, exportación con nombre local, copiado y fallbacks) —
 			//          logs/+page.svelte al 100% de ramas, dashboard 74.32%, 3015/3702
-			//          ramas; 660 tests).
+			//          ramas; 660 tests) →
+			//   81.52 (ampliación dashboard: saludos por tramo horario, username sin
+			//          nombre, guard de sesión del botón «Actualizar» y gestión de la
+			//          clave PII desde el aviso — dashboard 99.53/78.37/100, 3018/3702
+			//          ramas; 664 tests; el resto de ramas sin cubrir son los `??`
+			//          de kpis/alertas que el template no lee en estado de error).
 			// Se fija el piso honesto (margen ~0.5-1 pts entre plataformas)
 			// como RATCHET: subir este número junto con cada tanda de tests que
 			// cubra ramas nuevas, nunca bajarlo.

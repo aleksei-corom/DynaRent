@@ -271,13 +271,73 @@ describe('página de Dashboard', () => {
 		expect(within(dialogo).getByText('Sin clave configurada')).toBeInTheDocument();
 	});
 
-	it('muestra el aviso de clave PII ya configurada', async () => {
+	it('muestra el aviso de clave PII ya configurada y la gestiona desde el diálogo', async () => {
 		tauri.register('get_dashboard_data', () => datos({ piiKeyConfigurada: true }));
+		tauri.register('get_pii_status', () => pii({ claveConfigurada: true }));
 
 		render(DashboardPage);
 
 		expect(await screen.findByText('Clave PII configurada.')).toBeInTheDocument();
-		expect(screen.getByRole('button', { name: /Gestionar clave/ })).toBeInTheDocument();
 		expect(screen.queryByText(/datos de clientes de versiones anteriores/)).not.toBeInTheDocument();
+
+		await fireEvent.click(screen.getByRole('button', { name: /Gestionar clave/ }));
+
+		const dialogo = await screen.findByRole('dialog');
+		expect(dialogo).toHaveTextContent('Clave de cifrado de datos (PII)');
+		expect(within(dialogo).getByText('Clave configurada')).toBeInTheDocument();
+	});
+});
+
+// ── Tanda de cobertura: saludo por tramo horario, username sin nombre,
+// guard de sesión del botón «Actualizar».
+describe('Dashboard — saludo y guard de sesión', () => {
+	it('saluda con «Buenos días» antes de las 12', async () => {
+		tauri.register('get_dashboard_data', () => datos());
+		const horas = vi.spyOn(Date.prototype, 'getHours').mockReturnValue(8);
+		try {
+			render(DashboardPage);
+
+			expect(await screen.findByText(/Buenos días, Administrador/)).toBeInTheDocument();
+		} finally {
+			horas.mockRestore();
+		}
+	});
+
+	it('saluda con «Buenas noches» desde las 19', async () => {
+		tauri.register('get_dashboard_data', () => datos());
+		const horas = vi.spyOn(Date.prototype, 'getHours').mockReturnValue(21);
+		try {
+			render(DashboardPage);
+
+			expect(await screen.findByText(/Buenas noches, Administrador/)).toBeInTheDocument();
+		} finally {
+			horas.mockRestore();
+		}
+	});
+
+	it('usa el username en el saludo cuando el usuario no tiene nombre', async () => {
+		tauri.register('get_dashboard_data', () => datos());
+		setSesion();
+		session.user!.nombre = null;
+
+		render(DashboardPage);
+
+		expect(await screen.findByText(new RegExp(`${saludoEsperado()}, admin`))).toBeInTheDocument();
+	});
+
+	it('sin sesión, el botón Actualizar no vuelve a llamar al backend', async () => {
+		session.clear();
+		const getData = vi.fn(() => datos());
+		tauri.register('get_dashboard_data', getData);
+
+		render(DashboardPage);
+		await waitFor(() => expect(goto).toHaveBeenCalledWith('/login', { replace: true }));
+
+		// El encabezado se pinta aunque no haya datos: el guard de `cargar`
+		// debe cortar la llamada en vez de disparar el comando
+		await fireEvent.click(screen.getByRole('button', { name: 'Actualizar indicadores' }));
+
+		await waitFor(() => expect(goto).toHaveBeenCalled());
+		expect(getData).not.toHaveBeenCalled();
 	});
 });
