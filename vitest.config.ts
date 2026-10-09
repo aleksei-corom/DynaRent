@@ -66,7 +66,10 @@ export default defineConfig({
 			//   81.31 (tanda Opción A en mantenimiento+alertas: fallbacks «genérico»
 			//          con vi.spyOn de módulo; patrón ApiError propagado a
 			//          alertas/calendario/informes; toast de fallo real con
-			//          consultarPendientes en reservas, 2849/3504 ramas; 616 tests).
+			//          consultarPendientes en reservas, 2849/3504 ramas; 616 tests) →
+			//   81.45 (tanda gastos+clientes: fallbacks «genérico» con vi.spyOn de
+			//          módulo; primer archivo de tests de backups — 12 tests que
+			//          cubren el 85% de sus ramas nuevas, 2934/3602 ramas; 633 tests).
 			// Se fija el piso honesto (margen ~0.5-1 pts entre plataformas)
 			// como RATCHET: subir este número junto con cada tanda de tests que
 			// cubra ramas nuevas, nunca bajarlo.

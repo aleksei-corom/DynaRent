@@ -3,7 +3,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/svelte';
 import { tauri } from '../../test/tauri';
 import { session } from '#lib/stores/session.svelte.js';
-import type { Cliente, ClienteConPii, ClienteDatos, BusinessLists } from '#lib/api.js';
+import { toasts } from '#lib/stores/toast.svelte.js';
+import {
+	clienteApi,
+	type Cliente,
+	type ClienteConPii,
+	type ClienteDatos,
+	type BusinessLists
+} from '#lib/api.js';
 import ClientesPage from './+page.svelte';
 
 function cliente(overrides: Partial<Cliente> = {}): Cliente {
@@ -319,5 +326,48 @@ describe('página de Clientes', () => {
 		await waitFor(() => expect(listar).toHaveBeenCalledTimes(2), { timeout: 2000 });
 		const args = listar.mock.calls[1][0] as { sessionId: string; busqueda: string | null };
 		expect(args.busqueda).toBe('ana');
+	});
+
+	// ── Tanda: fallbacks «genérico» de `e instanceof ApiError` ejercitados con
+	// vi.spyOn a nivel de módulo de API — el rechazo NO pasa por invokeCmd (que
+	// normaliza a ApiError), así que la página debe caer al mensaje genérico.
+	// Los spies usan mockRejectedValueOnce (auto-limitante) + mockRestore explícito.
+	it('fallback genérico al cargar: el error no normalizado no rompe la lista', async () => {
+		toasts.splice(0);
+		const listarSpy = vi.spyOn(clienteApi, 'listar').mockRejectedValueOnce(new Error('red muerta'));
+
+		render(ClientesPage);
+
+		await waitFor(() =>
+			expect(
+				toasts.some(
+					(t) => t.type === 'error' && t.message === 'No se pudieron cargar los clientes.'
+				)
+			).toBe(true)
+		);
+		listarSpy.mockRestore();
+	});
+
+	it('fallback genérico al eliminar: el toast lleva el mensaje genérico', async () => {
+		toasts.splice(0);
+		tauri.register('listar_clientes', () => [
+			conPii(cliente({ id: 1, nombreCompleto: 'Ana Pérez' }))
+		]);
+		render(ClientesPage);
+		await screen.findByText('Ana Pérez');
+
+		const eliminarSpy = vi
+			.spyOn(clienteApi, 'eliminar')
+			.mockRejectedValueOnce(new Error('red muerta'));
+		await fireEvent.click(screen.getByTitle('Eliminar'));
+		const dialogo = await screen.findByRole('dialog');
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Eliminar' }));
+
+		await waitFor(() =>
+			expect(
+				toasts.some((t) => t.type === 'error' && t.message === 'No se pudo eliminar el cliente.')
+			).toBe(true)
+		);
+		eliminarSpy.mockRestore();
 	});
 });

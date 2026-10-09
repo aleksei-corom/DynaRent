@@ -4,7 +4,14 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/sve
 import { tauri } from '../../test/tauri';
 import { session } from '#lib/stores/session.svelte.js';
 import { toasts } from '#lib/stores/toast.svelte.js';
-import type { Gasto, GastoDatos, TotalesGastos, Auto, BusinessLists } from '#lib/api.js';
+import {
+	gastoApi,
+	type Gasto,
+	type GastoDatos,
+	type TotalesGastos,
+	type Auto,
+	type BusinessLists
+} from '#lib/api.js';
 import GastosPage from './+page.svelte';
 
 function gasto(overrides: Partial<Gasto> = {}): Gasto {
@@ -424,5 +431,69 @@ describe('ramas de error y vacíos de Gastos', () => {
 		render(GastosPage);
 
 		expect(await screen.findByText(/1 gasto registrado/)).toBeInTheDocument();
+	});
+
+	// ── Tanda: fallbacks «genérico» de `e instanceof ApiError` ejercitados con
+	// vi.spyOn a nivel de módulo de API — el rechazo NO pasa por invokeCmd (que
+	// normaliza a ApiError), así que la página debe caer al mensaje genérico.
+	// Los spies usan mockRejectedValueOnce (auto-limitante) + mockRestore explícito.
+	it('fallback genérico al cargar: el error no normalizado no rompe la tabla', async () => {
+		tauri.register('listar_gastos', () => []);
+		const listarSpy = vi.spyOn(gastoApi, 'listar').mockRejectedValueOnce(new Error('red muerta'));
+
+		render(GastosPage);
+
+		await waitFor(() =>
+			expect(
+				toasts.some((t) => t.type === 'error' && t.message === 'No se pudieron cargar los gastos.')
+			).toBe(true)
+		);
+		listarSpy.mockRestore();
+	});
+
+	it('fallback genérico al guardar: el modal sigue abierto con el aviso', async () => {
+		tauri.register('listar_gastos', () => []);
+		render(GastosPage);
+		await screen.findByText('No hay gastos');
+
+		const crearSpy = vi.spyOn(gastoApi, 'crear').mockRejectedValueOnce(new Error('red muerta'));
+		await fireEvent.click(screen.getByRole('button', { name: 'Registrar Gasto' }));
+		await screen.findByRole('dialog');
+
+		await fireEvent.change(screen.getByLabelText(/Categoría/), {
+			target: { value: 'PEAJES' }
+		});
+		await fireEvent.input(screen.getByPlaceholderText('Ej: 120000'), {
+			target: { value: '5000' }
+		});
+		await fireEvent.input(screen.getByPlaceholderText('Ej: Cambio de aceite 15W-40'), {
+			target: { value: 'Peaje la 80' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Registrar gasto' }));
+
+		expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo guardar el gasto.');
+		// El modal sigue abierto para corregir
+		expect(screen.getByRole('dialog')).toBeInTheDocument();
+		crearSpy.mockRestore();
+	});
+
+	it('fallback genérico al eliminar: el toast lleva el mensaje genérico', async () => {
+		tauri.register('listar_gastos', () => [gasto({ id: 9, descripcion: 'Parqueadero' })]);
+		render(GastosPage);
+		await screen.findByText('Parqueadero');
+
+		const eliminarSpy = vi
+			.spyOn(gastoApi, 'eliminar')
+			.mockRejectedValueOnce(new Error('red muerta'));
+		await fireEvent.click(screen.getByTitle('Eliminar'));
+		const dialogo = await screen.findByRole('dialog');
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Eliminar' }));
+
+		await waitFor(() =>
+			expect(
+				toasts.some((t) => t.type === 'error' && t.message === 'No se pudo eliminar el gasto.')
+			).toBe(true)
+		);
+		eliminarSpy.mockRestore();
 	});
 });
