@@ -3,6 +3,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/svelte';
 import { tauri } from '../../test/tauri';
 import { session } from '#lib/stores/session.svelte.js';
+import { toasts } from '#lib/stores/toast.svelte.js';
+import { businessLists } from '#lib/stores/business.svelte.js';
 import { goto } from '$app/navigation';
 import type { Reserva, Auto, Cliente, BusinessLists } from '#lib/api.js';
 import ReservasPage from './+page.svelte';
@@ -705,5 +707,120 @@ describe('ramas de error y cálculo de la página de Reservas', () => {
 		expect(datos.idCliente).toBe(1);
 		expect(datos.nombreCliente).toBe('Juan Perez');
 		expect(datos.placaAsignada).toBe('TUV654');
+	});
+});
+
+// ── Tanda final de cobertura: cierre del formulario (onClose), diálogos de
+// confirmación cancelados, cliente creado desde el modal embebido, los
+// `.catch` de clientes/autos y el servidor web caído.
+describe('Reservas — modales, confirmaciones y servidor web caído', () => {
+	it('el formulario se cierra con Escape y pinta las categorías de respaldo', async () => {
+		// Sin listas (get_business_lists falla) → categorías por defecto
+		businessLists.clear();
+		tauri.register('get_business_lists', () => {
+			throw { kind: 'database', message: 'Config caída' };
+		});
+		tauri.register('listar_reservas', () => []);
+
+		render(ReservasPage);
+		await screen.findByText(/No hay reservas/i);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Nueva Reserva' }));
+		const dialogo = await screen.findByRole('dialog');
+		expect(within(dialogo).getByRole('option', { name: 'Camioneta' })).toBeInTheDocument();
+
+		await fireEvent.keyDown(document, { key: 'Escape' });
+		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+	});
+
+	it('cancelar los diálogos de confirmación no llama al backend', async () => {
+		tauri.register('listar_reservas', () => [reserva()]);
+		const cancelar = vi.fn((_args: { sessionId: string; id: number }) => undefined);
+		const eliminar = vi.fn((_args: { sessionId: string; id: number }) => undefined);
+		tauri.register('cancelar_reserva', cancelar);
+		tauri.register('eliminar_reserva', eliminar);
+
+		render(ReservasPage);
+		await screen.findByText('Juan Perez');
+
+		await fireEvent.click(screen.getByLabelText('Cancelar reserva #1'));
+		let dialogo = await screen.findByRole('dialog');
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Cancelar' }));
+		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+		expect(cancelar).not.toHaveBeenCalled();
+
+		await fireEvent.click(screen.getByLabelText('Eliminar reserva #1'));
+		dialogo = await screen.findByRole('dialog');
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Cancelar' }));
+		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+		expect(eliminar).not.toHaveBeenCalled();
+	});
+
+	it('crea un cliente desde el modal embebido (datos nulos y completos)', async () => {
+		toasts.splice(0);
+		businessLists.clear();
+		tauri.register('get_business_lists', () => {
+			throw { kind: 'database', message: 'Config caída' };
+		});
+		tauri.register('listar_reservas', () => []);
+		// Cubre los `.catch` de clientes/autos del onMount
+		tauri.register('listar_clientes', () => {
+			throw { kind: 'database', message: 'Clientes caídos' };
+		});
+		tauri.register('listar_autos', () => {
+			throw { kind: 'database', message: 'Autos caídos' };
+		});
+		const crearCliente = vi.fn((_args: { sessionId: string; datos: { nombres: string } }) => ({
+			cliente: { id: 9, nombreCompleto: 'Persona Nueva', nacionalidad: null, noLicencia: null },
+			piiOculto: false
+		}));
+		tauri.register('crear_cliente', crearCliente);
+
+		render(ReservasPage);
+		await screen.findByText(/No hay reservas/i);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Nueva Reserva' }));
+		const [dlgForm] = await screen.findAllByRole('dialog');
+
+		// 1) Cliente sin nacionalidad → fallback `?? ''`
+		await fireEvent.click(within(dlgForm).getByLabelText('Crear nuevo cliente'));
+		await waitFor(() => expect(screen.getAllByRole('dialog')).toHaveLength(2));
+		const dlgCliente = screen.getAllByRole('dialog')[1];
+		await fireEvent.input(within(dlgCliente).getByPlaceholderText('Nombres del cliente'), {
+			target: { value: 'Persona' }
+		});
+		await fireEvent.click(within(dlgCliente).getByRole('button', { name: 'Crear cliente' }));
+
+		await waitFor(() => expect(crearCliente).toHaveBeenCalledTimes(1));
+		await waitFor(() =>
+			expect(screen.getAllByDisplayValue('Persona Nueva').length).toBeGreaterThan(0)
+		);
+		expect(toasts.some((t) => t.message === 'Cliente Persona Nueva creado y seleccionado.')).toBe(
+			true
+		);
+		await waitFor(() => expect(screen.getAllByRole('dialog')).toHaveLength(1));
+
+		// 2) Cliente completo → lado truthy de `?? ''`
+		tauri.register('crear_cliente', () => ({
+			cliente: {
+				id: 10,
+				nombreCompleto: 'Ana Con Datos',
+				nacionalidad: 'Colombiana',
+				noLicencia: null
+			},
+			piiOculto: false
+		}));
+		await fireEvent.click(within(dlgForm).getByLabelText('Crear nuevo cliente'));
+		await waitFor(() => expect(screen.getAllByRole('dialog')).toHaveLength(2));
+		const dlgCliente2 = screen.getAllByRole('dialog')[1];
+		await fireEvent.input(within(dlgCliente2).getByPlaceholderText('Nombres del cliente'), {
+			target: { value: 'Ana' }
+		});
+		await fireEvent.click(within(dlgCliente2).getByRole('button', { name: 'Crear cliente' }));
+
+		await waitFor(() =>
+			expect(screen.getAllByDisplayValue('Ana Con Datos').length).toBeGreaterThan(0)
+		);
+		expect(screen.getByDisplayValue('Colombiana')).toBeInTheDocument();
 	});
 });

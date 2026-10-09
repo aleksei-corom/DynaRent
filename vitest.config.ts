@@ -55,13 +55,16 @@ export default defineConfig({
 			//   75.36 (tanda reports+auditoría+empresa, 2636/3498 ramas) →
 			//   77.84 (tanda componentes+informes+gastos, 2723/3498 ramas) →
 			//   80.25 (tanda mantenimiento+alertas+comparendos+calendario+
-			//          stores/utils, 2807/3498 ramas; 589 tests).
-			// Se fija el piso honesto 79.5 (margen ~0.75 pts entre plataformas)
+			//          stores/utils, 2807/3498 ramas; 589 tests) →
+			//   80.53 (tanda rentas+reservas: onClose de modales, confirmaciones
+			//          canceladas, cliente embebido y catches de carga,
+			//          2817/3498 ramas; 596 tests).
+			// Se fija el piso honesto 80 (margen ~0.5 pts entre plataformas)
 			// como RATCHET: subir este número junto con cada tanda de tests que
 			// cubra ramas nuevas, nunca bajarlo.
 			thresholds: {
 				statements: 80,
-				branches: 79.5,
+				branches: 80,
 				functions: 80,
 				lines: 80
 			}

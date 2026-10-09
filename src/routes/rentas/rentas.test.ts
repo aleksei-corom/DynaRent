@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/svelte';
 import { tauri } from '../../test/tauri';
 import { session } from '#lib/stores/session.svelte.js';
+import { toasts } from '#lib/stores/toast.svelte.js';
 import type {
 	Renta,
 	RentaDatos,
@@ -1499,5 +1500,128 @@ describe('ramas de error y cálculo de la página de Rentas', () => {
 		expect(args.datos.valorDia).toBeUndefined();
 		expect(args.datos.observaciones).toBe('Tarifa mal digitada');
 		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+	});
+});
+
+// ── Tanda final de cobertura: cierre de modales (onClose), diálogos de
+// confirmación cancelados, cliente creado desde el modal embebido y los
+// `.catch` de clientes/autos del onMount.
+describe('Rentas — onClose de modales, confirmaciones y cliente embebido', () => {
+	it('el formulario se cierra con Escape', async () => {
+		tauri.register('listar_rentas', () => []);
+
+		render(RentasPage);
+		await screen.findByText('No hay rentas');
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Nueva Renta' }));
+		await screen.findByRole('dialog');
+		await fireEvent.keyDown(document, { key: 'Escape' });
+		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+	});
+
+	it('cierra los modales de acción con Escape sin ejecutar nada', async () => {
+		tauri.register('listar_rentas', () => [renta({ id: 1 }), renta({ id: 2, estado: 'Cerrada' })]);
+
+		render(RentasPage);
+		await screen.findByTitle('Cerrar renta (devolución)');
+
+		const abrirYCerrar = async (titulo: string) => {
+			await fireEvent.click(screen.getAllByTitle(titulo)[0]);
+			await screen.findByRole('dialog');
+			await fireEvent.keyDown(document, { key: 'Escape' });
+			await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+		};
+
+		await abrirYCerrar('Cerrar renta (devolución)');
+		await abrirYCerrar('Registrar pago');
+		await abrirYCerrar('Registrar inspección');
+		await abrirYCerrar('Cambiar vehículo sin cerrar la renta');
+		await abrirYCerrar('Extender renta (agregar horas/días)');
+		await abrirYCerrar('Editar renta cerrada (corregir digitación)');
+	});
+
+	it('cancelar los diálogos de confirmación no llama al backend', async () => {
+		tauri.register('listar_rentas', () => [renta({ id: 4 })]);
+		const cancelar = vi.fn((_args: { sessionId: string; id: number }) => undefined);
+		const eliminar = vi.fn((_args: { sessionId: string; id: number }) => undefined);
+		tauri.register('cancelar_renta', cancelar);
+		tauri.register('eliminar_renta', eliminar);
+
+		render(RentasPage);
+		await screen.findByTitle('Cancelar renta');
+
+		await fireEvent.click(screen.getByTitle('Cancelar renta'));
+		let dialogo = await screen.findByRole('dialog');
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Cancelar' }));
+		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+		expect(cancelar).not.toHaveBeenCalled();
+
+		await fireEvent.click(screen.getByTitle('Eliminar'));
+		dialogo = await screen.findByRole('dialog');
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Cancelar' }));
+		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+		expect(eliminar).not.toHaveBeenCalled();
+	});
+
+	it('crea un cliente desde el modal embebido aunque los listados fallen', async () => {
+		toasts.splice(0);
+		tauri.register('listar_rentas', () => []);
+		// Cubre los `.catch` de clientes/autos del onMount
+		tauri.register('listar_clientes', () => {
+			throw { kind: 'database', message: 'Clientes caídos' };
+		});
+		tauri.register('listar_autos', () => {
+			throw { kind: 'database', message: 'Autos caídos' };
+		});
+		const crearCliente = vi.fn((_args: { sessionId: string; datos: { nombres: string } }) =>
+			clientePii({ id: 9, nacionalidad: null, noLicencia: null, nombreCompleto: 'Nuevo Cliente' })
+		);
+		tauri.register('crear_cliente', crearCliente);
+
+		render(RentasPage);
+		await screen.findByText('No hay rentas');
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Nueva Renta' }));
+		const [dlgForm] = await screen.findAllByRole('dialog');
+
+		// 1) Cliente sin nacionalidad ni licencia → fallbacks `?? ''`
+		await fireEvent.click(within(dlgForm).getByLabelText('Crear nuevo cliente'));
+		await waitFor(() => expect(screen.getAllByRole('dialog')).toHaveLength(2));
+		const dlgCliente = screen.getAllByRole('dialog')[1];
+		await fireEvent.input(within(dlgCliente).getByPlaceholderText('Nombres del cliente'), {
+			target: { value: 'Nuevo' }
+		});
+		await fireEvent.click(within(dlgCliente).getByRole('button', { name: 'Crear cliente' }));
+
+		await waitFor(() => expect(crearCliente).toHaveBeenCalledTimes(1));
+		await waitFor(() =>
+			expect(screen.getAllByDisplayValue('Nuevo Cliente').length).toBeGreaterThan(0)
+		);
+		// Sin licencia → el campo queda vacío
+		expect(screen.queryByDisplayValue('LC-998877')).not.toBeInTheDocument();
+		expect(toasts.some((t) => t.message === 'Cliente Nuevo Cliente creado y seleccionado.')).toBe(
+			true
+		);
+		// El modal del cliente se cierra solo tras guardar
+		await waitFor(() => expect(screen.getAllByRole('dialog')).toHaveLength(1));
+
+		// 2) Cliente completo → lado truthy de `?? ''`
+		tauri.register('crear_cliente', () => clientePii({ id: 10, nombreCompleto: 'Ana Con Datos' }));
+		await fireEvent.click(within(dlgForm).getByLabelText('Crear nuevo cliente'));
+		await waitFor(() => expect(screen.getAllByRole('dialog')).toHaveLength(2));
+		const dlgCliente2 = screen.getAllByRole('dialog')[1];
+		await fireEvent.input(within(dlgCliente2).getByPlaceholderText('Nombres del cliente'), {
+			target: { value: 'Ana' }
+		});
+		await fireEvent.click(within(dlgCliente2).getByRole('button', { name: 'Crear cliente' }));
+
+		await waitFor(() =>
+			expect(screen.getAllByDisplayValue('Ana Con Datos').length).toBeGreaterThan(0)
+		);
+		expect(screen.getByDisplayValue('Colombiana')).toBeInTheDocument();
+		expect(screen.getByDisplayValue('LC-998877')).toBeInTheDocument();
+		expect(toasts.some((t) => t.message === 'Cliente Ana Con Datos creado y seleccionado.')).toBe(
+			true
+		);
 	});
 });
