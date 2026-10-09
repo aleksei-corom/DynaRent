@@ -58,13 +58,17 @@ export default defineConfig({
 			//          stores/utils, 2807/3498 ramas; 589 tests) →
 			//   80.53 (tanda rentas+reservas: onClose de modales, confirmaciones
 			//          canceladas, cliente embebido y catches de carga,
-			//          2817/3498 ramas; 596 tests).
-			// Se fija el piso honesto 80 (margen ~0.5 pts entre plataformas)
+			//          2817/3498 ramas; 596 tests) →
+			//   81.19 (tanda Opción A syncWeb: los errores de red propagan y la
+			//          página muestra el fallo real + fallbacks «genérico» de
+			//          ApiError con vi.spyOn a nivel de módulo en rentas,
+			//          reservas y comparendos, 2840/3498 ramas; 609 tests).
+			// Se fija el piso honesto (margen ~0.5-1 pts entre plataformas)
 			// como RATCHET: subir este número junto con cada tanda de tests que
 			// cubra ramas nuevas, nunca bajarlo.
 			thresholds: {
 				statements: 80,
-				branches: 80,
+				branches: 81,
 				functions: 80,
 				lines: 80
 			}

@@ -4,6 +4,7 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/sve
 import { tauri } from '../../test/tauri';
 import { session } from '#lib/stores/session.svelte.js';
 import { toasts } from '#lib/stores/toast.svelte.js';
+import { rentaApi, reservaApi } from '#lib/api.js';
 import type {
 	Renta,
 	RentaDatos,
@@ -180,6 +181,7 @@ beforeEach(() => {
 afterEach(() => {
 	document.getElementById('print-clone')?.remove();
 	document.body.classList.remove('printing', 'printing-clone');
+	vi.restoreAllMocks(); // restaura los vi.spyOn de la capa API (fallbacks ApiError)
 });
 
 describe('página de Rentas', () => {
@@ -1623,5 +1625,210 @@ describe('Rentas — onClose de modales, confirmaciones y cliente embebido', () 
 		expect(toasts.some((t) => t.message === 'Cliente Ana Con Datos creado y seleccionado.')).toBe(
 			true
 		);
+	});
+});
+
+// ── Tanda: fallbacks «genérico» de `e instanceof ApiError` ejercitados con
+// vi.spyOn a nivel de módulo de API — el rechazo NO pasa por invokeCmd (que
+// normaliza a ApiError), así que la página debe caer al mensaje genérico.
+describe('Rentas — fallbacks de ApiError con error no normalizado', () => {
+	it('al cargar: el error no normalizado cae al toast genérico', async () => {
+		toasts.splice(0);
+		vi.spyOn(rentaApi, 'listar').mockRejectedValueOnce(new Error('red muerta'));
+
+		render(RentasPage);
+
+		await waitFor(() =>
+			expect(
+				toasts.some((t) => t.type === 'error' && t.message === 'No se pudieron cargar las rentas.')
+			).toBe(true)
+		);
+		expect(screen.getByText(/No hay rentas/)).toBeInTheDocument();
+	});
+
+	it('desdeReserva con error no normalizado: toast genérico y sin modal', async () => {
+		tauri.register('listar_rentas', () => []);
+		toasts.splice(0);
+		vi.spyOn(reservaApi, 'obtener').mockRejectedValueOnce(new Error('red muerta'));
+		window.history.replaceState({}, '', '/rentas?desdeReserva=7');
+
+		render(RentasPage);
+
+		await waitFor(() =>
+			expect(
+				toasts.some(
+					(t) =>
+						t.type === 'error' && t.message === 'No se pudo cargar la reserva para crear la renta.'
+				)
+			).toBe(true)
+		);
+		// El modal NO se abre sin la reserva
+		expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+	});
+
+	it('al guardar una renta nueva (formError genérico)', async () => {
+		tauri.register('listar_rentas', () => []);
+		vi.spyOn(rentaApi, 'crear').mockRejectedValueOnce(new Error('red muerta'));
+
+		render(RentasPage);
+		await screen.findByText('No hay rentas');
+		await fireEvent.click(screen.getByRole('button', { name: 'Nueva Renta' }));
+		const dialogo = await screen.findByRole('dialog');
+
+		await fireEvent.input(screen.getByPlaceholderText('Nombre para la renta'), {
+			target: { value: 'Cliente Nuevo' }
+		});
+		const placaCombo = within(dialogo).getByPlaceholderText('Buscar placa, marca o modelo…');
+		await fireEvent.focus(placaCombo);
+		await fireEvent.input(placaCombo, { target: { value: 'ABC123' } });
+		await fireEvent.keyDown(placaCombo, { key: 'Enter' });
+		await fireEvent.input(screen.getByPlaceholderText('Ej: 42000'), {
+			target: { value: '42100' }
+		});
+		await fireEvent.input(screen.getByPlaceholderText('150000'), {
+			target: { value: '150000' }
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Crear renta' }));
+
+		expect(await within(dialogo).findByRole('alert')).toHaveTextContent(
+			'No se pudo guardar la renta.'
+		);
+		expect(screen.getByRole('dialog')).toBeInTheDocument();
+	});
+
+	it('en cerrar, cambiar vehículo, extender y registrar pago (alerts genéricos)', async () => {
+		tauri.register('listar_rentas', () => [renta({ id: 5, saldoPendiente: '535500.00' })]);
+		tauri.register('listar_extensiones', () => []);
+
+		render(RentasPage);
+		await screen.findByText('Cliente de Prueba');
+
+		// 1) Cerrar renta
+		vi.spyOn(rentaApi, 'cerrar').mockRejectedValueOnce(new Error('red muerta'));
+		await fireEvent.click(screen.getByTitle('Cerrar renta (devolución)'));
+		let dialogo = await screen.findByRole('dialog');
+		await fireEvent.input(screen.getByPlaceholderText('Km al devolver'), {
+			target: { value: '43100' }
+		});
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Cerrar renta' }));
+		expect(await within(dialogo).findByRole('alert')).toHaveTextContent(
+			'No se pudo cerrar la renta.'
+		);
+		await fireEvent.keyDown(document, { key: 'Escape' });
+		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+
+		// 2) Cambiar vehículo
+		vi.spyOn(rentaApi, 'cambiarAuto').mockRejectedValueOnce(new Error('red muerta'));
+		await fireEvent.click(screen.getByTitle('Cambiar vehículo sin cerrar la renta'));
+		dialogo = await screen.findByRole('dialog');
+		await fireEvent.change(within(dialogo).getByRole('combobox'), {
+			target: { value: 'XYZ987' }
+		});
+		await fireEvent.click(within(dialogo).getByRole('button', { name: /Cambiar vehículo/ }));
+		expect(await within(dialogo).findByRole('alert')).toHaveTextContent(
+			'No se pudo cambiar el vehículo.'
+		);
+		await fireEvent.keyDown(document, { key: 'Escape' });
+		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+
+		// 3) Extender renta
+		vi.spyOn(rentaApi, 'extender').mockRejectedValueOnce(new Error('red muerta'));
+		await fireEvent.click(screen.getByTitle('Extender renta (agregar horas/días)'));
+		dialogo = await screen.findByRole('dialog');
+		await fireEvent.input(within(dialogo).getByPlaceholderText('$0'), {
+			target: { value: '20000' }
+		});
+		await fireEvent.input(within(dialogo).getByRole('spinbutton'), {
+			target: { value: '1' }
+		});
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Aplicar extensión' }));
+		expect(await within(dialogo).findByRole('alert')).toHaveTextContent(
+			'No se pudo extender la renta.'
+		);
+		await fireEvent.keyDown(document, { key: 'Escape' });
+		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+
+		// 4) Registrar pago
+		vi.spyOn(rentaApi, 'registrarPago').mockRejectedValueOnce(new Error('red muerta'));
+		await fireEvent.click(screen.getByTitle('Registrar pago'));
+		dialogo = await screen.findByRole('dialog');
+		await fireEvent.input(screen.getByPlaceholderText('Ej: 200000'), {
+			target: { value: '200000' }
+		});
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Registrar pago' }));
+		expect(await within(dialogo).findByRole('alert')).toHaveTextContent(
+			'No se pudo registrar el pago.'
+		);
+	});
+
+	it('al editar una renta cerrada y al registrar la inspección', async () => {
+		// Nombres distintos: el listado filtra por cliente y un findByText
+		// ambiguo fallaría con dos «Cliente de Prueba».
+		tauri.register('listar_rentas', () => [
+			renta({ id: 7, estado: 'Cerrada', nombreCliente: 'Cliente Cerrada' }),
+			renta({ id: 5, nombreCliente: 'Cliente Activo' })
+		]);
+
+		render(RentasPage);
+		await screen.findByText('Cliente Activo');
+
+		// 1) Editar renta cerrada
+		vi.spyOn(rentaApi, 'editarCerrada').mockRejectedValueOnce(new Error('red muerta'));
+		await fireEvent.click(screen.getByTitle('Editar renta cerrada (corregir digitación)'));
+		let dialogo = await screen.findByRole('dialog');
+		await fireEvent.input(
+			screen.getByPlaceholderText('Describe el error de digitación que se corrige...'),
+			{ target: { value: 'Tarifa mal digitada' } }
+		);
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Aplicar corrección' }));
+		expect(await within(dialogo).findByRole('alert')).toHaveTextContent(
+			'No se pudo editar la renta cerrada.'
+		);
+		await fireEvent.keyDown(document, { key: 'Escape' });
+		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+
+		// 2) Inspección (renta #5) — aria-label único: el title se repite en cada fila
+		vi.spyOn(rentaApi, 'registrarInspeccion').mockRejectedValueOnce(new Error('red muerta'));
+		await fireEvent.click(screen.getByLabelText('Registrar inspección para renta #5'));
+		dialogo = await screen.findByRole('dialog');
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Registrar inspección' }));
+		expect(await within(dialogo).findByRole('alert')).toHaveTextContent(
+			'No se pudo registrar la inspección.'
+		);
+	});
+
+	it('al cancelar y al eliminar (toasts genéricos, sin cerrar el diálogo)', async () => {
+		tauri.register('listar_rentas', () => [renta({ id: 4 })]);
+		toasts.splice(0);
+
+		render(RentasPage);
+		await screen.findByText('Cliente de Prueba');
+
+		// 1) Cancelar
+		vi.spyOn(rentaApi, 'cancelar').mockRejectedValueOnce(new Error('red muerta'));
+		await fireEvent.click(screen.getByTitle('Cancelar renta'));
+		let dialogo = await screen.findByRole('dialog');
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Cancelar renta' }));
+		await waitFor(() =>
+			expect(
+				toasts.some((t) => t.type === 'error' && t.message === 'No se pudo cancelar la renta.')
+			).toBe(true)
+		);
+		expect(screen.getByRole('dialog')).toBeInTheDocument();
+		await fireEvent.keyDown(document, { key: 'Escape' });
+		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+
+		// 2) Eliminar
+		vi.spyOn(rentaApi, 'eliminar').mockRejectedValueOnce(new Error('red muerta'));
+		await fireEvent.click(screen.getByTitle('Eliminar'));
+		dialogo = await screen.findByRole('dialog');
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Eliminar' }));
+		await waitFor(() =>
+			expect(
+				toasts.some((t) => t.type === 'error' && t.message === 'No se pudo eliminar la renta.')
+			).toBe(true)
+		);
+		expect(screen.getByRole('dialog')).toBeInTheDocument();
 	});
 });

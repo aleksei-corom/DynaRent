@@ -5,6 +5,7 @@ import { goto } from '$app/navigation';
 import { tauri } from '../../test/tauri';
 import { session } from '#lib/stores/session.svelte.js';
 import { toasts } from '#lib/stores/toast.svelte.js';
+import { comparendoApi, simitApi } from '#lib/api.js';
 import type {
 	Comparendo,
 	ComparendoDatos,
@@ -1609,5 +1610,96 @@ describe('panel del Agente SIMIT', () => {
 
 		// findByRole espera a que el panel del Agente SIMIT termine de cargar
 		expect(await screen.findByRole('button', { name: 'Sincronizar ahora' })).toBeInTheDocument();
+	});
+});
+
+// ── Tanda: fallbacks «genérico» de `e instanceof ApiError` ejercitados con
+// vi.spyOn a nivel de módulo de API — el rechazo NO pasa por invokeCmd (que
+// normaliza a ApiError), así que la página debe caer al mensaje genérico.
+// Los spies usan mockRejectedValueOnce (auto-limitante): al agotarse delegan
+// en la implementación original, sin contaminar otros tests del archivo.
+describe('Comparendos — fallbacks de ApiError con error no normalizado', () => {
+	it('cargarAgente: el error no normalizado SÍ llega a console.error', async () => {
+		tauri.register('listar_comparendos', () => []);
+		const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		vi.spyOn(simitApi, 'estado').mockRejectedValueOnce(new Error('red muerta'));
+
+		render(ComparendosPage);
+		await screen.findByText('No hay comparendos');
+
+		// Rama `!(e instanceof ApiError)`: sin backend normalizado se loguea
+		await waitFor(() =>
+			expect(errSpy).toHaveBeenCalledWith(
+				'No se pudo consultar el estado del Agente SIMIT',
+				expect.any(Error)
+			)
+		);
+		// Y el panel del agente queda ausente (agente = null)
+		expect(screen.queryByText('Agente SIMIT')).not.toBeInTheDocument();
+		errSpy.mockRestore();
+	});
+
+	it('sincronizar ahora con error no normalizado → toast genérico y botón recuperado', async () => {
+		tauri.register('listar_comparendos', () => []);
+		tauri.register('simit_sync_status', () => infoAgente());
+		toasts.splice(0);
+		vi.spyOn(simitApi, 'sincronizarAhora').mockRejectedValueOnce(new Error('red muerta'));
+
+		render(ComparendosPage);
+		await fireEvent.click(await screen.findByRole('button', { name: 'Sincronizar ahora' }));
+
+		await waitFor(() =>
+			expect(hayToast('error', 'No se pudo sincronizar con el SIMIT.')).toBe(true)
+		);
+		expect(screen.getByRole('button', { name: 'Sincronizar ahora' })).toBeEnabled();
+	});
+
+	it('cargar la lista con error no normalizado → toast genérico y estado vacío', async () => {
+		toasts.splice(0);
+		vi.spyOn(comparendoApi, 'listar').mockRejectedValueOnce(new Error('red muerta'));
+
+		render(ComparendosPage);
+
+		await waitFor(() =>
+			expect(hayToast('error', 'No se pudieron cargar los comparendos.')).toBe(true)
+		);
+		expect(await screen.findByText('No hay comparendos')).toBeInTheDocument();
+	});
+
+	it('guardar, marcar pagado y eliminar con error no normalizado → genéricos', async () => {
+		tauri.register('listar_comparendos', () => [comparendo({ id: 7 })]);
+		toasts.splice(0);
+
+		render(ComparendosPage);
+		await screen.findByText('Exceso de velocidad');
+
+		// 1) Guardar (editar) → formError genérico, el modal sigue abierto
+		vi.spyOn(comparendoApi, 'actualizar').mockRejectedValueOnce(new Error('red muerta'));
+		await fireEvent.click(screen.getByTitle('Editar'));
+		let dialogo = await screen.findByRole('dialog');
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Guardar cambios' }));
+		expect(await within(dialogo).findByRole('alert')).toHaveTextContent(
+			'No se pudo guardar el comparendo.'
+		);
+		await fireEvent.keyDown(document, { key: 'Escape' });
+		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+
+		// 2) Marcar pagado → toast genérico (el catch limpia pagandoId → se cierra)
+		vi.spyOn(comparendoApi, 'marcarPagado').mockRejectedValueOnce(new Error('red muerta'));
+		await fireEvent.click(screen.getByTitle('Marcar como pagado'));
+		dialogo = await screen.findByRole('dialog');
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Marcar pagado' }));
+		await waitFor(() =>
+			expect(hayToast('error', 'No se pudo marcar el comparendo como pagado.')).toBe(true)
+		);
+		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+
+		// 3) Eliminar → toast genérico (el diálogo permanece abierto para reintentar)
+		vi.spyOn(comparendoApi, 'eliminar').mockRejectedValueOnce(new Error('red muerta'));
+		await fireEvent.click(screen.getByTitle('Eliminar'));
+		dialogo = await screen.findByRole('dialog');
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Eliminar' }));
+		await waitFor(() => expect(hayToast('error', 'No se pudo eliminar el comparendo.')).toBe(true));
+		expect(screen.getByRole('dialog')).toBeInTheDocument();
 	});
 });

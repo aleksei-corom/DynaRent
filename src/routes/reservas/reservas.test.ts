@@ -6,7 +6,7 @@ import { session } from '#lib/stores/session.svelte.js';
 import { toasts } from '#lib/stores/toast.svelte.js';
 import { businessLists } from '#lib/stores/business.svelte.js';
 import { goto } from '$app/navigation';
-import type { Reserva, Auto, Cliente, BusinessLists } from '#lib/api.js';
+import { reservaApi, type Reserva, type Auto, type Cliente, type BusinessLists } from '#lib/api.js';
 import ReservasPage from './+page.svelte';
 
 function reserva(overrides: Partial<Reserva> = {}): Reserva {
@@ -83,6 +83,7 @@ afterEach(() => {
 	document.getElementById('print-clone')?.remove();
 	document.body.classList.remove('printing', 'printing-clone');
 	vi.unstubAllGlobals();
+	vi.restoreAllMocks(); // restaura los vi.spyOn de la capa API (fallbacks ApiError)
 });
 
 describe('página de Reservas', () => {
@@ -822,5 +823,106 @@ describe('Reservas — modales, confirmaciones y servidor web caído', () => {
 			expect(screen.getAllByDisplayValue('Ana Con Datos').length).toBeGreaterThan(0)
 		);
 		expect(screen.getByDisplayValue('Colombiana')).toBeInTheDocument();
+	});
+});
+
+// ── Tanda: syncWeb ya NO traga los errores de red (Opción A) y fallbacks
+// «genérico» de `e instanceof ApiError` ejercitados con vi.spyOn a nivel de
+// módulo de API (el error no pasa por invokeCmd, que normaliza a ApiError).
+describe('Reservas — errores de red y fallbacks de ApiError', () => {
+	it('servidor web caído: sin badge y la sincronización muestra el fallo real', async () => {
+		tauri.register('listar_reservas', () => [reserva()]);
+		toasts.splice(0);
+		// GET/POST de la web rechazan: antes syncWeb lo tragaba y la página
+		// mostraba «No hay reservas web pendientes por importar» (engañoso).
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(() => Promise.reject(new Error('ECONNREFUSED')))
+		);
+
+		render(ReservasPage);
+		await screen.findByText('Juan Perez');
+		// verificarPendientesWeb: el catch (antes muerto) pone count = 0 → sin badge
+		expect(screen.queryByText('3')).not.toBeInTheDocument();
+
+		await fireEvent.click(screen.getByTitle(/Sincronizar reservas pagadas/));
+
+		// sincronizarConWeb: el error propaga y el catch muestra el fallo REAL
+		await waitFor(() =>
+			expect(toasts.some((t) => t.type === 'error' && t.message === 'ECONNREFUSED')).toBe(true)
+		);
+		// Y no el mensaje engañoso de «sin pendientes»
+		expect(toasts.some((t) => t.message === 'No hay reservas web pendientes por importar.')).toBe(
+			false
+		);
+		// finally → el botón se rehabilita
+		expect(screen.getByTitle(/Sincronizar reservas pagadas/)).toBeEnabled();
+	});
+
+	it('fallback genérico al cargar: el error no normalizado no rompe la página', async () => {
+		tauri.register('listar_reservas', () => []);
+		toasts.splice(0);
+		vi.spyOn(reservaApi, 'listar').mockRejectedValueOnce(new Error('fallo de red puro'));
+
+		render(ReservasPage);
+
+		await waitFor(() =>
+			expect(
+				toasts.some(
+					(t) => t.type === 'error' && t.message === 'No se pudieron cargar las reservas.'
+				)
+			).toBe(true)
+		);
+		expect(await screen.findByText(/No hay reservas/i)).toBeInTheDocument();
+	});
+
+	it('fallbacks genéricos en guardar, cancelar y eliminar (error no normalizado)', async () => {
+		tauri.register('listar_reservas', () => [reserva()]);
+		toasts.splice(0);
+
+		render(ReservasPage);
+		await screen.findByText('Juan Perez');
+
+		// 1) Guardar → formError genérico (el modal sigue abierto)
+		const crearSpy = vi.spyOn(reservaApi, 'crear').mockRejectedValueOnce(new Error('red muerta'));
+		await fireEvent.click(screen.getByRole('button', { name: 'Nueva Reserva' }));
+		const dialogo = await screen.findByRole('dialog');
+		await fireEvent.input(screen.getByPlaceholderText('Nombre para la reserva'), {
+			target: { value: 'Reserva Test' }
+		});
+		const fechas = dialogo.querySelectorAll('input[type="date"]');
+		await fijar(fechas[0], '2026-08-01');
+		await fijar(fechas[1], '2026-08-04');
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Crear reserva' }));
+		expect(await within(dialogo).findByRole('alert')).toHaveTextContent(
+			'No se pudo guardar la reserva.'
+		);
+		crearSpy.mockRestore();
+		await fireEvent.keyDown(document, { key: 'Escape' });
+		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+
+		// 2) Cancelar → toast genérico
+		vi.spyOn(reservaApi, 'cancelar').mockRejectedValueOnce(new Error('red muerta'));
+		await fireEvent.click(screen.getByLabelText('Cancelar reserva #1'));
+		const dlgCancelar = await screen.findByRole('dialog');
+		await fireEvent.click(within(dlgCancelar).getByRole('button', { name: 'Cancelar reserva' }));
+		await waitFor(() =>
+			expect(
+				toasts.some((t) => t.type === 'error' && t.message === 'No se pudo cancelar la reserva.')
+			).toBe(true)
+		);
+
+		// 3) Eliminar → toast genérico (el diálogo permanece abierto)
+		await fireEvent.keyDown(document, { key: 'Escape' });
+		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+		vi.spyOn(reservaApi, 'eliminar').mockRejectedValueOnce(new Error('red muerta'));
+		await fireEvent.click(screen.getByLabelText('Eliminar reserva #1'));
+		const dlgEliminar = await screen.findByRole('dialog');
+		await fireEvent.click(within(dlgEliminar).getByRole('button', { name: 'Eliminar' }));
+		await waitFor(() =>
+			expect(
+				toasts.some((t) => t.type === 'error' && t.message === 'No se pudo eliminar la reserva.')
+			).toBe(true)
+		);
 	});
 });

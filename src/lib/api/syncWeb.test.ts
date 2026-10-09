@@ -102,13 +102,12 @@ describe('syncWebApi.consultarPendientes', () => {
 		expect(r).toEqual({ ok: true, count: 0, reservations: [] });
 	});
 
-	it('devuelve ok:false si fetch explota (sin URL accesible)', async () => {
+	it('propaga el error de red (no lo traga como ok:false)', async () => {
 		vi.stubGlobal('fetch', fetchMock);
 		fetchMock.mockRejectedValue(new Error('ECONNREFUSED'));
 
-		const r = await syncWebApi.consultarPendientes();
-
-		expect(r).toEqual({ ok: false, count: 0, reservations: [] });
+		// El caller debe distinguir «servidor respondió 0» de «no pude contactar»
+		await expect(syncWebApi.consultarPendientes()).rejects.toThrow('ECONNREFUSED');
 	});
 });
 
@@ -257,13 +256,14 @@ describe('syncWebApi.sincronizarReservas', () => {
 		expect(r.errores).toEqual(['WEB-ROTA: firebird dice no']);
 	});
 
-	it('si la consulta de pendientes revienta, ok:false con el error', async () => {
+	it('si la consulta de pendientes revienta, el error propaga a la página', async () => {
 		vi.stubGlobal('fetch', fetchMock);
 		vi.spyOn(syncWebApi, 'consultarPendientes').mockRejectedValue(new Error('red caída'));
 
-		const r = await syncWebApi.sincronizarReservas('sid');
-
-		expect(r.ok).toBe(false);
-		expect(r.errores).toEqual(['red caída']);
+		// La página tiene su propio catch (toast «Error al conectar con el
+		// servidor web»); aquí se comprueba que el error NO se convierte en
+		// un resultado vacío con ok:true que mostraría «No hay pendientes».
+		await expect(syncWebApi.sincronizarReservas('sid')).rejects.toThrow('red caída');
+		expect(crearReserva).not.toHaveBeenCalled();
 	});
 });
