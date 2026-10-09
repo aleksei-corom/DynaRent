@@ -69,7 +69,14 @@ export default defineConfig({
 			//          consultarPendientes en reservas, 2849/3504 ramas; 616 tests) →
 			//   81.45 (tanda gastos+clientes: fallbacks «genérico» con vi.spyOn de
 			//          módulo; primer archivo de tests de backups — 12 tests que
-			//          cubren el 85% de sus ramas nuevas, 2934/3602 ramas; 633 tests).
+			//          cubren el 85% de sus ramas nuevas, 2934/3602 ramas; 633 tests) →
+			//   81.44 (tanda logs+dashboard: primeros archivos de tests de ambas páginas
+			//          — 10 tests de Dashboard (KPIs, flotas/alertas vacías, errores
+			//          ApiError + fallback genérico, guard de sesión, diálogo PII) y
+			//          17 de Logs (pestañas/líneas, guard de rol y sesión, truncado con
+			//          confirm, exportación con nombre local, copiado y fallbacks) —
+			//          logs/+page.svelte al 100% de ramas, dashboard 74.32%, 3015/3702
+			//          ramas; 660 tests).
 			// Se fija el piso honesto (margen ~0.5-1 pts entre plataformas)
 			// como RATCHET: subir este número junto con cada tanda de tests que
 			// cubra ramas nuevas, nunca bajarlo.
