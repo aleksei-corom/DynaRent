@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/svelte';
 import { tauri } from '../../test/tauri';
 import { session } from '#lib/stores/session.svelte.js';
+import { toasts } from '#lib/stores/toast.svelte.js';
 import type {
 	Mantenimiento,
 	MantenimientoDatos,
@@ -326,5 +327,345 @@ describe('página de Mantenimiento', () => {
 		await waitFor(() => expect(listar).toHaveBeenCalledTimes(2), { timeout: 2000 });
 		const args = listar.mock.calls[1][0] as { sessionId: string; placa: string | null };
 		expect(args.placa).toBe('XYZ987');
+	});
+});
+
+// ── Tanda de cobertura de ramas: errores de carga, filtros con debounce,
+// validaciones del formulario, estados vacíos de las tarjetas y filas con
+// datos opcionales ausentes.
+describe('Mantenimiento — ramas de error, filtros y validaciones', () => {
+	/** Abre el modal y elige vehículo (y opcionalmente tipo/costo/fecha). */
+	async function abrirModal(
+		opciones: { tipo?: string; costo?: string; fecha?: string } = {}
+	): Promise<HTMLElement> {
+		await fireEvent.click(screen.getByRole('button', { name: 'Registrar Mantenimiento' }));
+		const dialogo = await screen.findByRole('dialog');
+		const combo = within(dialogo).getByPlaceholderText('Buscar placa, marca o modelo…');
+		await fireEvent.focus(combo);
+		await fireEvent.input(combo, { target: { value: 'ABC123' } });
+		await fireEvent.keyDown(combo, { key: 'Enter' });
+		if (opciones.tipo !== undefined) {
+			const tipoSelect = within(dialogo).getByDisplayValue('Selecciona...');
+			await fireEvent.change(tipoSelect, { target: { value: opciones.tipo } });
+		}
+		if (opciones.costo !== undefined) {
+			await fireEvent.input(within(dialogo).getByPlaceholderText('Ej: 350000'), {
+				target: { value: opciones.costo }
+			});
+		}
+		if (opciones.fecha !== undefined) {
+			const fecha = dialogo.querySelector('input[type="date"]') as HTMLInputElement;
+			await fireEvent.input(fecha, { target: { value: opciones.fecha } });
+		}
+		return dialogo;
+	}
+
+	it('usa listas y roles por defecto cuando get_business_lists falla', async () => {
+		tauri.register('listar_mantenimientos', () => [mantenimiento()]);
+		tauri.register('get_business_lists', () => {
+			throw { kind: 'database', message: 'Config caída' };
+		});
+
+		render(MantenimientoPage);
+		await screen.findByText('Cambio de aceite 15W-40');
+
+		// rolesConEliminar cae al array por defecto → Administrador sí elimina
+		expect(screen.getByTitle('Eliminar')).toBeInTheDocument();
+		// tiposMantenimiento cae a la lista default (en mayúsculas)
+		const tipoFiltro = screen.getByLabelText('Filtrar por tipo');
+		expect(within(tipoFiltro).getByRole('option', { name: 'CAMBIO ACEITE' })).toBeInTheDocument();
+	});
+
+	it('mantiene las tarjetas vacías cuando totales_mantenimiento falla', async () => {
+		tauri.register('listar_mantenimientos', () => []);
+		tauri.register('totales_mantenimiento', () => {
+			throw { kind: 'database', message: 'Totales caídos' };
+		});
+
+		render(MantenimientoPage);
+		await screen.findByText('No hay mantenimientos');
+
+		expect(await screen.findByText('Sin mantenimientos por placa')).toBeInTheDocument();
+		expect(screen.getByText('Sin mantenimientos por tipo')).toBeInTheDocument();
+	});
+
+	it('sin panel de alertas cuando alertas_km_mantenimiento falla', async () => {
+		tauri.register('listar_mantenimientos', () => []);
+		tauri.register('alertas_km_mantenimiento', () => {
+			throw { kind: 'database', message: 'Alertas caídas' };
+		});
+
+		render(MantenimientoPage);
+		await screen.findByText('No hay mantenimientos');
+
+		expect(screen.queryByText('Alertas por kilometraje')).not.toBeInTheDocument();
+	});
+
+	it('reporta el error de carga en el store de toasts', async () => {
+		tauri.register('listar_mantenimientos', () => {
+			throw { kind: 'database', message: 'Tabla de mantenimientos caída' };
+		});
+
+		render(MantenimientoPage);
+		await screen.findByText('No hay mantenimientos');
+
+		await waitFor(() =>
+			expect(toasts.some((t) => t.message.includes('Tabla de mantenimientos caída'))).toBe(true)
+		);
+	});
+
+	it('recarga con debounce al buscar por texto', async () => {
+		const listar = vi.fn((_args: { sessionId: string; busqueda: string | null }) => [
+			mantenimiento()
+		]);
+		tauri.register('listar_mantenimientos', listar);
+
+		render(MantenimientoPage);
+		await screen.findByText('Cambio de aceite 15W-40');
+		expect(listar).toHaveBeenCalledTimes(1);
+
+		await fireEvent.input(screen.getByPlaceholderText('Buscar por placa, tipo o descripción...'), {
+			target: { value: 'aceite' }
+		});
+
+		await waitFor(() => expect(listar).toHaveBeenCalledTimes(2), { timeout: 2000 });
+		const args = listar.mock.calls[1][0] as { busqueda: string | null };
+		expect(args.busqueda).toBe('aceite');
+	});
+
+	it('filtra por tipo con el selector', async () => {
+		const listar = vi.fn((_args: { sessionId: string; tipo: string | null }) => [mantenimiento()]);
+		tauri.register('listar_mantenimientos', listar);
+
+		render(MantenimientoPage);
+		await screen.findByText('Cambio de aceite 15W-40');
+		expect(listar).toHaveBeenCalledTimes(1);
+
+		await fireEvent.change(screen.getByLabelText('Filtrar por tipo'), {
+			target: { value: 'FRENOS' }
+		});
+
+		await waitFor(() => expect(listar).toHaveBeenCalledTimes(2), { timeout: 2000 });
+		const args = listar.mock.calls[1][0] as { tipo: string | null };
+		expect(args.tipo).toBe('FRENOS');
+	});
+
+	it('valida el tipo de mantenimiento vacío', async () => {
+		tauri.register('listar_mantenimientos', () => []);
+		const crear = vi.fn(() => mantenimiento());
+		tauri.register('crear_mantenimiento', crear);
+
+		render(MantenimientoPage);
+		await screen.findByText('No hay mantenimientos');
+		await abrirModal({ costo: '1000' });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Registrar mantenimiento' }));
+
+		await waitFor(() =>
+			expect(screen.getByRole('alert')).toHaveTextContent(
+				'El tipo de mantenimiento es obligatorio.'
+			)
+		);
+		expect(crear).not.toHaveBeenCalled();
+	});
+
+	it('valida la fecha vacía', async () => {
+		tauri.register('listar_mantenimientos', () => []);
+		const crear = vi.fn(() => mantenimiento());
+		tauri.register('crear_mantenimiento', crear);
+
+		render(MantenimientoPage);
+		await screen.findByText('No hay mantenimientos');
+		await abrirModal({ tipo: 'FRENOS', costo: '1000', fecha: '' });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Registrar mantenimiento' }));
+
+		await waitFor(() =>
+			expect(screen.getByRole('alert')).toHaveTextContent('La fecha es obligatoria.')
+		);
+		expect(crear).not.toHaveBeenCalled();
+	});
+
+	it('valida el costo no numérico y el costo cero', async () => {
+		tauri.register('listar_mantenimientos', () => []);
+		const crear = vi.fn(() => mantenimiento());
+		tauri.register('crear_mantenimiento', crear);
+
+		render(MantenimientoPage);
+		await screen.findByText('No hay mantenimientos');
+		await abrirModal({ tipo: 'FRENOS', costo: 'abc' });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Registrar mantenimiento' }));
+		await waitFor(() =>
+			expect(screen.getByRole('alert')).toHaveTextContent(
+				'El costo debe ser un número mayor que cero.'
+			)
+		);
+
+		// Ahora costo = 0 → la rama `costo <= 0` también debe cortar el guardado
+		await fireEvent.input(screen.getByPlaceholderText('Ej: 350000'), {
+			target: { value: '0' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Registrar mantenimiento' }));
+		await new Promise((r) => setTimeout(r, 50));
+		expect(screen.getByRole('alert')).toHaveTextContent(
+			'El costo debe ser un número mayor que cero.'
+		);
+		expect(crear).not.toHaveBeenCalled();
+	});
+
+	it('muestra el error del backend al guardar', async () => {
+		tauri.register('listar_mantenimientos', () => []);
+		tauri.register('crear_mantenimiento', () => {
+			throw { kind: 'Business', message: 'El vehículo tiene una renta activa.' };
+		});
+
+		render(MantenimientoPage);
+		await screen.findByText('No hay mantenimientos');
+		await abrirModal({ tipo: 'FRENOS', costo: '150000' });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Registrar mantenimiento' }));
+
+		await waitFor(() =>
+			expect(screen.getByRole('alert')).toHaveTextContent('El vehículo tiene una renta activa.')
+		);
+	});
+
+	it('muestra el error del backend al editar', async () => {
+		tauri.register('listar_mantenimientos', () => [mantenimiento({ id: 7 })]);
+		tauri.register('actualizar_mantenimiento', () => {
+			throw { kind: 'Business', message: 'Mantenimiento cerrado contablemente.' };
+		});
+
+		render(MantenimientoPage);
+		await screen.findByText('Cambio de aceite 15W-40');
+		await fireEvent.click(screen.getByTitle('Editar'));
+		const dialogo = await screen.findByRole('dialog');
+
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Guardar cambios' }));
+
+		await waitFor(() =>
+			expect(screen.getByRole('alert')).toHaveTextContent('Mantenimiento cerrado contablemente.')
+		);
+	});
+
+	it('reporta el error de eliminar en toasts', async () => {
+		tauri.register('listar_mantenimientos', () => [mantenimiento({ id: 3 })]);
+		tauri.register('eliminar_mantenimiento', () => {
+			throw { kind: 'Business', message: 'Tiene rentas asociadas.' };
+		});
+
+		render(MantenimientoPage);
+		await screen.findByText('Cambio de aceite 15W-40');
+		await fireEvent.click(screen.getByTitle('Eliminar'));
+		const dialogo = await screen.findByRole('dialog');
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Eliminar' }));
+
+		await waitFor(() =>
+			expect(toasts.some((t) => t.message.includes('Tiene rentas asociadas.'))).toBe(true)
+		);
+	});
+
+	it('cancelar la eliminación no llama al backend', async () => {
+		tauri.register('listar_mantenimientos', () => [mantenimiento({ id: 3 })]);
+		const eliminar = vi.fn(() => undefined);
+		tauri.register('eliminar_mantenimiento', eliminar);
+
+		render(MantenimientoPage);
+		await screen.findByText('Cambio de aceite 15W-40');
+		await fireEvent.click(screen.getByTitle('Eliminar'));
+		const dialogo = await screen.findByRole('dialog');
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Cancelar' }));
+
+		await waitFor(() =>
+			expect(screen.queryByText('Eliminar mantenimiento')).not.toBeInTheDocument()
+		);
+		expect(eliminar).not.toHaveBeenCalled();
+	});
+
+	it('sincroniza el km próximo de aceite al cambiar de vehículo', async () => {
+		tauri.register('listar_mantenimientos', () => []);
+
+		render(MantenimientoPage);
+		await screen.findByText('No hay mantenimientos');
+		const dialogo = await abrirModal();
+		const kmInput = within(dialogo).getByPlaceholderText('Ej: 50000') as HTMLInputElement;
+		// ABC123 tiene proximoAceite = 50000
+		expect(kmInput.value).toBe('50000');
+
+		// XYZ987 no tiene proximoAceite → limpia el campo
+		const combo = within(dialogo).getByPlaceholderText('Buscar placa, marca o modelo…');
+		await fireEvent.input(combo, { target: { value: 'XYZ987' } });
+		await fireEvent.keyDown(combo, { key: 'Enter' });
+		await waitFor(() => expect(kmInput.value).toBe(''));
+
+		// Volver a ABC123 → vuelve a autocompletar
+		await fireEvent.input(combo, { target: { value: 'ABC123' } });
+		await fireEvent.keyDown(combo, { key: 'Enter' });
+		await waitFor(() => expect(kmInput.value).toBe('50000'));
+	});
+
+	it('pinta filas con datos opcionales vacíos y singular', async () => {
+		tauri.register('listar_mantenimientos', () => [
+			mantenimiento({
+				id: 4,
+				vehiculo: null as unknown as string,
+				descripcion: null,
+				observaciones: 'Revisar pastillas delanteras',
+				kmProximoCambioAceite: null
+			})
+		]);
+
+		render(MantenimientoPage);
+		expect(await screen.findByText('Revisar pastillas delanteras')).toBeInTheDocument();
+		// descripción vacía y km vacío → em dash
+		expect(screen.getAllByText('—').length).toBeGreaterThan(0);
+		expect(screen.getByText(/1 registro de mantenimiento/)).toBeInTheDocument();
+		expect(screen.getByText(/1 mantenimiento/)).toBeInTheDocument();
+	});
+
+	it('muestra alertas de km no críticas con estilo de alerta', async () => {
+		tauri.register('listar_mantenimientos', () => []);
+		tauri.register('alertas_km_mantenimiento', () => [
+			{
+				placa: 'XYZ987',
+				marca: 'Mazda',
+				modelo: 'CX-5',
+				tipo: 'Frenos',
+				kmActual: 48000,
+				kmProximo: 50000,
+				kmRestante: 2000,
+				critica: false
+			}
+		]);
+
+		render(MantenimientoPage);
+		expect(await screen.findByText('Alertas por kilometraje')).toBeInTheDocument();
+		expect(screen.getByText(/Frenos en 2\.000 km \(próx\. 50\.000 km\)/)).toBeInTheDocument();
+		// Sin ninguna crítica → borde/icono de alerta ámbar, no rojo
+		const panel = screen.getByText('Alertas por kilometraje').closest('.rounded-xl');
+		expect(panel?.className).toContain('border-alerta/25');
+	});
+
+	it('muestra «Guardando...» mientras persiste el registro', async () => {
+		tauri.register('listar_mantenimientos', () => []);
+		let resolver: (v: Mantenimiento) => void = () => {};
+		tauri.register(
+			'crear_mantenimiento',
+			() =>
+				new Promise<Mantenimiento>((res) => {
+					resolver = res;
+				})
+		);
+
+		render(MantenimientoPage);
+		await screen.findByText('No hay mantenimientos');
+		await abrirModal({ tipo: 'FRENOS', costo: '150000' });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Registrar mantenimiento' }));
+
+		expect(await screen.findByText('Guardando...')).toBeInTheDocument();
+		resolver(mantenimiento({ id: 9 }));
+		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 	});
 });

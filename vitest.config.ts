@@ -48,16 +48,20 @@ export default defineConfig({
 			reporter: ['text', 'lcov'],
 			// Umbral mínimo exigido: 80 % en statements/lines/functions (medidos
 			// el 2026-10-07: 80.94 / 82.13 / 80.57 con 45 archivos de test).
-			// RAMAS: la meta final es 80 %. Ratchet histórico medido con lcov:
+			// RAMAS: la meta final es 80 % y ya se alcanzó. Ratchet histórico
+			// medido con lcov:
 			//   61.69 (inicio) → 67.32 (tanda rentas+reservas) →
 			//   72.56 (tanda usuarios+autos+comparendos, 2538/3498 ramas) →
-			//   75.36 (tanda reports+auditoría+empresa, 2636/3498 ramas).
-			// Se fija el piso honesto 75 (margen ~0.5 pts entre plataformas) como
-			// RATCHET: subir este número junto con cada tanda de tests que
+			//   75.36 (tanda reports+auditoría+empresa, 2636/3498 ramas) →
+			//   77.84 (tanda componentes+informes+gastos, 2723/3498 ramas) →
+			//   80.25 (tanda mantenimiento+alertas+comparendos+calendario+
+			//          stores/utils, 2807/3498 ramas; 589 tests).
+			// Se fija el piso honesto 79.5 (margen ~0.75 pts entre plataformas)
+			// como RATCHET: subir este número junto con cada tanda de tests que
 			// cubra ramas nuevas, nunca bajarlo.
 			thresholds: {
 				statements: 80,
-				branches: 75,
+				branches: 79.5,
 				functions: 80,
 				lines: 80
 			}

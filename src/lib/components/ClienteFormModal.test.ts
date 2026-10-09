@@ -5,6 +5,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
 import { tauri } from '../../test/tauri';
 import { session } from '#lib/stores/session.svelte.js';
 import type { Cliente, ClienteConPii, BusinessLists } from '#lib/api.js';
+import type { ComponentProps } from 'svelte';
 import ClienteFormModal from './ClienteFormModal.svelte';
 
 function cliente(overrides: Partial<Cliente> = {}): Cliente {
@@ -268,5 +269,139 @@ describe('panel copiar cliente', () => {
 		await sleep(50);
 		expect(screen.queryByText('Ana Pérez')).not.toBeInTheDocument();
 		expect(screen.getByText('Luis Gómez')).toBeInTheDocument();
+	});
+});
+
+describe('guardado, edición y listas alternativas', () => {
+	const nombres = () => screen.getByPlaceholderText('Nombres del cliente') as HTMLInputElement;
+
+	function renderCon(overrides: Partial<ComponentProps<typeof ClienteFormModal>> = {}) {
+		return render(ClienteFormModal, {
+			open: true,
+			editando: null,
+			lists: LISTS,
+			clientes: [],
+			onClose: vi.fn(),
+			onGuardado: vi.fn(),
+			...overrides
+		});
+	}
+
+	it('crea el cliente y notifica onGuardado', async () => {
+		const r = conPii(cliente({ id: 9, nombres: 'Nuevo' }));
+		const crear = vi.fn((_args: { sessionId: string; datos: { nombres: string } }) => r);
+		tauri.register('crear_cliente', crear);
+		const onGuardado = vi.fn();
+		renderCon({ onGuardado });
+
+		await fireEvent.input(nombres(), { target: { value: 'Nuevo' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Crear cliente' }));
+
+		await waitFor(() => expect(onGuardado).toHaveBeenCalledWith(r));
+		expect(crear).toHaveBeenCalledTimes(1);
+		const args = crear.mock.calls[0][0] as { sessionId: string; datos: { nombres: string } };
+		expect(args.sessionId).toBe('tok-test');
+		expect(args.datos.nombres).toBe('Nuevo');
+	});
+
+	it('exige el nombre antes de llamar al backend', async () => {
+		const crear = vi.fn(() => conPii(cliente()));
+		tauri.register('crear_cliente', crear);
+		renderCon();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Crear cliente' }));
+		expect(await screen.findByRole('alert')).toHaveTextContent(
+			'El nombre del cliente es obligatorio.'
+		);
+		expect(crear).not.toHaveBeenCalled();
+	});
+
+	it('edita un cliente existente y llama a actualizar con el id', async () => {
+		const r = conPii(cliente({ id: 5, nombres: 'Editada' }));
+		const actualizar = vi.fn((_args: { sessionId: string; id: number }) => r);
+		tauri.register('actualizar_cliente', actualizar);
+		const onGuardado = vi.fn();
+		// Campos null → cubre los fallbacks `?? ''` de desdeCliente.
+		renderCon({
+			editando: cliente({
+				id: 5,
+				nombres: 'Editada',
+				celular2: null,
+				email: null,
+				ciudad: null,
+				estadoRegion: null,
+				noLicencia: null,
+				tipoLicencia: null,
+				vencimientoLicencia: null,
+				dirTemporal: null
+			}),
+			onGuardado
+		});
+
+		// El título identifica la edición y el botón pide «Guardar cambios»
+		expect(screen.getByText('Editar cliente #5')).toBeInTheDocument();
+		expect(nombres().value).toBe('Editada');
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+		await waitFor(() => expect(onGuardado).toHaveBeenCalledWith(r));
+		const args = actualizar.mock.calls[0][0] as { sessionId: string; id: number };
+		expect(args.sessionId).toBe('tok-test');
+		expect(args.id).toBe(5);
+		// Oculta el panel de copia en modo edición
+		expect(
+			screen.queryByRole('button', { name: /Copiar datos de un cliente existente/ })
+		).not.toBeInTheDocument();
+	});
+
+	it('muestra el mensaje del ApiError cuando el backend lo rechaza', async () => {
+		tauri.register('crear_cliente', () => {
+			throw { kind: 'Validacion', message: 'El documento ya existe.' };
+		});
+		renderCon();
+
+		await fireEvent.input(nombres(), { target: { value: 'Duplicado' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Crear cliente' }));
+		expect(await screen.findByRole('alert')).toHaveTextContent('El documento ya existe.');
+	});
+
+	it('muestra error genérico cuando la falla no es un ApiError', async () => {
+		// invokeCmd normaliza los errores de backend a ApiError; el fallback
+		// genérico solo dispara si algo ajeno al backend falla (onGuardado).
+		tauri.register('crear_cliente', () => conPii(cliente()));
+		const onGuardado = vi.fn(() => {
+			throw new Error('callback roto');
+		});
+		renderCon({ onGuardado });
+
+		await fireEvent.input(nombres(), { target: { value: 'Falla' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Crear cliente' }));
+		expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo guardar el cliente.');
+		// Y el botón se rehabilita (finally de guardando)
+		await waitFor(() =>
+			expect(screen.getByRole('button', { name: 'Crear cliente' })).toBeEnabled()
+		);
+	});
+
+	it('usa sessionId vacío cuando la sesión no tiene token', async () => {
+		session.clear();
+		const crear = vi.fn((_args: { sessionId: string }) => conPii(cliente()));
+		tauri.register('crear_cliente', crear);
+		renderCon();
+
+		await fireEvent.input(nombres(), { target: { value: 'SinSesion' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Crear cliente' }));
+		await waitFor(() => expect(crear).toHaveBeenCalled());
+		const args = crear.mock.calls[0][0] as { sessionId: string };
+		expect(args.sessionId).toBe('');
+	});
+
+	it('cae a las listas por defecto cuando lists es null', async () => {
+		renderCon({ lists: null });
+		const selects = document.querySelectorAll('select');
+		// Fallback de tiposDoc
+		expect(screen.getByText('Pasaporte')).toBeInTheDocument();
+		// Fallback de estadosCliente
+		expect(screen.getByText('Lista Negra')).toBeInTheDocument();
+		expect(selects.length).toBeGreaterThanOrEqual(2);
 	});
 });

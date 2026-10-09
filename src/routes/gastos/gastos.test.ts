@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/svelte';
 import { tauri } from '../../test/tauri';
 import { session } from '#lib/stores/session.svelte.js';
+import { toasts } from '#lib/stores/toast.svelte.js';
 import type { Gasto, GastoDatos, TotalesGastos, Auto, BusinessLists } from '#lib/api.js';
 import GastosPage from './+page.svelte';
 
@@ -289,5 +290,139 @@ describe('página de Gastos', () => {
 		await waitFor(() => expect(listar).toHaveBeenCalledTimes(2), { timeout: 2000 });
 		const args = listar.mock.calls[1][0] as { sessionId: string; placa: string | null };
 		expect(args.placa).toBe('XYZ987');
+	});
+});
+
+describe('ramas de error y vacíos de Gastos', () => {
+	it('avisa cuando falla la carga de la tabla', async () => {
+		tauri.register('listar_gastos', () => {
+			throw { kind: 'database', message: 'Tabla caída', detail: 'disk I/O' };
+		});
+
+		render(GastosPage);
+
+		await waitFor(() => expect(toasts.some((t) => t.message.includes('Tabla caída'))).toBe(true));
+	});
+
+	it('muestra los vacíos de totales cuando el backend los devuelve huecos', async () => {
+		tauri.register('totales_gastos', () =>
+			totales({
+				porPlaca: [],
+				porCategoria: []
+			})
+		);
+		tauri.register('listar_gastos', () => [
+			// Gasto general sin placa, comprobante y autoría → guiones y sin «por»
+			gasto({ placa: null, comprobante: null, usuario: 'Sistema' })
+		]);
+
+		render(GastosPage);
+
+		expect(await screen.findByText('Sin gastos por placa')).toBeInTheDocument();
+		expect(screen.getByText('Sin gastos por categoría')).toBeInTheDocument();
+		// Espera a que la recarga del effect de filtros deje de mostrar el spinner
+		await waitFor(() => expect(screen.queryByText('Cargando gastos...')).not.toBeInTheDocument());
+		// Comprobante vacío → guion largo (dos celdas: placa y comprobante)
+		expect(screen.getAllByText(/—/).length).toBeGreaterThanOrEqual(2);
+		// usuario === 'Sistema' → no se muestra el «por …»
+		expect(screen.queryByText(/^por /)).not.toBeInTheDocument();
+	});
+
+	it('valida fecha, descripción y monto no numérico', async () => {
+		tauri.register('listar_gastos', () => []);
+		const crear = vi.fn(() => gasto());
+		tauri.register('crear_gasto', crear);
+
+		render(GastosPage);
+		await screen.findByText('No hay gastos');
+		await fireEvent.click(screen.getByRole('button', { name: 'Registrar Gasto' }));
+		await screen.findByRole('dialog');
+
+		// Fecha vacía → primera validación
+		const fecha = screen.getByLabelText(/Fecha/);
+		await fireEvent.input(fecha, { target: { value: '' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Registrar gasto' }));
+		expect(await screen.findByRole('alert')).toHaveTextContent('La fecha es obligatoria.');
+
+		// Con fecha pero sin categoría → segunda validación (ya cubierta en otro test)
+		// Rellenamos todo menos la descripción → tercera validación
+		await fireEvent.input(fecha, { target: { value: '2026-08-05' } });
+		const categoria = screen.getByLabelText(/Categoría/);
+		await fireEvent.change(categoria, { target: { value: 'PEAJES' } });
+		const monto = screen.getByPlaceholderText('Ej: 120000');
+		await fireEvent.input(monto, { target: { value: '5000' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Registrar gasto' }));
+		expect(await screen.findByRole('alert')).toHaveTextContent('La descripción es obligatoria.');
+
+		// Descripción correcta pero monto no numérico → cuarta validación
+		const desc = screen.getByPlaceholderText('Ej: Cambio de aceite 15W-40');
+		await fireEvent.input(desc, { target: { value: 'Peaje la 80' } });
+		await fireEvent.input(monto, { target: { value: 'abc' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Registrar gasto' }));
+		expect(await screen.findByRole('alert')).toHaveTextContent(
+			'El monto debe ser un número mayor que cero.'
+		);
+		expect(crear).not.toHaveBeenCalled();
+	});
+
+	it('muestra el error del backend al guardar', async () => {
+		tauri.register('listar_gastos', () => []);
+		tauri.register('crear_gasto', () => {
+			throw { kind: 'Validacion', message: 'Monto máximo excedido.' };
+		});
+
+		render(GastosPage);
+		await screen.findByText('No hay gastos');
+		await fireEvent.click(screen.getByRole('button', { name: 'Registrar Gasto' }));
+		await screen.findByRole('dialog');
+
+		await fireEvent.change(screen.getByLabelText(/Categoría/), {
+			target: { value: 'PEAJES' }
+		});
+		await fireEvent.input(screen.getByPlaceholderText('Ej: 120000'), {
+			target: { value: '5000' }
+		});
+		await fireEvent.input(screen.getByPlaceholderText('Ej: Cambio de aceite 15W-40'), {
+			target: { value: 'Peaje la 80' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Registrar gasto' }));
+
+		expect(await screen.findByRole('alert')).toHaveTextContent('Monto máximo excedido.');
+		// El modal sigue abierto para corregir
+		expect(screen.getByRole('dialog')).toBeInTheDocument();
+	});
+
+	it('muestra el error del backend al eliminar y permite cancelar', async () => {
+		tauri.register('listar_gastos', () => [gasto({ id: 9, descripcion: 'Parqueadero' })]);
+		const eliminar = vi.fn(() => {
+			throw { kind: 'foreign_key', message: 'El gasto tiene rentas asociadas.' };
+		});
+		tauri.register('eliminar_gasto', eliminar);
+
+		render(GastosPage);
+		await screen.findByText('Parqueadero');
+
+		// Cancelar cierra sin llamar al backend
+		await fireEvent.click(screen.getByTitle('Eliminar'));
+		let dialogo = await screen.findByRole('dialog');
+		await fireEvent.click(within(dialogo).getByRole('button', { name: /Cancelar|No/ }));
+		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+		expect(eliminar).not.toHaveBeenCalled();
+
+		// Reintentar → el backend rechaza y el toast muestra el mensaje
+		await fireEvent.click(screen.getByTitle('Eliminar'));
+		dialogo = await screen.findByRole('dialog');
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Eliminar' }));
+		await waitFor(() =>
+			expect(toasts.some((t) => t.message === 'El gasto tiene rentas asociadas.')).toBe(true)
+		);
+	});
+
+	it('singulariza el contador con un solo gasto', async () => {
+		tauri.register('listar_gastos', () => [gasto()]);
+
+		render(GastosPage);
+
+		expect(await screen.findByText(/1 gasto registrado/)).toBeInTheDocument();
 	});
 });

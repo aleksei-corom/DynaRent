@@ -114,6 +114,68 @@ describe('filasInformeExcel', () => {
 		expect(texto).toContain('485500');
 	});
 
+	it('usa 0 cuando los montos no son numéricos y el nombre por defecto', () => {
+		// Todos los montos con valores no parseables → fallback `|| 0` en cada campo.
+		const filas = filasInformeExcel(
+			informe({
+				ingresosPagos: 'no-num',
+				ingresosReservas: '',
+				totalIngresos: 'NaN',
+				totalComisiones: 'x',
+				ingresosNetos: '',
+				egresosGastos: 'abc',
+				egresosMantenimiento: '',
+				egresosComparendos: '??',
+				totalEgresos: '',
+				balance: 'nope',
+				balanceNeto: '',
+				gastosPorCategoria: [['Combustible', 'malo']],
+				rentas: [
+					{
+						id: 7,
+						placa: '',
+						nombreCliente: 'X',
+						total: 'bad',
+						comision: '',
+						valorNeto: 'zz',
+						estado: 'Activa',
+						fechaRecogida: '2026-08-02'
+					}
+				],
+				utilidadPorVehiculo: [
+					{
+						placa: 'XYZ999',
+						vehiculo: '',
+						ingresos: 'a',
+						costos: '',
+						utilidad: 'b'
+					}
+				]
+			}),
+			'periodo'
+			// Sin nombre de empresa → default 'DynaRent'
+		);
+
+		const texto = filas.map((f) => f.map(valor).join('|')).join('\n');
+		expect(texto).toContain('DynaRent — INFORME FINANCIERO');
+		expect(texto).toContain('Combustible|0');
+		expect(texto).toContain('XYZ999||0|0|0');
+	});
+
+	it('pinta de rojo el balance negativo', () => {
+		const filas = filasInformeExcel(informe({ balance: '-25000.00' }), 'periodo');
+		const filaBalance = filas.find((f) => String(valor(f[0])) === 'BALANCE');
+		expect(filaBalance).toBeDefined();
+		// Rojo institucional 'B71C1C' en ambas celdas de la fila
+		expect(estilo(filaBalance![0])?.color).toBe('B71C1C');
+		expect(estilo(filaBalance![1])?.color).toBe('B71C1C');
+	});
+
+	it('respeta el nombre de empresa pasado por parámetro', () => {
+		const filas = filasInformeExcel(informe(), 'periodo', 'Viajes SAS');
+		expect(String(valor(filas[0][0]))).toContain('Viajes SAS — INFORME FINANCIERO');
+	});
+
 	it('no rompe con secciones vacías', () => {
 		const filas = filasInformeExcel(
 			informe({ gastosPorCategoria: [], rentas: [], utilidadPorVehiculo: [] }),

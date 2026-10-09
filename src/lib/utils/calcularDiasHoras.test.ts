@@ -60,4 +60,17 @@ describe('calcularDiasHoras', () => {
 			horas: 0
 		});
 	});
+
+	it('hora inválida → cae al cálculo por fechas calendario', () => {
+		// 'hora-mala' y 'xx' producen Date inválido → a/b son null → fallback
+		expect(calcularDiasHoras('2026-08-01', 'hora-mala', '2026-08-04', 'xx')).toEqual({
+			dias: 3,
+			horas: 0
+		});
+		// Retorno anterior en el fallback → clamp a 0
+		expect(calcularDiasHoras('2026-08-04', 'no-tal-hora', '2026-08-01', 'tampoco')).toEqual({
+			dias: 0,
+			horas: 0
+		});
+	});
 });

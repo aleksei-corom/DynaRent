@@ -1,6 +1,16 @@
 // src/lib/utils/format.test.ts — Tests del formateador COP y fechas
-import { describe, it, expect } from 'vitest';
-import { formatCOP, formatContrato, formatDate, formatDateTime, truncate } from './format';
+import { describe, it, expect, afterEach } from 'vitest';
+import {
+	formatCOP,
+	formatContrato,
+	formatDate,
+	formatDateTime,
+	formatMoney,
+	getCurrencyCode,
+	getLocale,
+	setCurrency,
+	truncate
+} from './format';
 
 /**
  * Normaliza el espacio no separable (U+00A0) que Intl es-CO inserta
@@ -123,5 +133,41 @@ describe('truncate', () => {
 
 	it('maneja valores vacíos', () => {
 		expect(truncate('')).toBe('');
+	});
+
+	it('trunca null/undefined a cadena vacía', () => {
+		expect(truncate(null as unknown as string)).toBe('');
+		expect(truncate(undefined as unknown as string)).toBe('');
+	});
+});
+
+// ── Tanda de cobertura de ramas: moneda desconocida, decimales explícitos,
+// fechas imposibles y accessors de la configuración activa.
+describe('setCurrency y formatMoney', () => {
+	afterEach(() => {
+		// Restaurar COP / es-CO para el resto de la suite
+		setCurrency('COP', 'es-CO');
+	});
+
+	it('código de moneda desconocido se conserva y el locale explícito manda', () => {
+		setCurrency('XYZ', 'en-US');
+		expect(getCurrencyCode()).toBe('XYZ');
+		expect(getLocale()).toBe('en-US');
+	});
+
+	it('sin locale explícito cae al locale de la moneda o a es-CO', () => {
+		setCurrency('XYZ');
+		expect(getCurrencyCode()).toBe('XYZ');
+		expect(getLocale()).toBe('es-CO');
+	});
+
+	it('formatMoney respeta los decimales explícitos', () => {
+		expect(norm(formatMoney('1500000', true))).toBe('$ 1.500.000,00');
+		expect(norm(formatMoney('1500000', false))).toBe('$ 1.500.000');
+	});
+
+	it('fecha imposible en formatDate y formatDateTime → em dash', () => {
+		expect(formatDate('2026-02-30')).toBe('—');
+		expect(formatDateTime('2026-02-30')).toBe('—');
 	});
 });

@@ -4,6 +4,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
 import { tauri } from '../../test/tauri';
 import { goto } from '$app/navigation';
 import { session } from '#lib/stores/session.svelte.js';
+import { toasts } from '#lib/stores/toast.svelte.js';
 import type { InformeMensual, BusinessLists } from '#lib/api.js';
 import InformesPage from './+page.svelte';
 
@@ -236,5 +237,140 @@ describe('guard de rol de la página de Informes (roles_con_informes)', () => {
 
 		expect(await screen.findByText('Ingresos del mes')).toBeInTheDocument();
 		expect(goto).not.toHaveBeenCalled();
+	});
+});
+
+describe('ramas de fallback, exportación y vacíos de Informes', () => {
+	it('redirige a login cuando no hay sesión (sin llamar al backend)', async () => {
+		session.clear();
+		const mensual = vi.fn(() => informe());
+		tauri.register('informe_mensual', mensual);
+
+		render(InformesPage);
+
+		await waitFor(() => expect(goto).toHaveBeenCalled());
+		expect(mensual).not.toHaveBeenCalled();
+	});
+
+	it('usa el fallback de roles cuando falla la carga de listas', async () => {
+		// get_business_lists revienta → el catch de onMount lo traga y el guard
+		// usa el fallback ['Administrador'] de config.ini.
+		tauri.register('get_business_lists', () => {
+			throw new Error('listas caídas');
+		});
+		const mensual = vi.fn(() => informe());
+		tauri.register('informe_mensual', mensual);
+
+		render(InformesPage);
+
+		expect(await screen.findByText('Ingresos del mes')).toBeInTheDocument();
+		expect(mensual).toHaveBeenCalled();
+		expect(goto).not.toHaveBeenCalled();
+	});
+
+	it('exporta el informe a Excel con el nombre de la empresa', async () => {
+		tauri.register('informe_mensual', () => informe());
+		// jsdom no implementa createObjectURL: lo aportamos y espiamos el clic.
+		const clicks: string[] = [];
+		URL.createObjectURL = vi.fn(() => 'blob:mock');
+		URL.revokeObjectURL = vi.fn();
+		const clickOriginal = HTMLAnchorElement.prototype.click;
+		HTMLAnchorElement.prototype.click = function (this: HTMLAnchorElement) {
+			clicks.push(this.getAttribute('download') ?? '');
+		};
+		try {
+			render(InformesPage);
+			await screen.findByText('Ingresos del mes');
+			await fireEvent.click(screen.getByRole('button', { name: /Exportar Excel/i }));
+
+			await waitFor(() => expect(clicks.length).toBe(1));
+			expect(clicks[0]).toMatch(/^informe_\d{4}-\d{2}-\d{2}_al_\d{4}-\d{2}-\d{2}\.xlsx$/);
+			expect(toasts.some((t) => t.message === 'Informe exportado a Excel.')).toBe(true);
+			expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:mock');
+		} finally {
+			HTMLAnchorElement.prototype.click = clickOriginal;
+		}
+	});
+
+	it('avisa cuando la exportación a Excel falla', async () => {
+		tauri.register('informe_mensual', () => informe());
+		URL.createObjectURL = vi.fn(() => {
+			throw new Error('sin blob');
+		});
+
+		render(InformesPage);
+		await screen.findByText('Ingresos del mes');
+		await fireEvent.click(screen.getByRole('button', { name: /Exportar Excel/i }));
+
+		await waitFor(() =>
+			expect(toasts.some((t) => t.message === 'No se pudo exportar el informe a Excel.')).toBe(true)
+		);
+	});
+
+	it('pinta balance negativo, placa vacía y renta sin comisión', async () => {
+		tauri.register('informe_mensual', () =>
+			informe({
+				balance: '-150000.00',
+				totalComisiones: '0',
+				rentas: [
+					{
+						id: 9,
+						placa: '',
+						nombreCliente: 'Sin Placa SAS',
+						total: '100000.00',
+						comision: '0',
+						valorNeto: '100000.00',
+						estado: 'Activa',
+						fechaRecogida: '2026-08-03'
+					}
+				]
+			})
+		);
+
+		render(InformesPage);
+
+		// Balance negativo → borde y texto en rojo (rama balancePositivo=false)
+		const balanceCard = (await screen.findByText('Balance')).closest('.card') as HTMLElement;
+		expect(balanceCard.className).toContain('border-l-peligro');
+		// Sin comisiones (> 0 falso) → no se muestran los bloques netos
+		expect(screen.queryByText(/Comisiones −/)).not.toBeInTheDocument();
+		expect(screen.queryByText(/Balance neto \(tras comisiones\)/)).not.toBeInTheDocument();
+		// Placa vacía → guion largo; estado Activa → badge primary
+		expect(screen.getAllByText('—').length).toBeGreaterThan(0);
+		expect(screen.getByText('Activa')).toBeInTheDocument();
+	});
+
+	it('muestra los vacíos de gastos y rentas', async () => {
+		tauri.register('informe_mensual', () => informe({ gastosPorCategoria: [], rentas: [] }));
+
+		render(InformesPage);
+
+		expect(await screen.findByText('Sin gastos registrados este mes.')).toBeInTheDocument();
+		expect(screen.getByText('Sin rentas iniciadas este mes.')).toBeInTheDocument();
+	});
+
+	it('pinta de rojo la comisión y el badge de renta cancelada', async () => {
+		tauri.register('informe_mensual', () =>
+			informe({
+				rentas: [
+					{
+						id: 4,
+						placa: 'PPP111',
+						nombreCliente: 'Cancelada Cliente',
+						total: '50000.00',
+						comision: '25000.00',
+						valorNeto: '25000.00',
+						estado: 'Cancelada',
+						fechaRecogida: '2026-08-04'
+					}
+				]
+			})
+		);
+
+		render(InformesPage);
+
+		expect(await screen.findByText('Rentas del mes (1)')).toBeInTheDocument();
+		const badge = screen.getByText('Cancelada');
+		expect(badge.className).toContain('text-peligro');
 	});
 });
