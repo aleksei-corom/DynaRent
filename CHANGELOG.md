@@ -6,6 +6,32 @@ Las versiones se publican como [releases en GitHub](https://github.com/CORJAR-Co
 
 ---
 
+## [v1.2.6] — 2026-10-10
+
+### Corregido
+- **Modal stacking**: Escape y Tab ahora solo afectan al modal superior de la pila (antes el
+  modal de abajo también reaccionaba y cerraba/desplazaba el foco por debajo del superior).
+  Pulido general de UI/UX en diálogos.
+- **Sync Web**: los errores de red se propagan a la página —antes fallaban en silencio— y los
+  `ApiError` sin mensaje muestran un fallback «genérico» en lugar de un texto vacío.
+- **Tests smoke**: se precalienta vite, se usa `data_dir` fresco y selectores del formulario
+  actual (elimina el flaky del smoke E2E).
+
+### Añadido
+- **Migración a SvelteKit 3 + ESLint 10** (dev): rompe `svelte.config.js` y `$lib` a propósito —
+  ver README para la guía de migración.
+- **Manual de usuario** en PDF/HTML con script generador.
+- **CI**: guard de la clave del updater y ignorados los majors de TypeScript en Dependabot.
+
+### Cambiado
+- **Cobertura de tests**: de 14 a 61 archivos de test (749 tests) — nuevas suites para api
+  (gastos, mantenimiento, auditoría, syncWeb), stores (session, empresa, app), utils (format,
+  geografia, debounce, timeline…), componentes (DataTable, Modal, SelectConNuevo,
+  PaletaComandos…) y páginas (dashboard, logs, backups, cambiar-password). Gate de CI con
+  ratchet de ramas al **82 %** (82.69 % medido; era 61.69 % al inicio de la campaña).
+
+---
+
 ## [v1.2.5] — 2026-10-06
 
 ### Corregido
@@ -300,6 +326,7 @@ Primera release estable. Migración completa de Python a Tauri V2 + Rust + Fireb
 
 ---
 
+[v1.2.6]: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.2.6
 [v1.0.21]: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.21
 [v1.0.20]: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.20
 [v1.0.19]: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.19
