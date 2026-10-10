@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { geografia, PAISES_BASE, DEPARTAMENTOS_COLOMBIA, CIUDADES_COLOMBIA } from './geografia';
+import {
+	geografia,
+	PAISES_BASE,
+	DEPARTAMENTOS_COLOMBIA,
+	CIUDADES_COLOMBIA,
+	codigoPais
+} from './geografia';
 
 describe('geografia', () => {
 	it('el catálogo base de países es estable y no vacío', () => {
@@ -47,5 +53,21 @@ describe('geografia', () => {
 		const posZulia = departamentos.indexOf('Zulia');
 		expect(posAvila).toBeGreaterThan(0);
 		expect(posZulia).toBeGreaterThan(posAvila);
+	});
+});
+
+describe('codigoPais', () => {
+	it('resuelve el código por nombre sin importar mayúsculas ni espacios', () => {
+		expect(codigoPais('Colombia')).toBe('+57');
+		expect(codigoPais('  colombia ')).toBe('+57');
+		expect(codigoPais('Venezuela')).toBe('+58');
+	});
+
+	it('devuelve undefined para entradas vacías o desconocidas', () => {
+		expect(codigoPais(undefined)).toBeUndefined();
+		expect(codigoPais(null)).toBeUndefined();
+		expect(codigoPais('')).toBeUndefined();
+		expect(codigoPais('  ')).toBeUndefined();
+		expect(codigoPais('Atalantis')).toBeUndefined();
 	});
 });

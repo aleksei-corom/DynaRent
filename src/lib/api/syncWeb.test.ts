@@ -181,6 +181,24 @@ describe('syncWebApi.sincronizarReservas', () => {
 		);
 	});
 
+	it('days=0 usa 1 como divisor de valorDia (no divide entre cero)', async () => {
+		vi.stubGlobal('fetch', fetchMock);
+		respondFetch({ ok: true, reservations: [webRes({ days: 0 })] });
+		listar.mockResolvedValue([{ cliente: { id: 44, noDoc: '1001234567' } } as never]);
+		crearReserva.mockResolvedValue({ id: 55 } as never);
+
+		await syncWebApi.sincronizarReservas('sid', 'http://x/sync');
+
+		expect(crearReserva).toHaveBeenCalledWith(
+			'sid',
+			expect.objectContaining({
+				diasCalculados: 0,
+				// totalAmount 750000 / max(days, 1) → 750000 (sin NaN ni Infinity)
+				valorDia: '750000'
+			})
+		);
+	});
+
 	it('crea cliente nuevo con defaults (tipoDoc CC, hora 10:00, Básica Legal)', async () => {
 		vi.stubGlobal('fetch', fetchMock);
 		const r0 = webRes({

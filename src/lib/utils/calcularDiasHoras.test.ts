@@ -73,4 +73,12 @@ describe('calcularDiasHoras', () => {
 			horas: 0
 		});
 	});
+
+	it('una hora sin minutos ("09") se interpreta como 09:00', () => {
+		// Cubre los defaults de la destructuring `hh = '00', mm = '00'`.
+		expect(calcularDiasHoras('2026-08-01', '09', '2026-08-02', '09')).toEqual({
+			dias: 1,
+			horas: 0
+		});
+	});
 });

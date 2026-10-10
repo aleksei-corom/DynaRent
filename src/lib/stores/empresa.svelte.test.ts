@@ -3,7 +3,7 @@
 // configurado, no de un hardcode (+57 siempre).
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { tauri } from '../../test/tauri';
-import { empresa, FALLBACK_PAIS } from './empresa.svelte';
+import { empresa, FALLBACK_PAIS, FALLBACK_CIUDAD } from './empresa.svelte';
 
 /** Resetea el store a "sin configurar" (los $state son públicos). */
 function reset() {
@@ -119,5 +119,89 @@ describe('empresa store — estado del setup inicial', () => {
 		});
 		await empresa.cargarSetup('tok');
 		expect(empresa.setupCompletado).toBeNull();
+	});
+});
+
+describe('empresa store — ciudadMostrar', () => {
+	it('la ciudad configurada gana y se muestra en mayúsculas', () => {
+		empresa.ciudad = 'cartagena';
+
+		expect(empresa.ciudadMostrar).toBe('CARTAGENA');
+	});
+
+	it('sin ciudad deriva la ciudad de la dirección (penúltima parte)', () => {
+		empresa.ciudad = null;
+		empresa.direccion = 'Carrera 2 #70-53, Barrio Crespo, Cartagena, Colombia';
+
+		expect(empresa.ciudadMostrar).toBe('CARTAGENA');
+	});
+
+	it('una dirección de una sola parte se usa tal cual', () => {
+		empresa.ciudad = null;
+		empresa.direccion = 'Santa Marta';
+
+		expect(empresa.ciudadMostrar).toBe('SANTA MARTA');
+	});
+
+	it('una dirección sin partes útiles cae al fallback', () => {
+		empresa.ciudad = null;
+		empresa.direccion = ' , , ';
+
+		expect(empresa.ciudadMostrar).toBe(FALLBACK_CIUDAD);
+	});
+
+	it('sin ciudad ni dirección cae al fallback', () => {
+		empresa.ciudad = null;
+		empresa.direccion = null;
+
+		expect(empresa.ciudadMostrar).toBe(FALLBACK_CIUDAD);
+	});
+});
+
+describe('empresa store — cargarPublica', () => {
+	/** Rehidrata el flag privado para poder ejercitar el flujo completo. */
+	function resetCargado() {
+		(empresa as unknown as { cargado: boolean }).cargado = false;
+		(empresa as unknown as { cargandoPublica: Promise<void> | null }).cargandoPublica = null;
+	}
+
+	it('las llamadas concurrentes comparten una sola petición al backend', async () => {
+		resetCargado();
+		const spy = vi.fn(() => {
+			return { nombre: 'Flota Norte', logo: '/logo.png' } as never;
+		});
+		tauri.register('empresa_publica', spy);
+
+		await Promise.all([empresa.cargarPublica(), empresa.cargarPublica()]);
+
+		expect(spy).toHaveBeenCalledTimes(1);
+		expect(empresa.nombre).toBe('Flota Norte');
+		expect(empresa.logo).toBe('/logo.png');
+	});
+
+	it('una segunda llamada secuencial no vuelve a consultar (caché)', async () => {
+		resetCargado();
+		const spy = vi.fn(() => ({ nombre: 'Otra', logo: null } as never));
+		tauri.register('empresa_publica', spy);
+
+		await empresa.cargarPublica();
+		await empresa.cargarPublica();
+
+		expect(spy).toHaveBeenCalledTimes(1);
+	});
+
+	it('ante error conserva los fallbacks y marca cargado (best-effort)', async () => {
+		resetCargado();
+		empresa.nombre = null;
+		tauri.register('empresa_publica', () => {
+			throw JSON.stringify({ kind: 'network', message: 'sin red' });
+		});
+
+		await expect(empresa.cargarPublica()).resolves.toBeUndefined();
+
+		// Best-effort: el nombre de fallback se conserva y el flag de caché
+		// se levanta para no reintentar en cada render.
+		expect(empresa.nombre).toBeNull();
+		expect((empresa as unknown as { cargado: boolean }).cargado).toBe(true);
 	});
 });

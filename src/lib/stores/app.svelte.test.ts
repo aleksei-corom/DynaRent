@@ -1,5 +1,5 @@
 // src/lib/stores/app.svelte.test.ts — Tests del store de la app y monitoreo de BD
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { tauri } from '../../test/tauri';
 import { appInfo } from './app.svelte';
 
@@ -56,5 +56,32 @@ describe('app store — telemetría y salud de base de datos', () => {
 		const stop = appInfo.iniciarMonitoreoDb(10000);
 		expect(typeof stop).toBe('function');
 		stop();
+	});
+
+	it('una segunda llamada a iniciarMonitoreoDb reutiliza el timer activo', () => {
+		// Cubre la rama `if (this.intervalId) return …`: la segunda llamada
+		// devuelve la función de parada sin crear otro interval.
+		const stop1 = appInfo.iniciarMonitoreoDb(10000);
+		const stop2 = appInfo.iniciarMonitoreoDb(10000);
+
+		expect(typeof stop2).toBe('function');
+		stop1();
+		stop2();
+	});
+
+	it('un fallo no-Error en dbHealth cae al mensaje genérico', async () => {
+		// invokeCmd normaliza a ApiError (instanceof Error), así que la rama
+		// genérica solo es alcanzable con un rechazo plano vía spy de módulo.
+		const { appApi } = await import('#lib/api/app.js');
+		const spy = vi
+			.spyOn(appApi, 'dbHealth')
+			.mockRejectedValue('fallo plano sin envolver' as never);
+
+		const ok = await appInfo.verificarDb();
+
+		expect(ok).toBe(false);
+		expect(appInfo.dbOk).toBe(false);
+		expect(appInfo.dbMensaje).toBe('Error al conectar con Firebird');
+		spy.mockRestore();
 	});
 });

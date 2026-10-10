@@ -142,6 +142,54 @@ describe('PaletaComandos', () => {
 		expect(onClose).toHaveBeenCalledTimes(1);
 	});
 
+	it('ArrowUp sube la selección y se queda en 0 sin salirse', () => {
+		// Cubre la rama `Math.max(indice - 1, 0)`: en el primer ítem no baja de 0.
+		const menuCorto: SeccionMenu[] = [
+			{
+				section: 'OPERACIÓN',
+				items: [
+					{ label: 'Rentas', href: '/rentas', icon: 'rentas' },
+					{ label: 'Reservas', href: '/reservas', icon: 'reservas' }
+				]
+			}
+		];
+		render(PaletaComandos, { open: true, onClose: vi.fn(), menu: menuCorto });
+		const input = screen.getByRole('combobox');
+
+		escribir('r');
+		// Sube en el índice 0 → se queda en 0 (Rentas seleccionada)
+		fireEvent.keyDown(input, { key: 'ArrowUp' });
+		fireEvent.keyDown(input, { key: 'Enter' });
+
+		expect(goto).toHaveBeenCalledWith('/rentas');
+	});
+
+	it('Enter sin resultados no navega ni cierra', () => {
+		// Cubre `const r = resultados[indice]; if (r) navegar(r)` con r undefined.
+		const onClose = vi.fn();
+		render(PaletaComandos, { open: true, onClose, menu });
+		const input = screen.getByRole('combobox');
+
+		escribir('zzzz');
+		fireEvent.keyDown(input, { key: 'Enter' });
+
+		expect(goto).not.toHaveBeenCalled();
+		expect(onClose).not.toHaveBeenCalled();
+	});
+
+	it('un icono de menú desconocido cae al fallback chart', () => {
+		// Cubre `map[nombre] ?? 'chart'` con un nombre fuera del catálogo.
+		const menuRaro: SeccionMenu[] = [
+			{
+				section: 'EXTRA',
+				items: [{ label: 'Módulo nuevo', href: '/nuevo', icon: 'inexistente' }]
+			}
+		];
+		render(PaletaComandos, { open: true, onClose: vi.fn(), menu: menuRaro });
+
+		expect(screen.getByRole('option', { name: /Módulo nuevo/ })).toBeInTheDocument();
+	});
+
 	it('navega al hacer clic en un resultado', () => {
 		renderPaleta({ open: true });
 

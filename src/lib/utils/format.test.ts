@@ -49,6 +49,20 @@ describe('formatCOP', () => {
 	});
 });
 
+describe('formatMoney', () => {
+	it('sin segundo argumento usa los decimales por defecto de la moneda', () => {
+		// COP por defecto no muestra decimales → rama `_decimals` de `??`.
+		expect(norm(formatMoney(1500000))).toBe('$ 1.500.000');
+	});
+
+	it('el parámetro explícito prevalece sobre el default de la moneda', () => {
+		// Rama izquierda de `??`: decimals explícito (COP por defecto no
+		// muestra decimales, así que ',00' prueba que mandó el explícito).
+		expect(norm(formatMoney(1500000, true))).toBe('$ 1.500.000,00');
+		expect(norm(formatMoney(1500000.75, false))).toBe('$ 1.500.001');
+	});
+});
+
 describe('formatDate', () => {
 	it('formatea fechas ISO en formato corto es-CO', () => {
 		// 15 de agosto de 2026

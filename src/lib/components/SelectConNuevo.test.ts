@@ -52,6 +52,24 @@ describe('SelectConNuevo — cambio de opción', () => {
 
 		expect(onchange).not.toHaveBeenCalled();
 	});
+
+	it('al elegir el placeholder limpia el valor (onchange con cadena vacía)', async () => {
+		// Contrato real: `if (v !== value) onchange(v)` — vaciar es un cambio
+		// válido y el padre decide qué hacer con el ''.
+		const { onchange } = renderSelect({ value: 'Alfa', opciones: ['Alfa'] });
+
+		await fireEvent.change(sel(), { target: { value: '' } });
+
+		expect(onchange).toHaveBeenCalledWith('');
+	});
+
+	it('elige el placeholder estando ya vacío → sin onchange (mismo valor)', async () => {
+		const { onchange } = renderSelect({ value: '', opciones: ['Alfa'] });
+
+		await fireEvent.change(sel(), { target: { value: '' } });
+
+		expect(onchange).not.toHaveBeenCalled();
+	});
 });
 
 describe('SelectConNuevo — alta de valor nuevo', () => {
@@ -127,5 +145,18 @@ describe('SelectConNuevo — alta de valor nuevo', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Agregar' }));
 
 		expect(onchange).not.toHaveBeenCalled();
+	});
+
+	it('teclas que no son Enter ni Escape no hacen nada en modo nuevo', async () => {
+		const { onchange } = renderSelect({ opciones: [] });
+
+		await fireEvent.change(sel(), { target: { value: '__nuevo__' } });
+		const input = screen.getByPlaceholderText('Escribir y presionar Enter…');
+		await fireEvent.input(input, { target: { value: 'Pendiente' } });
+		await fireEvent.keyDown(input, { key: 'Tab' });
+
+		// sigue en modo nuevo, sin confirmar
+		expect(onchange).not.toHaveBeenCalled();
+		expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
 	});
 });

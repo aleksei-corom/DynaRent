@@ -76,4 +76,18 @@ describe('useDebouncedEffect', () => {
 		await vi.advanceTimersByTimeAsync(300);
 		expect(screen.getByTestId('contador')).toHaveTextContent('1');
 	});
+
+	it('al desmontar con un timer pendiente, onDestroy lo cancela', async () => {
+		// Cubre `if (timer) clearTimeout(timer)` con timer truthy: el
+		// componente se desmonta antes de que venza el debounce.
+		const { unmount } = render(Harness, { delay: 100 });
+		await flush();
+
+		await fireEvent.input(screen.getByTestId('entrada'), { target: { value: 'pendiente' } });
+		await flush();
+		unmount();
+
+		// Avanzar tras desmontar no debe lanzar ni re-ejecutar nada.
+		await vi.advanceTimersByTimeAsync(300);
+	});
 });

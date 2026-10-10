@@ -99,4 +99,22 @@ describe('imprimirDocumento', () => {
 		expect(printSpy).not.toHaveBeenCalled();
 		expect(document.querySelectorAll('#print-clone')).toHaveLength(1);
 	});
+
+	it('espera document.fonts.ready cuando el navegador lo expone', async () => {
+		// Cubre la rama truthy de `document.fonts ? … : Promise.resolve()`;
+		// jsdom no implementa FontFaceSet, así que se stubbea.
+		const ready = Promise.resolve();
+		Object.defineProperty(document, 'fonts', { value: { ready }, configurable: true });
+		try {
+			montarArea('contrato-carta');
+
+			imprimirDocumento();
+			await vi.waitFor(() => expect(printSpy).toHaveBeenCalledTimes(1));
+
+			expect(document.getElementById('print-clone')).toBeInTheDocument();
+			window.dispatchEvent(new Event('afterprint'));
+		} finally {
+			Reflect.deleteProperty(document as unknown as object, 'fonts');
+		}
+	});
 });

@@ -47,7 +47,7 @@ export default defineConfig({
 			provider: 'v8',
 			reporter: ['text', 'lcov'],
 			// Umbral mínimo exigido: 80 % en statements/lines/functions (medidos
-			// el 2026-10-07: 80.94 / 82.13 / 80.57 con 45 archivos de test).
+			// el 2026-10-10: 96.64 / 98.37 / 96.74 con 61 archivos de test).
 			// RAMAS: la meta final es 80 % y ya se alcanzó. Ratchet histórico
 			// medido con lcov:
 			//   61.69 (inicio) → 67.32 (tanda rentas+reservas) →
@@ -89,13 +89,22 @@ export default defineConfig({
 			//   81.62 (tanda UI/UX: pila de modales en Modal.svelte —Escape/Tab solo
 			//          llegan al modal superior— con 3 tests de apilamiento; +5 ramas
 			//          cubiertas (3028/3710: el total creció con las ramas defensivas
-			//          de la pila); 672 tests; el ratchet entero sigue en 81).
+			//          de la pila); 672 tests; el ratchet entero sigue en 81) →
+			//   82.69 (tanda api+stores+utils+componentes: gastos, mantenimiento y
+			//          auditoría con fallbacks «genérico» y errores propagados;
+			//          syncWeb con respuesta obsoleta; timelineVehiculo con multas
+			//          por renta; session/empresa/app con guardas de window e
+			//          hidratación dinámica; debounce/format/geografia/
+			//          calcularDiasHoras/imprimir/informeExcel; DataTable con
+			//          snippets crudos, SelectConNuevo, PaletaComandos y la página
+			//          cambiar-password; 3068/3710 ramas; 749 tests; el ratchet de
+			//          ramas sube de 81 a 82).
 			// Se fija el piso honesto (margen ~0.5-1 pts entre plataformas)
 			// como RATCHET: subir este número junto con cada tanda de tests que
 			// cubra ramas nuevas, nunca bajarlo.
 			thresholds: {
 				statements: 80,
-				branches: 81,
+				branches: 82,
 				functions: 80,
 				lines: 80
 			}

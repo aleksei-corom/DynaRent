@@ -149,4 +149,38 @@ describe('construirTimelineVehiculo', () => {
 			'2026-07-25'
 		]);
 	});
+
+	it('desempata rentas con la misma fecha de recogida por fecha de fin', () => {
+		// La rama `|| a.fin.localeCompare(b.fin)` del sort solo se ejecuta
+		// cuando `inicio` es idéntico en ambas rentas.
+		const rLarga = renta({ id: 1, fechaRecogida: '2026-07-01', fechaRetorno: '2026-07-10' });
+		const rCorta = renta({ id: 2, fechaRecogida: '2026-07-01', fechaRetorno: '2026-07-03' });
+
+		const tl = construirTimelineVehiculo([rLarga, rCorta], []);
+
+		// Las entradas del timeline no copian `id`; se ordenan por fin.
+		// Entrada orden: corta (fin 03) antes que larga (fin 10), a pesar de
+		// que la larga vino primero en el input → desempate ejecutado.
+		expect(tl.rentas.map((r) => r.fin)).toEqual(['2026-07-03', '2026-07-10']);
+	});
+
+	it('una multa en la misma fecha que una renta va después en eventos', () => {
+		// La rama de desempate `(a.tipo === 'renta' ? -1 : 1)` solo se
+		// ejecuta cuando fecha es idéntica entre renta y multa.
+		const r = renta({ id: 1, fechaRecogida: '2026-07-05', fechaRetorno: '2026-07-08' });
+		const m = comparendo({ id: 1, fechaInfraccion: '2026-07-05' });
+
+		const tl = construirTimelineVehiculo([r], [m]);
+
+		expect(tl.eventos.map((e) => e.tipo)).toEqual(['renta', 'multa']);
+	});
+
+	it('un monto no numérico cuenta como 0 en el pendiente', () => {
+		// La rama `parseFloat(c.monto) || 0` protege contra muntos corruptos.
+		const m = comparendo({ id: 1, monto: 'no-num', estado: 'Pendiente' });
+
+		const tl = construirTimelineVehiculo([], [m]);
+
+		expect(tl.totalPendiente).toBe(0);
+	});
 });
