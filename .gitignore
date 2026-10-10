@@ -85,3 +85,9 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 # Cobertura de tests (vitest --coverage)
 coverage
+# Material de marketing local (landing, flyer, logo) — no versionar
+/index.html
+/landing_page.html
+/flyer_promocional.html
+/img_data.js
+/logo_dynarent.jpg
