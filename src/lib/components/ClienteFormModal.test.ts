@@ -76,7 +76,7 @@ async function abrirPanel() {
 	await fireEvent.click(
 		screen.getByRole('button', { name: /Copiar datos de un cliente existente/ })
 	);
-	return screen.getByPlaceholderText('Buscar por nombre, documento o celular…');
+	return screen.getByPlaceholderText('Buscar cliente existente por nombre, documento o celular…');
 }
 
 beforeEach(() => {

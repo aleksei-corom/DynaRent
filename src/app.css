@@ -233,6 +233,19 @@ select.input {
 	@apply mb-1 block text-xs font-semibold uppercase tracking-wide text-text-secondary;
 }
 
+/* Indicador de foco para controles que NO usan .btn/.input (WCAG 2.4.7):
+   los botones de solo icono (cerrar, editar…) y los enlaces con clases
+   propias se quedaban sin foco visible al navegar con teclado. El
+   `:not([class*="focus-visible"])` evita duplicar el anillo de quien ya
+   define su propio `focus-visible:*`, y .btn/.input quedan excluidos porque
+   ya tienen su ring (su `focus:outline-none` tiene más especificidad y
+   pisa este outline, así que no se duplica). */
+button:not(.btn):not([class*='focus-visible']):focus-visible,
+a:focus-visible {
+	outline: 2px solid var(--color-primary-focus);
+	outline-offset: 2px;
+}
+
 .card {
 	@apply rounded-xl border border-border bg-surface shadow-sm;
 }

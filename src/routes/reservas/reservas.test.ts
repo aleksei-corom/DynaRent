@@ -188,10 +188,10 @@ describe('ramas de error y cálculo de la página de Reservas', () => {
 
 		render(ReservasPage);
 
-		expect(screen.getByText('Cargando reservas...')).toBeInTheDocument();
+		expect(screen.getByText('Cargando reservas…')).toBeInTheDocument();
 		d.resolve([reserva()]);
 		expect(await screen.findByText('Juan Perez')).toBeInTheDocument();
-		expect(screen.queryByText('Cargando reservas...')).not.toBeInTheDocument();
+		expect(screen.queryByText('Cargando reservas…')).not.toBeInTheDocument();
 	});
 
 	it('cuando listar_reservas falla muestra la tabla vacía en vez de romper', async () => {
@@ -202,7 +202,7 @@ describe('ramas de error y cálculo de la página de Reservas', () => {
 		render(ReservasPage);
 
 		expect(await screen.findByText(/No hay reservas/i)).toBeInTheDocument();
-		expect(screen.queryByText('Cargando reservas...')).not.toBeInTheDocument();
+		expect(screen.queryByText('Cargando reservas…')).not.toBeInTheDocument();
 	});
 
 	it('muestra el panel de próximas entregas (y lo omite si la carga falla)', async () => {
@@ -258,8 +258,8 @@ describe('ramas de error y cálculo de la página de Reservas', () => {
 		expect(await screen.findByText('3')).toBeInTheDocument();
 
 		await fireEvent.click(screen.getByTitle(/Sincronizar reservas pagadas/));
-		// Estado «Sincronizando...» mientras la consulta está en vuelo
-		const boton = await screen.findByText('Sincronizando...');
+		// Estado «Sincronizando…» mientras la consulta está en vuelo
+		const boton = await screen.findByText('Sincronizando…');
 		expect(boton.closest('button')).toBeDisabled();
 
 		pendienteLargo.resolve({
@@ -368,7 +368,7 @@ describe('ramas de error y cálculo de la página de Reservas', () => {
 		expect(listar.mock.calls[1][0]).toMatchObject({ estado: 'Cancelada' });
 
 		await fireEvent.input(
-			screen.getByPlaceholderText('Buscar por cliente, placa o nacionalidad...'),
+			screen.getByPlaceholderText('Buscar por cliente, placa o nacionalidad…'),
 			{
 				target: { value: 'juan' }
 			}
@@ -378,7 +378,7 @@ describe('ramas de error y cálculo de la página de Reservas', () => {
 
 		// Vaciar → setTimeout con delay 0 (sin espera de 350 ms)
 		await fireEvent.input(
-			screen.getByPlaceholderText('Buscar por cliente, placa o nacionalidad...'),
+			screen.getByPlaceholderText('Buscar por cliente, placa o nacionalidad…'),
 			{
 				target: { value: '' }
 			}
@@ -387,7 +387,7 @@ describe('ramas de error y cálculo de la página de Reservas', () => {
 		expect(listar.mock.calls[3][0]).toMatchObject({ busqueda: null });
 	});
 
-	it('crear reserva: validaciones, «Guardando...», error del backend y éxito', async () => {
+	it('crear reserva: validaciones, «Guardando…», error del backend y éxito', async () => {
 		tauri.register('listar_reservas', () => []);
 		const d = deferido<Reserva>();
 		tauri.register('crear_reserva', () => d.promise);
@@ -421,7 +421,7 @@ describe('ramas de error y cálculo de la página de Reservas', () => {
 			'La fecha de retorno no puede ser anterior a la recogida.'
 		);
 
-		// 4) pendiente en el backend → «Guardando...» y error
+		// 4) pendiente en el backend → «Guardando…» y error
 		await fijar(fechas[0], '2026-08-01');
 		await fijar(fechas[1], '2026-08-04');
 		await fireEvent.input(screen.getByPlaceholderText('150000'), {

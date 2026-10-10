@@ -145,7 +145,7 @@ describe('página de Auditoría', () => {
 		await screen.findByText('LOGIN OK');
 		expect(listar).toHaveBeenCalledTimes(1);
 
-		await fireEvent.input(screen.getByPlaceholderText('Buscar por usuario, acción o detalle...'), {
+		await fireEvent.input(screen.getByPlaceholderText('Buscar por usuario, acción o detalle…'), {
 			target: { value: 'admin' }
 		});
 

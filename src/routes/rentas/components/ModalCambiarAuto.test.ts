@@ -82,7 +82,7 @@ describe('ModalCambiarAuto', () => {
 		expect(onConfirmar).toHaveBeenCalledTimes(1);
 	});
 
-	it('durante guardado: botones deshabilitados y texto «Cambiando...»', () => {
+	it('durante guardado: botones deshabilitados y texto «Cambiando…»', () => {
 		renderModal({ guardando: true, placaSeleccionada: 'XYZ789' });
 
 		expect(screen.getByRole('button', { name: /Cambiando/ })).toBeDisabled();

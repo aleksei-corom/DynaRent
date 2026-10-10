@@ -240,7 +240,7 @@ describe('Alertas — ramas de presentación y error', () => {
 		// El backend respondió con error estructurado (ApiError) → mensaje real
 		expect(aviso).toHaveTextContent('Backend caído');
 		expect(aviso).not.toHaveTextContent('Verifica la conexión con el backend.');
-		expect(screen.queryByText('Calculando alertas...')).not.toBeInTheDocument();
+		expect(screen.queryByText('Calculando alertas…')).not.toBeInTheDocument();
 	});
 
 	// ── Tanda: fallback «genérico» de `e instanceof ApiError` ejercitado con
@@ -271,7 +271,7 @@ describe('Alertas — ramas de presentación y error', () => {
 		registrarVacio();
 
 		render(AlertasPage);
-		expect(await screen.findByText('Calculando alertas...')).toBeInTheDocument();
+		expect(await screen.findByText('Calculando alertas…')).toBeInTheDocument();
 
 		resolver([alerta()]);
 		expect(await screen.findByText('Vencimientos de vehículos (1)')).toBeInTheDocument();

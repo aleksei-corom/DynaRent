@@ -55,7 +55,7 @@
 
 <div class="card overflow-hidden">
 	<div class="overflow-x-auto">
-		<table class="w-full text-sm">
+		<table class="w-full text-sm tabular-nums">
 			<thead>
 				<tr class="bg-alt-row/70 border-b border-border">
 					{#each columns as col (col.key)}

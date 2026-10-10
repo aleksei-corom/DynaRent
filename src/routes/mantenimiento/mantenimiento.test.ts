@@ -201,7 +201,7 @@ describe('página de Mantenimiento', () => {
 		await fireEvent.focus(placaCombo);
 		await fireEvent.input(placaCombo, { target: { value: 'ABC123' } });
 		await fireEvent.keyDown(placaCombo, { key: 'Enter' });
-		const tipoSelect = within(dialogo).getByDisplayValue('Selecciona...');
+		const tipoSelect = within(dialogo).getByDisplayValue('Selecciona…');
 		await fireEvent.change(tipoSelect, { target: { value: 'FRENOS' } });
 		await fireEvent.input(screen.getByPlaceholderText('Ej: 350000'), {
 			target: { value: '150000' }
@@ -346,7 +346,7 @@ describe('Mantenimiento — ramas de error, filtros y validaciones', () => {
 		await fireEvent.input(combo, { target: { value: 'ABC123' } });
 		await fireEvent.keyDown(combo, { key: 'Enter' });
 		if (opciones.tipo !== undefined) {
-			const tipoSelect = within(dialogo).getByDisplayValue('Selecciona...');
+			const tipoSelect = within(dialogo).getByDisplayValue('Selecciona…');
 			await fireEvent.change(tipoSelect, { target: { value: opciones.tipo } });
 		}
 		if (opciones.costo !== undefined) {
@@ -425,7 +425,7 @@ describe('Mantenimiento — ramas de error, filtros y validaciones', () => {
 		await screen.findByText('Cambio de aceite 15W-40');
 		expect(listar).toHaveBeenCalledTimes(1);
 
-		await fireEvent.input(screen.getByPlaceholderText('Buscar por placa, tipo o descripción...'), {
+		await fireEvent.input(screen.getByPlaceholderText('Buscar por placa, tipo o descripción…'), {
 			target: { value: 'aceite' }
 		});
 
@@ -648,7 +648,7 @@ describe('Mantenimiento — ramas de error, filtros y validaciones', () => {
 		expect(panel?.className).toContain('border-alerta/25');
 	});
 
-	it('muestra «Guardando...» mientras persiste el registro', async () => {
+	it('muestra «Guardando…» mientras persiste el registro', async () => {
 		tauri.register('listar_mantenimientos', () => []);
 		let resolver: (v: Mantenimiento) => void = () => {};
 		tauri.register(
@@ -665,7 +665,7 @@ describe('Mantenimiento — ramas de error, filtros y validaciones', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Registrar mantenimiento' }));
 
-		expect(await screen.findByText('Guardando...')).toBeInTheDocument();
+		expect(await screen.findByText('Guardando…')).toBeInTheDocument();
 		resolver(mantenimiento({ id: 9 }));
 		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 	});

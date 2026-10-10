@@ -283,7 +283,9 @@ describe('página de Clientes', () => {
 		await waitFor(() => expect(btnPanel).toHaveAttribute('aria-expanded', 'true'));
 
 		// El buscador del panel queda enfocado para escribir directo
-		const search = screen.getByPlaceholderText('Buscar por nombre, documento o celular…');
+		const search = screen.getByPlaceholderText(
+			'Buscar cliente existente por nombre, documento o celular…'
+		);
 		await waitFor(() => expect(search).toHaveFocus());
 
 		// Segunda pulsación: toggle cierra el panel
@@ -316,12 +318,9 @@ describe('página de Clientes', () => {
 		await screen.findByText('Ana Pérez');
 		expect(listar).toHaveBeenCalledTimes(1);
 
-		await fireEvent.input(
-			screen.getByPlaceholderText('Buscar por nombre, documento o celular...'),
-			{
-				target: { value: 'ana' }
-			}
-		);
+		await fireEvent.input(screen.getByPlaceholderText('Buscar por nombre, documento o celular…'), {
+			target: { value: 'ana' }
+		});
 
 		await waitFor(() => expect(listar).toHaveBeenCalledTimes(2), { timeout: 2000 });
 		const args = listar.mock.calls[1][0] as { sessionId: string; busqueda: string | null };

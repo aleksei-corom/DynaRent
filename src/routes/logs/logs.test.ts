@@ -183,7 +183,7 @@ describe('página de Logs', () => {
 
 		await waitFor(() => expect(toasts.some((t) => t.message === 'Error cargando logs')).toBe(true));
 		// Sin contenido → el <pre> conserva el marcador inicial
-		expect(screen.getByText('(cargando...)')).toBeInTheDocument();
+		expect(screen.getByText('(cargando…)')).toBeInTheDocument();
 		spy.mockRestore();
 	});
 

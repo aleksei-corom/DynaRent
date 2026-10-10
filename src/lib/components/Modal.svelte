@@ -1,3 +1,13 @@
+<script module lang="ts">
+	// ── Pila de modales compartida entre instancias ──
+	// Cuando un modal abre otro encima (p. ej. «Nuevo cliente» dentro de
+	// «Nueva renta»), ambas instancias escuchan los eventos de `document`.
+	// Sin esta pila, Escape cerraba TODOS los modales apilados a la vez
+	// (el formulario de abajo se perdía) y los focus traps competían.
+	// Solo el modal superior de la pila maneja las teclas.
+	const pilaModales: HTMLDivElement[] = [];
+</script>
+
 <script lang="ts">
 	interface Props {
 		open: boolean;
@@ -55,6 +65,9 @@
 	}
 
 	function handleKey(e: KeyboardEvent) {
+		// Solo el modal más reciente (tope de la pila) reacciona al teclado;
+		// los de abajo quedan «en pausa» hasta que el superior se cierre.
+		if (pilaModales[pilaModales.length - 1] !== dialogEl) return;
 		if (e.key === 'Escape' && dismissible) {
 			e.preventDefault();
 			onClose();
@@ -90,6 +103,9 @@
 	$effect(() => {
 		if (open && typeof document !== 'undefined') {
 			document.addEventListener('keydown', handleKey);
+			// Entrar en la pila: este modal es ahora el «superior».
+			const elDialogo = dialogEl;
+			if (elDialogo) pilaModales.push(elDialogo);
 			const prev = document.body.style.overflow;
 			document.body.style.overflow = 'hidden';
 			// Guardar el elemento que tenía el foco ANTES de moverlo al modal.
@@ -117,6 +133,9 @@
 			});
 			return () => {
 				document.removeEventListener('keydown', handleKey);
+				// Salir de la pila (por identidad, por si hubo re-render).
+				const idx = elDialogo ? pilaModales.indexOf(elDialogo) : -1;
+				if (idx !== -1) pilaModales.splice(idx, 1);
 				document.body.style.overflow = prev;
 				cancelAnimationFrame(raf);
 				// Restaurar el foco al elemento que lo tenía antes de abrir el modal.

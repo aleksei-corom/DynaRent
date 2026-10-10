@@ -105,7 +105,7 @@
 			<FormField label="Motivo de la corrección" required hint="Obligatorio para auditoría">
 				<textarea
 					class="input min-h-15 resize-y"
-					placeholder="Describe el error de digitación que se corrige..."
+					placeholder="Describe el error de digitación que se corrige…"
 					bind:value={editCerrada.observaciones}
 					maxlength="500"></textarea>
 			</FormField>
@@ -137,7 +137,7 @@
 						d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
 					></path></svg
 				>
-				Guardando...
+				Guardando…
 			{:else}
 				Aplicar corrección
 			{/if}

@@ -1,25 +1,49 @@
 {
-  "version": 1,
-  "skills": {
-    "github-ops": {
-      "source": "../ECC",
-      "sourceType": "local",
-      "computedHash": "c5819edfe55a6d135966efc8e6f09ee081dace2eff1d269121041e592877726f"
-    },
-    "production-audit": {
-      "source": "../ECC",
-      "sourceType": "local",
-      "computedHash": "3c38cf12fdb504f6ce53fa9d33f4f0fff1aee3df8e96fbb4fdb76831b5fd51ce"
-    },
-    "security-review": {
-      "source": "../ECC",
-      "sourceType": "local",
-      "computedHash": "90f2b514aa106496fd0911d2a0e0ef5aac28515ce218a82574984ad7d9d6b4d2"
-    },
-    "verification-loop": {
-      "source": "../ECC",
-      "sourceType": "local",
-      "computedHash": "84bdd8616c766582af4e1da711c033b3c22be20690358ff8e546ae3d084c8755"
-    }
-  }
+	"version": 1,
+	"skills": {
+		"accessibility": {
+			"source": "affaan-m/ECC",
+			"sourceType": "github",
+			"skillPath": "skills/accessibility/SKILL.md",
+			"computedHash": "e671c9f1bda721f4818ed62984d8471aab33263ed3fc8331c42d51f4b070e407"
+		},
+		"design-system": {
+			"source": "affaan-m/ECC",
+			"sourceType": "github",
+			"skillPath": "skills/design-system/SKILL.md",
+			"computedHash": "2aeb537315bb54bbdc155aa369be3febe65b2d1bcccec0caa905971d33e78126"
+		},
+		"frontend-design-direction": {
+			"source": "affaan-m/ECC",
+			"sourceType": "github",
+			"skillPath": "skills/frontend-design-direction/SKILL.md",
+			"computedHash": "5e37a3a8e90de1da40881a2ed80de2a7246b46201cc325598c1b60fb3e8c4cfe"
+		},
+		"github-ops": {
+			"source": "../ECC",
+			"sourceType": "local",
+			"computedHash": "c5819edfe55a6d135966efc8e6f09ee081dace2eff1d269121041e592877726f"
+		},
+		"make-interfaces-feel-better": {
+			"source": "affaan-m/ECC",
+			"sourceType": "github",
+			"skillPath": "skills/make-interfaces-feel-better/SKILL.md",
+			"computedHash": "bd14931fa4a2739cc81633027dfc829d10034c81a6d63ebd4baa39512df28cfb"
+		},
+		"production-audit": {
+			"source": "../ECC",
+			"sourceType": "local",
+			"computedHash": "3c38cf12fdb504f6ce53fa9d33f4f0fff1aee3df8e96fbb4fdb76831b5fd51ce"
+		},
+		"security-review": {
+			"source": "../ECC",
+			"sourceType": "local",
+			"computedHash": "90f2b514aa106496fd0911d2a0e0ef5aac28515ce218a82574984ad7d9d6b4d2"
+		},
+		"verification-loop": {
+			"source": "../ECC",
+			"sourceType": "local",
+			"computedHash": "84bdd8616c766582af4e1da711c033b3c22be20690358ff8e546ae3d084c8755"
+		}
+	}
 }

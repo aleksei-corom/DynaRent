@@ -495,12 +495,9 @@ describe('página de Comparendos', () => {
 		await fireEvent.input(screen.getByPlaceholderText('HH:MM'), {
 			target: { value: '14:30' }
 		});
-		await fireEvent.input(
-			screen.getByPlaceholderText('Ej: Exceso de velocidad, foto-detección...'),
-			{
-				target: { value: 'Exceso de velocidad' }
-			}
-		);
+		await fireEvent.input(screen.getByPlaceholderText('Ej: Exceso de velocidad, foto-detección…'), {
+			target: { value: 'Exceso de velocidad' }
+		});
 
 		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Registrar comparendo' }));
 
@@ -1044,7 +1041,7 @@ describe('ramas de sincronización, exportación y eventos del Agente SIMIT', ()
 		render(ComparendosPage);
 		const boton = await screen.findByRole('button', { name: 'Sincronizar ahora' });
 		await fireEvent.click(boton);
-		// Mientras está pendiente el botón muestra «Sincronizando...» y está deshabilitado
+		// Mientras está pendiente el botón muestra «Sincronizando…» y está deshabilitado
 		const pendiente = await screen.findByRole('button', { name: /Sincronizando/ });
 		expect(pendiente).toBeDisabled();
 		// Un segundo clic no dispara otra corrida (guarda `if (sincronizando) return`)
@@ -1495,7 +1492,7 @@ describe('ramas de sincronización, exportación y eventos del Agente SIMIT', ()
 		await screen.findByText('Exceso de velocidad');
 		expect(listar).toHaveBeenCalledTimes(1);
 
-		await fireEvent.input(screen.getByPlaceholderText('Buscar por placa u observaciones...'), {
+		await fireEvent.input(screen.getByPlaceholderText('Buscar por placa u observaciones…'), {
 			target: { value: 'velo' }
 		});
 		await waitFor(
@@ -1583,7 +1580,7 @@ describe('panel del Agente SIMIT', () => {
 
 		expect(await screen.findByText('Agente SIMIT')).toBeInTheDocument();
 		expect(screen.getByText('Deshabilitado en config.ini')).toBeInTheDocument();
-		// El badge sustituye al spinner de «Consultando SIMIT...»
+		// El badge sustituye al spinner de «Consultando SIMIT…»
 		expect(screen.queryByText(/Consultando SIMIT/)).not.toBeInTheDocument();
 		// Los botones de acción siguen visibles para la sincronización manual
 		expect(screen.getByRole('button', { name: 'Sincronizar ahora' })).toBeInTheDocument();

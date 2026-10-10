@@ -113,10 +113,10 @@ describe('ModalExtenderRenta — historial', () => {
 	it('vacío no muestra el bloque; cargando muestra el aviso', () => {
 		renderModal();
 		expect(screen.queryByText('Historial de extensiones:')).not.toBeInTheDocument();
-		expect(screen.queryByText('Cargando historial...')).not.toBeInTheDocument();
+		expect(screen.queryByText('Cargando historial…')).not.toBeInTheDocument();
 
 		renderModal({ cargandoHistorial: true });
-		expect(screen.getByText('Cargando historial...')).toBeInTheDocument();
+		expect(screen.getByText('Cargando historial…')).toBeInTheDocument();
 	});
 });
 
@@ -137,7 +137,7 @@ describe('ModalExtenderRenta — acciones y error', () => {
 		expect(onClose).toHaveBeenCalledTimes(1);
 	});
 
-	it('durante el guardado: botones deshabilitados y «Extendiendo...»', () => {
+	it('durante el guardado: botones deshabilitados y «Extendiendo…»', () => {
 		renderModal({ extenderando: true });
 
 		expect(screen.getByRole('button', { name: /Extendiendo/ })).toBeDisabled();

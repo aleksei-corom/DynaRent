@@ -503,7 +503,7 @@ describe('página de Rentas', () => {
 			target: { value: '180000' }
 		});
 		await fireEvent.input(
-			screen.getByPlaceholderText('Describe el error de digitación que se corrige...'),
+			screen.getByPlaceholderText('Describe el error de digitación que se corrige…'),
 			{ target: { value: 'Corrección de la tarifa pactada' } }
 		);
 
@@ -560,7 +560,7 @@ describe('página de Rentas', () => {
 		await fireEvent.input(screen.getByDisplayValue('42000'), {
 			target: { value: '42100' }
 		});
-		await fireEvent.input(screen.getByPlaceholderText('Describir golpes, rayones...'), {
+		await fireEvent.input(screen.getByPlaceholderText('Describir golpes, rayones…'), {
 			target: { value: 'Rayón en puerta izquierda' }
 		});
 
@@ -880,10 +880,10 @@ describe('ramas de error y cálculo de la página de Rentas', () => {
 
 		render(RentasPage);
 
-		expect(screen.getByText('Cargando rentas...')).toBeInTheDocument();
+		expect(screen.getByText('Cargando rentas…')).toBeInTheDocument();
 		d.resolve([renta()]);
 		expect(await screen.findByText('Cliente de Prueba')).toBeInTheDocument();
-		expect(screen.queryByText('Cargando rentas...')).not.toBeInTheDocument();
+		expect(screen.queryByText('Cargando rentas…')).not.toBeInTheDocument();
 	});
 
 	it('cuando listar_rentas falla muestra la tabla vacía en vez de romper', async () => {
@@ -894,7 +894,7 @@ describe('ramas de error y cálculo de la página de Rentas', () => {
 		render(RentasPage);
 
 		expect(await screen.findByText('No hay rentas')).toBeInTheDocument();
-		expect(screen.queryByText('Cargando rentas...')).not.toBeInTheDocument();
+		expect(screen.queryByText('Cargando rentas…')).not.toBeInTheDocument();
 	});
 
 	it('edita una renta: precarga, valida fechas y actualiza', async () => {
@@ -975,7 +975,7 @@ describe('ramas de error y cálculo de la página de Rentas', () => {
 		expect(args.datos.cobrarHorasExtra).toBe(true);
 	});
 
-	it('muestra «Guardando...» mientras crea y el error del backend si falla', async () => {
+	it('muestra «Guardando…» mientras crea y el error del backend si falla', async () => {
 		tauri.register('listar_rentas', () => []);
 		const d = deferido<Renta>();
 		tauri.register('crear_renta', () => d.promise);
@@ -1429,14 +1429,14 @@ describe('ramas de error y cálculo de la página de Rentas', () => {
 		expect(listar.mock.calls[1][0]).toMatchObject({ placa: 'XYZ987' });
 
 		// Búsqueda con debounce (350 ms)
-		await fireEvent.input(screen.getByPlaceholderText('Buscar por cliente, placa o estado...'), {
+		await fireEvent.input(screen.getByPlaceholderText('Buscar por cliente, placa o estado…'), {
 			target: { value: 'mazda' }
 		});
 		await waitFor(() => expect(listar).toHaveBeenCalledTimes(3), { timeout: 3000 });
 		expect(listar.mock.calls[2][0]).toMatchObject({ busqueda: 'mazda' });
 
 		// Vaciar la búsqueda → immediateIf recarga sin esperar el timer
-		await fireEvent.input(screen.getByPlaceholderText('Buscar por cliente, placa o estado...'), {
+		await fireEvent.input(screen.getByPlaceholderText('Buscar por cliente, placa o estado…'), {
 			target: { value: '' }
 		});
 		await waitFor(() => expect(listar).toHaveBeenCalledTimes(4), { timeout: 3000 });
@@ -1481,7 +1481,7 @@ describe('ramas de error y cálculo de la página de Rentas', () => {
 		// Campo vacío → se envía como undefined; error del backend → alerta
 		await fireEvent.input(screen.getByPlaceholderText('150000'), { target: { value: '' } });
 		await fireEvent.input(
-			screen.getByPlaceholderText('Describe el error de digitación que se corrige...'),
+			screen.getByPlaceholderText('Describe el error de digitación que se corrige…'),
 			{ target: { value: 'Tarifa mal digitada' } }
 		);
 		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Aplicar corrección' }));
@@ -1778,7 +1778,7 @@ describe('Rentas — fallbacks de ApiError con error no normalizado', () => {
 		await fireEvent.click(screen.getByTitle('Editar renta cerrada (corregir digitación)'));
 		let dialogo = await screen.findByRole('dialog');
 		await fireEvent.input(
-			screen.getByPlaceholderText('Describe el error de digitación que se corrige...'),
+			screen.getByPlaceholderText('Describe el error de digitación que se corrige…'),
 			{ target: { value: 'Tarifa mal digitada' } }
 		);
 		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Aplicar corrección' }));

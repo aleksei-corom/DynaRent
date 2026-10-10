@@ -169,8 +169,8 @@ describe('página de Gastos', () => {
 
 		// Fecha por defecto = hoy (no la tocamos); completamos el resto.
 		// FormField usa <span> como label (sin `for`), así que localizamos el
-		// select de categoría por su valor actual (único: 'Selecciona...')
-		await fireEvent.change(within(dialogo).getByDisplayValue('Selecciona...'), {
+		// select de categoría por su valor actual (único: 'Selecciona…')
+		await fireEvent.change(within(dialogo).getByDisplayValue('Selecciona…'), {
 			target: { value: 'COMBUSTIBLE' }
 		});
 		await fireEvent.input(screen.getByPlaceholderText('Ej: Cambio de aceite 15W-40'), {
@@ -328,7 +328,7 @@ describe('ramas de error y vacíos de Gastos', () => {
 		expect(await screen.findByText('Sin gastos por placa')).toBeInTheDocument();
 		expect(screen.getByText('Sin gastos por categoría')).toBeInTheDocument();
 		// Espera a que la recarga del effect de filtros deje de mostrar el spinner
-		await waitFor(() => expect(screen.queryByText('Cargando gastos...')).not.toBeInTheDocument());
+		await waitFor(() => expect(screen.queryByText('Cargando gastos…')).not.toBeInTheDocument());
 		// Comprobante vacío → guion largo (dos celdas: placa y comprobante)
 		expect(screen.getAllByText(/—/).length).toBeGreaterThanOrEqual(2);
 		// usuario === 'Sistema' → no se muestra el «por …»

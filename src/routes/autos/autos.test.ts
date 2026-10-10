@@ -236,7 +236,7 @@ describe('página de Autos', () => {
 		await screen.findByText('ABC123');
 		expect(listar).toHaveBeenCalledTimes(1);
 
-		await fireEvent.input(screen.getByPlaceholderText('Buscar por placa, marca o modelo...'), {
+		await fireEvent.input(screen.getByPlaceholderText('Buscar por placa, marca o modelo…'), {
 			target: { value: 'corolla' }
 		});
 
@@ -275,7 +275,7 @@ describe('página de Autos', () => {
 		await waitFor(() => expect(btnPanel).toHaveAttribute('aria-expanded', 'true'));
 
 		// El buscador del panel queda enfocado para escribir directo
-		const search = screen.getByPlaceholderText('Buscar por placa, marca o modelo…');
+		const search = screen.getByPlaceholderText('Buscar el vehículo del que copiar…');
 		await waitFor(() => expect(search).toHaveFocus());
 
 		// Segunda pulsación: toggle cierra el panel
@@ -417,7 +417,7 @@ describe('ramas de gestión de la página de Autos', () => {
 		expect(await screen.findByText('ABC123')).toBeInTheDocument();
 	});
 
-	it('crear: error de campo, «Guardando...», error del backend y éxito', async () => {
+	it('crear: error de campo, «Guardando…», error del backend y éxito', async () => {
 		tauri.register('listar_autos', () => []);
 		const d = deferido<Auto>();
 		tauri.register('crear_auto', () => d.promise);

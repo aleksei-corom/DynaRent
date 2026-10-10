@@ -10,8 +10,8 @@
 	// Solo admin
 	const esAdmin = $derived(tieneRol(['Administrador']));
 
-	let logsBackend = $state('(cargando...)');
-	let logsFrontend = $state('(cargando...)');
+	let logsBackend = $state('(cargando…)');
+	let logsFrontend = $state('(cargando…)');
 	let loading = $state(true);
 	let tab = $state<'backend' | 'frontend'>('backend');
 	let lineasBackend = $state(500);
@@ -111,7 +111,7 @@
 				</button>
 				<button class="btn-ghost text-sm" onclick={copiarAlPortapapeles}> 📋 Copiar </button>
 				<button class="btn-primary text-sm" onclick={exportar} disabled={exportando}>
-					{exportando ? '⏳ Exportando...' : '💾 Exportar archivo'}
+					{exportando ? '⏳ Exportando…' : '💾 Exportar archivo'}
 				</button>
 				<button class="btn-ghost text-sm text-peligro" onclick={limpiarLogs} disabled={limpiando}>
 					🗑️ Truncar
@@ -151,7 +151,7 @@
 		<div class="card p-4">
 			{#if loading}
 				<div class="flex items-center justify-center py-12 text-text-secondary">
-					⏳ Cargando logs...
+					⏳ Cargando logs…
 				</div>
 			{:else}
 				<pre

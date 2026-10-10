@@ -2,7 +2,7 @@
 // Escape y click fuera según `dismissible`, focus trap (Tab / Shift+Tab), las
 // variantes de layout (fullHeight / rawBody / noFooter) y el focus restore.
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/svelte';
+import { render, screen, fireEvent, within } from '@testing-library/svelte';
 import { createRawSnippet } from 'svelte';
 import Modal from './Modal.svelte';
 
@@ -138,5 +138,64 @@ describe('Modal', () => {
 		await fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
 		// Con un solo elemento enfocable el «último» es el mismo.
 		expect(document.activeElement).toBe(cerrar);
+	});
+});
+
+// ── Modales apilados (pila de Modal.svelte) ──
+// Regresión del patrón real «Nueva renta → botón «＋ Nuevo cliente»»:
+// dos instancias de Modal abiertas a la vez. Sin pila, Escape cerraba
+// ambas (se perdía el formulario de la renta) y el trap del modal padre
+// secuestraba el Tab del hijo.
+describe('Modal apilados (pila)', () => {
+	it('Escape cierra solo el modal superior; al cerrarlo, el inferior recupera el teclado', async () => {
+		const onClosePadre = vi.fn();
+		const onCloseHijo = vi.fn();
+		const padre = render(Modal, {
+			props: { open: true, title: 'Nueva renta', onClose: onClosePadre }
+		});
+		const hijo = render(Modal, {
+			props: { open: true, title: 'Nuevo cliente', onClose: onCloseHijo }
+		});
+		await new Promise((r) => requestAnimationFrame(() => r(null)));
+
+		// Escape → solo cierra el de arriba.
+		await fireEvent.keyDown(document, { key: 'Escape' });
+		expect(onCloseHijo).toHaveBeenCalledTimes(1);
+		expect(onClosePadre).not.toHaveBeenCalled();
+
+		// El superior se cierra → el inferior vuelve a ser el tope de la pila
+		// (Modal es controlado: «cerrar» es llamar a onClose; el padre sigue
+		// montado hasta que el consumidor cambie `open`).
+		hijo.unmount();
+		await fireEvent.keyDown(document, { key: 'Escape' });
+		expect(onClosePadre).toHaveBeenCalledTimes(1);
+		padre.unmount();
+	});
+
+	it('el trap del modal inferior no secuestra el Tab mientras el superior está abierto', async () => {
+		render(Modal, { props: { open: true, title: 'Nueva renta', onClose: vi.fn() } });
+		const hijo = render(Modal, {
+			props: { open: true, title: 'Nuevo cliente', onClose: vi.fn() }
+		});
+		await new Promise((r) => requestAnimationFrame(() => r(null)));
+
+		// El foco vive en el modal superior y el Tab debe quedarse ahí.
+		const cerrarHijo = within(hijo.container).getByLabelText('Cerrar');
+		cerrarHijo.focus();
+		await fireEvent.keyDown(document, { key: 'Tab' });
+		expect(document.activeElement).toBe(cerrarHijo);
+		expect(hijo.container.contains(document.activeElement)).toBe(true);
+	});
+
+	it('un modal no dismissible en el tope bloquea Escape para toda la pila', async () => {
+		const onClosePadre = vi.fn();
+		render(Modal, { props: { open: true, title: 'Nueva renta', onClose: onClosePadre } });
+		render(Modal, {
+			props: { open: true, title: 'Confirme', onClose: vi.fn(), dismissible: false }
+		});
+		await new Promise((r) => requestAnimationFrame(() => r(null)));
+
+		await fireEvent.keyDown(document, { key: 'Escape' });
+		expect(onClosePadre).not.toHaveBeenCalled();
 	});
 });

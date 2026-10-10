@@ -18,7 +18,7 @@
 	// Ciudad para la cláusula compromisoria (la configurada por la empresa; si no
 	// hay ninguna, se conserva la del contrato original: Cartagena).
 	const ciudadClausula = $derived(empresa.ciudadMostrar || 'Cartagena');
-	// "DYNARENT, RUT 900694866-3, www.dynarent.com, domiciliado en ..." (omite vacíos)
+	// "DYNARENT, RUT 900694866-3, www.dynarent.com, domiciliado en …" (omite vacíos)
 	const datosArrendador = $derived(
 		[
 			razonSocial,

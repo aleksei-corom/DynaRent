@@ -182,7 +182,7 @@ describe('ramas de gestión de la página de Usuarios', () => {
 		expect(screen.getByText('Administrador')).toBeInTheDocument();
 	});
 
-	it('crear usuario: validaciones, switches, «Guardando...», error y éxito', async () => {
+	it('crear usuario: validaciones, switches, «Guardando…», error y éxito', async () => {
 		setSesion('Administrador');
 		tauri.register('listar_usuarios', () => []);
 		const d = deferido<Usuario>();
@@ -227,7 +227,7 @@ describe('ramas de gestión de la página de Usuarios', () => {
 		expect(switches[0]).toHaveAttribute('aria-checked', 'false');
 		expect(switches[1]).toHaveAttribute('aria-checked', 'false');
 
-		// 5) pendiente en el backend → «Guardando...» + error
+		// 5) pendiente en el backend → «Guardando…» + error
 		await fireEvent.input(passInputs[1], { target: { value: 'secreta12' } });
 		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Crear usuario' }));
 		const guardando = await within(dialogo).findByRole('button', { name: /Guardando/ });
@@ -423,13 +423,13 @@ describe('ramas de gestión de la página de Usuarios', () => {
 		await screen.findByText('Juan Pérez');
 		expect(listar).toHaveBeenCalledTimes(1); // primerCiclo → carga directa
 
-		await fireEvent.input(screen.getByPlaceholderText('Buscar por usuario, nombre o rol...'), {
+		await fireEvent.input(screen.getByPlaceholderText('Buscar por usuario, nombre o rol…'), {
 			target: { value: 'juan' }
 		});
 		await waitFor(() => expect(listar).toHaveBeenCalledTimes(2), { timeout: 3000 });
 		expect(listar.mock.calls[1][0]).toMatchObject({ busqueda: 'juan' });
 
-		await fireEvent.input(screen.getByPlaceholderText('Buscar por usuario, nombre o rol...'), {
+		await fireEvent.input(screen.getByPlaceholderText('Buscar por usuario, nombre o rol…'), {
 			target: { value: '' }
 		});
 		await waitFor(() => expect(listar).toHaveBeenCalledTimes(3), { timeout: 3000 });

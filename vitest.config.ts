@@ -85,7 +85,11 @@ export default defineConfig({
 			//   81.66 (tanda fallbacks genéricos en usuarios: los 5 catches —cargar,
 			//          guardar, forzar contraseña, eliminar y desbloquear— ejercitados
 			//          con vi.spyOn de módulo; backups ya los tenía de d408785,
-			//          3023/3702 ramas; 669 tests).
+			//          3023/3702 ramas; 669 tests) →
+			//   81.62 (tanda UI/UX: pila de modales en Modal.svelte —Escape/Tab solo
+			//          llegan al modal superior— con 3 tests de apilamiento; +5 ramas
+			//          cubiertas (3028/3710: el total creció con las ramas defensivas
+			//          de la pila); 672 tests; el ratchet entero sigue en 81).
 			// Se fija el piso honesto (margen ~0.5-1 pts entre plataformas)
 			// como RATCHET: subir este número junto con cada tanda de tests que
 			// cubra ramas nuevas, nunca bajarlo.
