@@ -51,9 +51,7 @@ describe('cambiar-password — guard de sesión', () => {
 		// session.debeCambiarPassword es false → el $effect dispara goto.
 		await montar();
 
-		await waitFor(() =>
-			expect(gotoMock).toHaveBeenCalledWith('/dashboard', { replace: true })
-		);
+		await waitFor(() => expect(gotoMock).toHaveBeenCalledWith('/dashboard', { replace: true }));
 	});
 });
 
@@ -177,9 +175,7 @@ describe('cambiar-password — guardado', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Guardar contraseña' }));
 
 		await waitFor(() =>
-			expect(screen.getByRole('alert')).toHaveTextContent(
-				'No se pudo cambiar la contraseña.'
-			)
+			expect(screen.getByRole('alert')).toHaveTextContent('No se pudo cambiar la contraseña.')
 		);
 		expect((screen.getByLabelText('Contraseña actual') as HTMLInputElement).value).toBe('');
 		spy.mockRestore();

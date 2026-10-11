@@ -181,7 +181,7 @@ describe('empresa store — cargarPublica', () => {
 
 	it('una segunda llamada secuencial no vuelve a consultar (caché)', async () => {
 		resetCargado();
-		const spy = vi.fn(() => ({ nombre: 'Otra', logo: null } as never));
+		const spy = vi.fn(() => ({ nombre: 'Otra', logo: null }) as never);
 		tauri.register('empresa_publica', spy);
 
 		await empresa.cargarPublica();

@@ -73,9 +73,7 @@ describe('app store — telemetría y salud de base de datos', () => {
 		// invokeCmd normaliza a ApiError (instanceof Error), así que la rama
 		// genérica solo es alcanzable con un rechazo plano vía spy de módulo.
 		const { appApi } = await import('#lib/api/app.js');
-		const spy = vi
-			.spyOn(appApi, 'dbHealth')
-			.mockRejectedValue('fallo plano sin envolver' as never);
+		const spy = vi.spyOn(appApi, 'dbHealth').mockRejectedValue('fallo plano sin envolver' as never);
 
 		const ok = await appInfo.verificarDb();
 

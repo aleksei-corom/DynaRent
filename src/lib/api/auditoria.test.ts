@@ -30,7 +30,13 @@ describe('auditoriaApi.listar', () => {
 
 		await auditoriaApi.listar(
 			'sid-1',
-			{ usuario: 'admin', accion: 'login', fechaDesde: '2026-01-01', fechaHasta: '2026-01-31', busqueda: 'x' },
+			{
+				usuario: 'admin',
+				accion: 'login',
+				fechaDesde: '2026-01-01',
+				fechaHasta: '2026-01-31',
+				busqueda: 'x'
+			},
 			2,
 			25
 		);
