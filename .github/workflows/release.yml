@@ -69,18 +69,23 @@ jobs:
       # with a different key than the one provided" (exactamente lo que pasó
       # con las builds ≤1.2.4). Falla el job ANTES de publicar nada.
       # Ver SECRET_FIRMA_UPDATER.md y scripts/verificar-pubkey-updater.mjs.
+      # NOTA: este paso NO debe exportar TAURI_SIGNING_PRIVATE_KEY como env —
+      # el CLI de Tauri lo mapea a --private-key y al pasar además -f
+      # (--private-key-path) clap aborta con "cannot be used with" (exit 2,
+      # falló el release v1.2.6 la primera vez). Se usa un nombre de env
+      # arbitrario (FIRMA_KEY) solo para volcar el secret a un archivo.
       - name: Verificar que la clave de firma coincide con la pubkey de tauri.conf.json
         shell: bash
         env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          FIRMA_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          FIRMA_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           KEY_FILE="$RUNNER_TEMP/firma.key"
           PAYLOAD="$RUNNER_TEMP/payload-guard.txt"
-          printf '%s\n' "$TAURI_SIGNING_PRIVATE_KEY" > "$KEY_FILE"
+          printf '%s\n' "$FIRMA_KEY" > "$KEY_FILE"
           printf 'guard-pubkey-updater\n' > "$PAYLOAD"
-          bunx tauri signer sign -f "$KEY_FILE" -p "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}" "$PAYLOAD"
+          bunx tauri signer sign -f "$KEY_FILE" -p "${FIRMA_KEY_PASSWORD:-}" "$PAYLOAD"
           node scripts/verificar-pubkey-updater.mjs "$PAYLOAD.sig"
 
       # Validación de paginación antes de publicar: orden (1 página Carta),

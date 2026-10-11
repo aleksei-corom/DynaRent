@@ -67,3 +67,34 @@ valida que la clave local y la pubkey de `tauri.conf.json` coinciden.
   secret **y** la pubkey en `src-tauri/tauri.conf.json` (`plugins.updater.pubkey`), y
   publicar una release nueva — las instalaciones que ya tienen la pubkey anterior
   dejarán de validar las firmas hasta actualizarse.
+
+## 5. Gotcha del CLI: no exportar `TAURI_SIGNING_PRIVATE_KEY` junto a `-f`
+
+`tauri signer sign` acepta la clave por DOS vías mutuamente excluyentes (clap):
+
+| Flag | Env var |
+|---|---|
+| `-k, --private-key <CLAVE>` | `TAURI_SIGNING_PRIVATE_KEY` |
+| `-f, --private-key-path <ARCHIVO>` | `TAURI_SIGNING_PRIVATE_KEY_PATH` |
+
+Si un paso de CI exporta `TAURI_SIGNING_PRIVATE_KEY` como env **y** pasa `-f <archivo>`,
+clap interpreta que se usaron ambos flags y aborta ANTES de firmar:
+
+```
+error: the argument '--private-key-path <PRIVATE_KEY_PATH>' cannot be used with '--private-key <PRIVATE_KEY>' (exit 2)
+```
+
+Esto rompió el primer intento de publicar v1.2.6 (run 38097016188). Patrón seguro en
+workflows: volcar el secret a un archivo usando un nombre de env arbitrario y firmar
+solo con `-f`:
+
+```yaml
+env:
+  FIRMA_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+  FIRMA_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+run: |
+  printf '%s\n' "$FIRMA_KEY" > "$RUNNER_TEMP/firma.key"
+  bunx tauri signer sign -f "$RUNNER_TEMP/firma.key" -p "${FIRMA_KEY_PASSWORD:-}" "$PAYLOAD"
+```
+
+Ver el paso «Verificar que la clave de firma coincide…» en `.github/workflows/release.yml`.

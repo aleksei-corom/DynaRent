@@ -94,6 +94,12 @@ release `v1.0.17` con instaladores `Dynarent_1.0.15_*` (si el bump quedara a med
       `~/.tauri/dynarent.key` de la máquina que la generó: respáldala (si se pierde,
       las instalaciones v1.0.3+ dejarían de actualizarse).
       → Configurar y verificar por CLI: [`SECRET_FIRMA_UPDATER.md`](SECRET_FIRMA_UPDATER.md)
+      → Gotcha del CLI de firma: el paso «Verificar que la clave…» de `release.yml` NO
+        debe exportar `TAURI_SIGNING_PRIVATE_KEY` como env si además pasa `-f <archivo>`
+        (clap aborta: «'--private-key-path' cannot be used with '--private-key'», exit 2
+        — rompió el 1er intento de publicar v1.2.6). Volcar el secret a un archivo con un
+        nombre de env arbitrario (`FIRMA_KEY`) y firmar solo con `-f`. Detalle en
+        [`SECRET_FIRMA_UPDATER.md`](SECRET_FIRMA_UPDATER.md) §5.
 
 ## 2. Bump de versión
 

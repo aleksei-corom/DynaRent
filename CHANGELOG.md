@@ -9,6 +9,12 @@ Las versiones se publican como [releases en GitHub](https://github.com/CORJAR-Co
 ## [v1.2.6] — 2026-10-10
 
 ### Corregido
+- **Pipeline de release**: el guard de firma del updater en `release.yml` exportaba
+  `TAURI_SIGNING_PRIVATE_KEY` como env y además pasaba `-f` (private-key-path) al CLI de
+  Tauri; clap detecta ambos y aborta con «the argument '--private-key-path' cannot be used
+  with '--private-key'» (exit 2) — falló el primer intento de publicar v1.2.6. El paso ahora
+  vuelca el secret a un archivo con un nombre de env arbitrario (`FIRMA_KEY`); ver
+  `SECRET_FIRMA_UPDATER.md` § "Gotcha del CLI".
 - **Modal stacking**: Escape y Tab ahora solo afectan al modal superior de la pila (antes el
   modal de abajo también reaccionaba y cerraba/desplazaba el foco por debajo del superior).
   Pulido general de UI/UX en diálogos.
