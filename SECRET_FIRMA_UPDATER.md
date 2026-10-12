@@ -93,8 +93,22 @@ env:
   FIRMA_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
   FIRMA_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 run: |
-  printf '%s\n' "$FIRMA_KEY" > "$RUNNER_TEMP/firma.key"
+  printf '%s' "$FIRMA_KEY" > "$RUNNER_TEMP/firma.key"
   bunx tauri signer sign -f "$RUNNER_TEMP/firma.key" -p "${FIRMA_KEY_PASSWORD:-}" "$PAYLOAD"
 ```
+
+
+### 5.1 Segundo gotcha: el volcado NO debe terminar en newline
+
+El mismo flag `-f` decodifica el archivo como **base64 estricto, sin trimmer**: si el
+volcado termina en `\n`, el decode falla con:
+
+```
+failed to decode base64 secret key: failed to decode base64 key: Invalid symbol 10, offset 348.
+```
+
+El símbolo 10 es el salto de línea final (offset = longitud de la clave, 348). Se
+reprodujo localmente con `printf '%s\n'` (falla) vs `printf '%s'` (firma OK).
+Por eso el paso usa **`printf '%s'`** (sin `\n` final).
 
 Ver el paso «Verificar que la clave de firma coincide…» en `.github/workflows/release.yml`.

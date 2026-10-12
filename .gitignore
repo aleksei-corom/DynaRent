@@ -91,3 +91,6 @@ coverage
 /flyer_promocional.html
 /img_data.js
 /logo_dynarent.jpg
+
+# Artefactos temporales de sesiones de trabajo
+.tmp-release/

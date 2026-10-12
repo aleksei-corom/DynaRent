@@ -83,7 +83,10 @@ jobs:
           set -euo pipefail
           KEY_FILE="$RUNNER_TEMP/firma.key"
           PAYLOAD="$RUNNER_TEMP/payload-guard.txt"
-          printf '%s\n' "$FIRMA_KEY" > "$KEY_FILE"
+          # printf SIN \n final: el CLI decodifica -f como base64 strict sin
+          # trimmer, y un newline extra rompe el decode ("Invalid symbol 10,
+          # offset 348"). Ver SECRET_FIRMA_UPDATER.md §5.
+          printf '%s' "$FIRMA_KEY" > "$KEY_FILE"
           printf 'guard-pubkey-updater\n' > "$PAYLOAD"
           bunx tauri signer sign -f "$KEY_FILE" -p "${FIRMA_KEY_PASSWORD:-}" "$PAYLOAD"
           node scripts/verificar-pubkey-updater.mjs "$PAYLOAD.sig"
