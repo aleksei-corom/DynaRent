@@ -29,7 +29,9 @@ const ok = (m) => console.log(`  ✓ ${m}`);
 const falla = (m) => fallos.push(m);
 
 console.log(`\nExport Excel SIMIT — resultado de ${resultado.sincronizadoEn}`);
-console.log(`  registros en el resultado: ${resultado.registros.length} · total pendiente: $${resultado.totalPendiente}`);
+console.log(
+	`  registros en el resultado: ${resultado.registros.length} · total pendiente: $${resultado.totalPendiente}`
+);
 
 // ── 1. Construir el libro (mismo mapeo que descargarExcelSimit) ──────────────
 const wb = new ExcelJS.Workbook();
@@ -39,9 +41,21 @@ ws.mergeCells(1, 1, 1, 10);
 ws.getCell('A1').value = 'DINAMO RENT — REPORTE SIMIT';
 ws.getCell('A1').font = { bold: true, size: 14 };
 ws.mergeCells(2, 1, 2, 10);
-ws.getCell('A2').value = `Sincronización: ${new Date(resultado.sincronizadoEn).toLocaleString('es-CO')}`;
+ws.getCell('A2').value =
+	`Sincronización: ${new Date(resultado.sincronizadoEn).toLocaleString('es-CO')}`;
 ws.addRow([]);
-const header = ['Placa', 'N° Comparendo', 'Fecha', 'Hora', 'Tipo', 'Infracción', 'Organismo', 'Valor', 'Estado', 'Nuevo'];
+const header = [
+	'Placa',
+	'N° Comparendo',
+	'Fecha',
+	'Hora',
+	'Tipo',
+	'Infracción',
+	'Organismo',
+	'Valor',
+	'Estado',
+	'Nuevo'
+];
 const headerRow = ws.addRow(header);
 headerRow.eachCell((cell) => {
 	cell.font = { bold: true };
@@ -92,7 +106,9 @@ if (!ws2) {
 	const headers = [];
 	for (let c = 1; c <= 10; c++) headers.push(String(filaHeader.getCell(c).value ?? ''));
 	if (JSON.stringify(headers) !== JSON.stringify(header)) {
-		falla(`Encabezados no coinciden:\n  esperado: ${JSON.stringify(header)}\n  obtenido: ${JSON.stringify(headers)}`);
+		falla(
+			`Encabezados no coinciden:\n  esperado: ${JSON.stringify(header)}\n  obtenido: ${JSON.stringify(headers)}`
+		);
 	} else {
 		ok('Encabezados (10 columnas) correctos');
 	}
@@ -124,7 +140,9 @@ if (!ws2) {
 		if (d.placa !== r.placa || d.fecha !== r.fechaInfraccion || d.estado !== r.estado) {
 			mismatches++;
 			if (mismatches <= 3) {
-				falla(`Fila ${i}: ${d.placa} ${d.fecha} ${d.estado} ≠ ${r.placa} ${r.fechaInfraccion} ${r.estado}`);
+				falla(
+					`Fila ${i}: ${d.placa} ${d.fecha} ${d.estado} ≠ ${r.placa} ${r.fechaInfraccion} ${r.estado}`
+				);
 			}
 		}
 	});
@@ -144,7 +162,9 @@ if (!ws2) {
 	const totalCelda = String(filaTotal.getCell(1).value ?? '');
 	const totalValor = String(filaTotal.getCell(2).value ?? '');
 	if (totalCelda !== 'Total pendiente' || totalValor !== `$${resultado.totalPendiente}`) {
-		falla(`Total pendiente: "${totalCelda}" / "${totalValor}" (esperado "$${resultado.totalPendiente}")`);
+		falla(
+			`Total pendiente: "${totalCelda}" / "${totalValor}" (esperado "$${resultado.totalPendiente}")`
+		);
 	} else {
 		ok(`Total pendiente: ${totalValor}`);
 	}

@@ -118,19 +118,19 @@ jobs:
           fi
           [ -n "$LOG" ] || LOG="- (sin commits nuevos)"
           BODY="# Dynarent ERP ${REF}
-          
+
           > Publicada automáticamente por GitHub Actions. Cambios ${ORIGEN} (commit ${GITHUB_SHA:0:7}).
-          
+
           ## Cambios en esta versión
-          
+
           ${LOG}
-          
+
           ## Instalación
-          
+
           - **Windows**: descarga el instalador NSIS \`*-setup.exe\` o el MSI \`*.msi\` de los assets de este release.
           - La app crea su \`config.ini\` en \`%APPDATA%\\com.corjar.dynarent\\\` en el primer arranque.
           - Requiere WebView2 Runtime (se instala automáticamente si no está presente).
-          
+
           Ver \`SECURITY.md\` para la política de manejo de secretos y respaldo de la clave PII."
           {
             echo 'changelog<<CHANGELOG_EOF'

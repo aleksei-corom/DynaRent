@@ -122,9 +122,7 @@ function ejecutarCheck(env, args = []) {
 		let stderr = '';
 		child.stdout.on('data', (d) => (stdout += d));
 		child.stderr.on('data', (d) => (stderr += d));
-		child.on('close', (codigo) =>
-			resolve({ codigo: codigo ?? 1, stdout, stderr: stderr.trim() })
-		);
+		child.on('close', (codigo) => resolve({ codigo: codigo ?? 1, stdout, stderr: stderr.trim() }));
 	});
 }
 
@@ -149,7 +147,9 @@ try {
 	} catch {
 		/* salida no JSON */
 	}
-	console.log(`  exit=${r.codigo} · resultado=${reporte?.resultado} · firma=${reporte?.microservicio?.firma}${r.stderr ? ` · stderr: ${r.stderr.slice(0, 100)}` : ''}`);
+	console.log(
+		`  exit=${r.codigo} · resultado=${reporte?.resultado} · firma=${reporte?.microservicio?.firma}${r.stderr ? ` · stderr: ${r.stderr.slice(0, 100)}` : ''}`
+	);
 
 	if (r.codigo === 0) ok('exit 0');
 	else falla(`exit ${r.codigo} (esperado 0) — stderr: ${r.stderr.slice(0, 200)}`);
@@ -173,14 +173,17 @@ try {
 	// Token de UNA solución (Fase 1): el array JSON trae exactamente 1 nonce
 	const nonces = (ultima?.token.match(/"nonce"/g) ?? []).length;
 	if (nonces === 1) ok('token de la sonda = UNA solución (solo_primera_solucion)');
-	else falla(`token con ${nonces} solución(es) (esperado 1) — ${String(ultima?.token).slice(0, 60)}`);
+	else
+		falla(`token con ${nonces} solución(es) (esperado 1) — ${String(ultima?.token).slice(0, 60)}`);
 
 	// --multas: el resumen E2E debe viajar en el JSON (microservicio.e2e)
 	const e2e = reporte?.microservicio?.e2e;
 	if (e2e?.multas === 1 && e2e?.totalPendiente === 137300) {
 		ok(`e2e en el JSON: ${e2e.multas} multa(s) · $${e2e.totalPendiente} (con --multas)`);
 	} else {
-		falla(`e2e ausente o incorrecto (esperado multas=1, totalPendiente=137300) — ${JSON.stringify(e2e)}`);
+		falla(
+			`e2e ausente o incorrecto (esperado multas=1, totalPendiente=137300) — ${JSON.stringify(e2e)}`
+		);
 	}
 	if (e2e?.detalles?.[0]?.numero === 'TEST-250010000000001') {
 		ok(`detalle por multa en e2e.detalles (${e2e.detalles.length} fila)`);
@@ -202,7 +205,9 @@ try {
 	} catch {
 		/* salida no JSON */
 	}
-	console.log(`  exit=${r.codigo} · resultado=${reporte?.resultado} · firma=${reporte?.microservicio?.firma}`);
+	console.log(
+		`  exit=${r.codigo} · resultado=${reporte?.resultado} · firma=${reporte?.microservicio?.firma}`
+	);
 
 	if (reporte?.resultado === 'micro_caido') ok('resultado = micro_caido');
 	else falla(`resultado = ${reporte?.resultado} (esperado micro_caido)`);

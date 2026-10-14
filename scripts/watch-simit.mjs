@@ -151,7 +151,9 @@ function registrarLog(linea) {
 async function main() {
 	if (!opts.json) {
 		console.log(`─ Vigilante SIMIT ────────────────────────────────`);
-		console.log(`⏱  ${ahora()} · chequeo cada ${opts.intervalH} h · máx ${opts.maxH} h · log: ${LOG_FILE}`);
+		console.log(
+			`⏱  ${ahora()} · chequeo cada ${opts.intervalH} h · máx ${opts.maxH} h · log: ${LOG_FILE}`
+		);
 	}
 	const inicio = Date.now();
 	let intentos = 0;
@@ -196,7 +198,9 @@ async function main() {
 				if (!opts.json) console.log(`\n  ${textoCambio}`);
 			}
 		}
-		const totalTexto = e2e ? ` | multas:${e2e.multas} · $${e2e.totalPendiente.toLocaleString('es-CO')}` : '';
+		const totalTexto = e2e
+			? ` | multas:${e2e.multas} · $${e2e.totalPendiente.toLocaleString('es-CO')}`
+			: '';
 		const linea = `${new Date().toISOString()} | intento #${intentos} | ${resultado}${detalleFirma}${totalTexto} | ${ms} ms${reporte?.dns && reporte.dns.ok === false ? ' | DNS sin resolver' : ''}${stderr ? ` | stderr: ${stderr.slice(0, 120)}` : ''}`;
 		registrarLog(linea);
 
@@ -208,7 +212,9 @@ async function main() {
 					console.log(`\n🎉 ${ahora()} — ¡El portal SIMIT VOLVIÓ! (intento #${intentos})`);
 					console.log(`   Último chequeo: SIMIT operativo — la E2E se puede reintentar.`);
 					if (e2e) {
-						console.log(`   Total pendiente de la flota (placa ${e2e.placa}): $${e2e.totalPendiente.toLocaleString('es-CO')} · ${e2e.multas} multa(s)`);
+						console.log(
+							`   Total pendiente de la flota (placa ${e2e.placa}): $${e2e.totalPendiente.toLocaleString('es-CO')} · ${e2e.multas} multa(s)`
+						);
 					}
 					if (cambioTotal) console.log(`   ${textoCambio}`);
 					console.log(`   Log completo: ${LOG_FILE}`);
@@ -241,11 +247,16 @@ async function main() {
 		if (estadoPrevio === 'operativo') {
 			estadoPrevio = 'caido';
 			registrarLog(`${new Date().toISOString()} | ⚠ el portal dejó de responder (${resultado})`);
-			if (!opts.json) console.log(`\n  ⚠ ${ahora()} — el portal dejó de responder (${resultado}); se sigue vigilando.`);
+			if (!opts.json)
+				console.log(
+					`\n  ⚠ ${ahora()} — el portal dejó de responder (${resultado}); se sigue vigilando.`
+				);
 		}
 		if (!opts.json) {
 			const sufijoFirma = firma ? ` · micro:${firma}` : '';
-			console.log(`  ${ahora()} · #${intentos} ${resultado}${sufijoFirma}${reporte?.dns && reporte.dns.ok === false ? ' (DNS sin resolver)' : ''} — sigue caído, próximo en ${opts.intervalH} h`);
+			console.log(
+				`  ${ahora()} · #${intentos} ${resultado}${sufijoFirma}${reporte?.dns && reporte.dns.ok === false ? ' (DNS sin resolver)' : ''} — sigue caído, próximo en ${opts.intervalH} h`
+			);
 		}
 		await sleep(intervaloMs);
 	}

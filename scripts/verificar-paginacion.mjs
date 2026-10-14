@@ -213,9 +213,7 @@ function resolverTamano(t) {
 
 function buscarEnPath(nombre) {
 	const sufijo = process.platform === 'win32' ? '.exe' : '';
-	const ruta = (process.env.PATH || '')
-		.split(pathDelim)
-		.map((p) => join(p, nombre + sufijo));
+	const ruta = (process.env.PATH || '').split(pathDelim).map((p) => join(p, nombre + sufijo));
 	return ruta.find((p) => existsSync(p)) || null;
 }
 
@@ -273,7 +271,10 @@ function imprimir(bin, args, timeoutMs) {
 		child.stderr.on('data', (d) => (err += d));
 		child.on('error', (e) => fin(false, `no se pudo iniciar el navegador: ${e.message}`));
 		child.on('close', (code) =>
-			fin(code === 0, code === 0 ? '' : `el navegador salió con código ${code}: ${err.slice(-400).trim()}`)
+			fin(
+				code === 0,
+				code === 0 ? '' : `el navegador salió con código ${code}: ${err.slice(-400).trim()}`
+			)
 		);
 		const t = setTimeout(() => {
 			child.kill('SIGKILL');
@@ -390,7 +391,10 @@ function verificarPie(pdf, paginas) {
 	const completo = mejor.length === paginas;
 	if (!secuencial || !totalOk || !completo) {
 		const encontrado = mejor.map((x) => x[0]).join(' · ');
-		return { ok: false, detalle: `pie inconsistente: ${encontrado} (esperado 1..${paginas} de ${paginas})` };
+		return {
+			ok: false,
+			detalle: `pie inconsistente: ${encontrado} (esperado 1..${paginas} de ${paginas})`
+		};
 	}
 	return { ok: true, detalle: `${mejor.length}/${paginas} páginas con «Página X de Y» correcto` };
 }
@@ -408,7 +412,9 @@ function analizarPDF(buf, nombre, exp, esperado, opts) {
 	if (exp) {
 		const [min, max] = exp;
 		const ok = paginas >= min && paginas <= max;
-		console.log(`  ${ok ? '[OK]' : '[FALLO]'} páginas: ${lineaPaginas} (esperado ${min === max ? min : `${min}:${max}`})`);
+		console.log(
+			`  ${ok ? '[OK]' : '[FALLO]'} páginas: ${lineaPaginas} (esperado ${min === max ? min : `${min}:${max}`})`
+		);
 		if (!ok) falloArchivo = true;
 	} else {
 		console.log(`  [OK] páginas: ${lineaPaginas} (sin expectativa)`);
@@ -418,7 +424,9 @@ function analizarPDF(buf, nombre, exp, esperado, opts) {
 	if (tam) {
 		const ok = !esperado || (tam.w === esperado[0] && tam.h === esperado[1]);
 		const etiqueta = ok ? '[OK]' : '[FALLO]';
-		console.log(`  ${etiqueta} tamaño: ${etiquetaTamano(tam)}${opts.tamano ? ` (esperado ${opts.tamano})` : ''}`);
+		console.log(
+			`  ${etiqueta} tamaño: ${etiquetaTamano(tam)}${opts.tamano ? ` (esperado ${opts.tamano})` : ''}`
+		);
 		if (!ok) falloArchivo = true;
 	} else if (esperado) {
 		console.log(`  [FALLO] tamaño: no se pudo detectar el MediaBox (esperado ${opts.tamano})`);
@@ -526,7 +534,11 @@ async function main() {
 			let res = await imprimir(binario, args, opts.tiempo);
 			let pdfOk = (await esperarPDF(pdf, esperaPDF)) && res.ok;
 			if (!pdfOk && !opts.headers) {
-				try { rmSync(pdf, { force: true }); } catch { /* no existía */ }
+				try {
+					rmSync(pdf, { force: true });
+				} catch {
+					/* no existía */
+				}
 				await new Promise((r) => setTimeout(r, 500)); // deja soltar el perfil
 				const uidRetry = mkdtempSync(join(tmpdir(), 'dinamo-perfil-'));
 				perfiles.push(uidRetry);

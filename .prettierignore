@@ -10,3 +10,13 @@ bun.lock
 package-lock.json
 src/lib/assets
 src/lib/api/devGuard.generated.ts
+
+# Documentos y artefactos de la raíz del proyecto.
+# - *.md: docs heredados con finales de línea CRLF.
+# - *.html: preview del manual y fixtures de prueba de paginación
+#   (scripts/fixtures/*.html) que se renderizan en navegador; no deben
+#   reescribirse.
+# El alcance del CI (format:check) solo cubre src/; se excluye la raíz para
+# que `prettier --check .` no marque falsos positivos por EOL sin tocarlos.
+*.md
+*.html

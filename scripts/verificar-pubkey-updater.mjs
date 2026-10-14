@@ -37,7 +37,10 @@ function keyIdDesdePubkeyBase64(base64) {
 function keyIdDesdeSig(path) {
 	const crudo = readFileSync(path, 'utf8').replace(/\s+/g, '');
 	const texto = Buffer.from(crudo, 'base64').toString('utf8');
-	const linea = texto.split('\n').filter(Boolean).find((l) => !l.includes('comment:'));
+	const linea = texto
+		.split('\n')
+		.filter(Boolean)
+		.find((l) => !l.includes('comment:'));
 	if (!linea) return null;
 	const raw = Buffer.from(linea, 'base64');
 	// estructura: alg(2) + key_id(8) + firma(64) = 74 bytes (Ed25519)

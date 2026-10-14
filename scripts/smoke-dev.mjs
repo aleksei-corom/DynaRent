@@ -150,7 +150,9 @@ function sembrarBd() {
 		}
 	});
 	if (rs.status !== 0) throw new Error(`seed_ci falló (exit ${rs.status})`);
-	const fdbEncontrada = existsSync(join(DATA_DIR, 'dynarent_v3.fdb')) || existsSync(join(DATA_DIR, 'dinamo_rent_v3.fdb'));
+	const fdbEncontrada =
+		existsSync(join(DATA_DIR, 'dynarent_v3.fdb')) ||
+		existsSync(join(DATA_DIR, 'dinamo_rent_v3.fdb'));
 	if (!fdbEncontrada) throw new Error('seed_ci no produjo la BD en ' + DATA_DIR);
 	console.log('   BD aislada en:', DATA_DIR);
 }

@@ -28,8 +28,7 @@ import { promises as dns } from 'node:dns';
 // Overrides por env (misma convención que SIMIT_PLACA/SIMIT_TIMEOUT_MS):
 // permiten apuntar el diagnóstico a un servidor local en los tests
 // (scripts/test-check-simit.mjs).
-const CAPTCHA_URL =
-	process.env.SIMIT_CAPTCHA_URL || 'https://qxcaptcha.fcm.org.co/api.php';
+const CAPTCHA_URL = process.env.SIMIT_CAPTCHA_URL || 'https://qxcaptcha.fcm.org.co/api.php';
 const CONSULTA_URL =
 	process.env.SIMIT_CONSULTA_URL ||
 	'https://consultasimit.fcm.org.co/simit/microservices/estado-cuenta-simit/estadocuenta/consulta';
@@ -88,7 +87,12 @@ async function comprobarDns() {
 	}
 	return {
 		ok: algunoResuelve,
-		hosts: resultados.map((r) => ({ host: r.host, ok: r.ok, ip: r.ip ?? null, motivo: r.motivo ?? null }))
+		hosts: resultados.map((r) => ({
+			host: r.host,
+			ok: r.ok,
+			ip: r.ip ?? null,
+			motivo: r.motivo ?? null
+		}))
 	};
 }
 
@@ -98,7 +102,13 @@ async function request(url, { method = 'GET', headers = {}, body, timeoutMs }) {
 	const ctrl = new AbortController();
 	const timer = setTimeout(() => ctrl.abort(), timeoutMs);
 	try {
-		const res = await fetch(url, { method, headers, body, signal: ctrl.signal, redirect: 'follow' });
+		const res = await fetch(url, {
+			method,
+			headers,
+			body,
+			signal: ctrl.signal,
+			redirect: 'follow'
+		});
 		const text = await res.text();
 		return { status: res.status, statusText: res.statusText, text };
 	} finally {
@@ -181,11 +191,15 @@ async function obtenerTokenCaptcha(timeoutMs) {
 	const errValue = data.error;
 	const conError = errValue === true || (typeof errValue === 'number' && errValue !== 0);
 	if (conError || !data.data?.question) {
-		return { ok: false, motivo: `servidor rechazó la consulta (error=${JSON.stringify(errValue)})` };
+		return {
+			ok: false,
+			motivo: `servidor rechazó la consulta (error=${JSON.stringify(errValue)})`
+		};
 	}
-	const dificultad = Number(data.data.recommended_difficulty) > 0
-		? Number(data.data.recommended_difficulty)
-		: DIFICULTAD_DEFECTO;
+	const dificultad =
+		Number(data.data.recommended_difficulty) > 0
+			? Number(data.data.recommended_difficulty)
+			: DIFICULTAD_DEFECTO;
 	const time = Math.floor(Date.now() / 1000);
 	try {
 		return { ok: true, token: resolverPow(data.data.question, time, dificultad), dificultad };
@@ -216,13 +230,24 @@ function clasificarConsulta(res) {
 	if (res.status === 503 || /server-unavailable/i.test(res.text)) {
 		return { up: false, firma: 'down', texto: `HTTP 503 — Server-unavailable!` };
 	}
-	if (res.status === 401 || /autenticación fallida|acceso denegado|politica de seguridad/i.test(res.text)) {
-		return { up: null, firma: 'gateway', texto: 'HTTP 401 — el gateway exige un captcha PoW válido (esperado sin token)' };
+	if (
+		res.status === 401 ||
+		/autenticación fallida|acceso denegado|politica de seguridad/i.test(res.text)
+	) {
+		return {
+			up: null,
+			firma: 'gateway',
+			texto: 'HTTP 401 — el gateway exige un captcha PoW válido (esperado sin token)'
+		};
 	}
 	if (res.status === 200) {
 		return { up: true, firma: 'up', texto: 'HTTP 200 — endpoint responde' };
 	}
-	return { up: null, firma: 'indefinido', texto: `HTTP ${res.status} — estado indefinido, sonda E2E` };
+	return {
+		up: null,
+		firma: 'indefinido',
+		texto: `HTTP ${res.status} — estado indefinido, sonda E2E`
+	};
 }
 
 async function comprobarMicroservicio(timeoutMs, placa, conCaptcha) {
@@ -301,16 +326,20 @@ async function comprobarMicroservicio(timeoutMs, placa, conCaptcha) {
 							}))
 						};
 					}
-				} catch { /* sin JSON: se reporta el código */ }
-				const detalle = multas > 0
-					? `HTTP 200 · ${multas} multa(s) · $${total.toLocaleString('es-CO')}`
-					: 'HTTP 200 · sin multas';
+				} catch {
+					/* sin JSON: se reporta el código */
+				}
+				const detalle =
+					multas > 0
+						? `HTTP 200 · ${multas} multa(s) · $${total.toLocaleString('es-CO')}`
+						: 'HTTP 200 · sin multas';
 				statusLine(`Sonda E2E (placa ${placa})`, true, detalle);
 				return { ok: true, up: true, firma: 'up', ...(e2e ? { e2e } : {}) };
 			}
-			const textoE2E = cls.firma === 'gateway'
-				? 'HTTP 401 — el gateway rechazó el token REAL (portal bloqueado/caído)'
-				: cls.texto;
+			const textoE2E =
+				cls.firma === 'gateway'
+					? 'HTTP 401 — el gateway rechazó el token REAL (portal bloqueado/caído)'
+					: cls.texto;
 			statusLine(`Sonda E2E (placa ${placa})`, false, textoE2E);
 			return { ok: false, up: false, firma: cls.firma };
 		} catch (e) {
@@ -345,7 +374,14 @@ Códigos de salida: 0 = operativo · 1 = error técnico/DNS caído · 2 = SIMIT 
 
 const args = process.argv.slice(2);
 const valorTimeout = (v) => (Number.isFinite(v) && v > 0 ? v : 15000);
-const opciones = { placa: process.env.SIMIT_PLACA || 'AAA000', timeoutMs: valorTimeout(Number(process.env.SIMIT_TIMEOUT_MS)), json: false, soloCaptcha: false, soloMicro: false, multas: false };
+const opciones = {
+	placa: process.env.SIMIT_PLACA || 'AAA000',
+	timeoutMs: valorTimeout(Number(process.env.SIMIT_TIMEOUT_MS)),
+	json: false,
+	soloCaptcha: false,
+	soloMicro: false,
+	multas: false
+};
 for (let i = 0; i < args.length; i++) {
 	const a = args[i];
 	if (a === '--placa') opciones.placa = args[++i];
@@ -354,11 +390,21 @@ for (let i = 0; i < args.length; i++) {
 	else if (a === '--solo-micro') opciones.soloMicro = true;
 	else if (a === '--multas') opciones.multas = true;
 	else if (a === '--json') opciones.json = true;
-	else if (a === '--ayuda' || a === '-h') { ayuda(); process.exit(0); } // seguro: aún no hay sockets pendientes
+	else if (a === '--ayuda' || a === '-h') {
+		ayuda();
+		process.exit(0);
+	} // seguro: aún no hay sockets pendientes
 }
 
 QUIET = opciones.json; // en modo --json solo se imprime el JSON final
-const reporte = { fecha: new Date().toISOString(), placa: opciones.placa, dns: null, captcha: null, microservicio: null, resultado: null };
+const reporte = {
+	fecha: new Date().toISOString(),
+	placa: opciones.placa,
+	dns: null,
+	captcha: null,
+	microservicio: null,
+	resultado: null
+};
 
 try {
 	if (!opciones.json) {
@@ -397,7 +443,9 @@ try {
 	const microUp = reporte.microservicio?.up;
 	const hayErrorTecnico =
 		hayDnsFallido ||
-		(conCaptcha && reporte.captcha?.ok === false && reporte.captcha?.motivo?.startsWith('error de red')) ||
+		(conCaptcha &&
+			reporte.captcha?.ok === false &&
+			reporte.captcha?.motivo?.startsWith('error de red')) ||
 		(conMicro && reporte.microservicio?.firma === 'red');
 
 	// Orden importa: el DNS caído es distinto de "servicio caído".
@@ -423,9 +471,11 @@ try {
 			operativo: '✓ SIMIT OPERATIVO — la E2E se puede reintentar',
 			captcha_caido: '✗ Captcha NO operativo',
 			micro_caido: '✗ Microservicio NO operativo (portal caído)',
-			dns_caido: '✗ Subdominios SIMIT sin resolución DNS — el portal no es alcanzable (no es un fallo de la app)',
+			dns_caido:
+				'✗ Subdominios SIMIT sin resolución DNS — el portal no es alcanzable (no es un fallo de la app)',
 			error_tecnico: '? Error técnico de red — reintentar más tarde',
-			indefinido: '? Estado indefinido — un 401 sin token exige sonda con token (no usar --solo-micro para confirmar)'
+			indefinido:
+				'? Estado indefinido — un 401 sin token exige sonda con token (no usar --solo-micro para confirmar)'
 		}[reporte.resultado];
 		console.log(`\nRESULTADO: ${mensaje}`);
 	} else {

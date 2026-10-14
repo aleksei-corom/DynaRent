@@ -47,7 +47,9 @@ function ejecutar(archivo, exp, opts) {
 		const child = spawn(process.execPath, args, { stdio: ['ignore', 'pipe', 'inherit'] });
 		let stdout = '';
 		child.stdout.on('data', (d) => (stdout += d));
-		child.on('error', (e) => resolve({ codigo: -1, stdout: `no se pudo lanzar node: ${e.message}` }));
+		child.on('error', (e) =>
+			resolve({ codigo: -1, stdout: `no se pudo lanzar node: ${e.message}` })
+		);
 		child.on('close', (codigo) => resolve({ codigo, stdout }));
 	});
 }
@@ -58,7 +60,8 @@ async function caso(nombre, archivo, exp, opts, detalle) {
 	const r = await ejecutar(archivo, exp, opts);
 	console.log(`  exit=${r.codigo}`);
 	if (r.codigo === 0) ok(detalle);
-	else if (r.codigo === 1) falla(`error técnico del verificador (¿hay navegador Chromium? ${detalle})`);
+	else if (r.codigo === 1)
+		falla(`error técnico del verificador (¿hay navegador Chromium? ${detalle})`);
 	else falla(`verificación fallida — ${detalle}`);
 }
 

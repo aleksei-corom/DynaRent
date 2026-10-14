@@ -21,24 +21,24 @@ updates:
     # que el ecosistema los soporte; minors/patches siguen llegando normal.
     # Quitar este bloque cuando typescript-eslint soporte TS 7.
     ignore:
-      - dependency-name: "typescript"
+      - dependency-name: 'typescript'
         update-types:
-          - "version-update:semver-major"
+          - 'version-update:semver-major'
     groups:
       svelte:
         patterns:
-          - "@sveltejs/*"
-          - "svelte*"
+          - '@sveltejs/*'
+          - 'svelte*'
       testing:
         patterns:
-          - "@testing-library/*"
-          - "vitest*"
-          - "jsdom"
+          - '@testing-library/*'
+          - 'vitest*'
+          - 'jsdom'
       eslint:
         patterns:
-          - "eslint*"
-          - "prettier*"
-          - "typescript-eslint"
+          - 'eslint*'
+          - 'prettier*'
+          - 'typescript-eslint'
 
   # Dependencias Cargo (backend Rust)
   - package-ecosystem: cargo
@@ -55,16 +55,16 @@ updates:
     groups:
       firebird:
         patterns:
-          - "rsfbclient"
-          - "r2d2*"
+          - 'rsfbclient'
+          - 'r2d2*'
       crypto:
         patterns:
-          - "argon2"
-          - "aes-gcm"
-          - "pbkdf2"
-          - "sha2"
-          - "hmac"
-          - "rand"
+          - 'argon2'
+          - 'aes-gcm'
+          - 'pbkdf2'
+          - 'sha2'
+          - 'hmac'
+          - 'rand'
 
   # GitHub Actions (mantener actions actualizadas)
   - package-ecosystem: github-actions

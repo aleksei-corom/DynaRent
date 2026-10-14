@@ -178,7 +178,9 @@ async function main(opts) {
 	let ruta = await c.eval('location.pathname');
 	if (ruta === '/login') {
 		console.log('— autenticando admin…');
-		await c.eval(`(() => { const set = ${Rellenar}; set('#username', 'admin'); set('#password', '${pwd}'); return true; })()`);
+		await c.eval(
+			`(() => { const set = ${Rellenar}; set('#username', 'admin'); set('#password', '${pwd}'); return true; })()`
+		);
 		await sleep(300);
 		await c.eval(`document.querySelector('form button[type=submit]')?.click()`);
 		await esperar(c, `location.pathname !== '/login'`, 20000, 'post-login');
@@ -188,7 +190,9 @@ async function main(opts) {
 	if (ruta === '/cambiar-password') {
 		console.log('— cambio forzado de contraseña (se usará Admin123!x)…');
 		await esperar(c, `!!document.querySelector('#new')`, 10000, 'form-cambio');
-		await c.eval(`(() => { const set = ${Rellenar}; set('#current', '${pwd}'); set('#new', 'Admin123!x'); set('#confirm', 'Admin123!x'); return true; })()`);
+		await c.eval(
+			`(() => { const set = ${Rellenar}; set('#current', '${pwd}'); set('#new', 'Admin123!x'); set('#confirm', 'Admin123!x'); return true; })()`
+		);
 		await c.eval(`document.querySelector('form button[type=submit]')?.click()`);
 		await esperar(c, `location.pathname !== '/cambiar-password'`, 15000, 'post-cambio');
 		console.log('ruta:', await c.eval('location.pathname'));
@@ -199,9 +203,16 @@ async function main(opts) {
 
 	// ── A) Modal de inspección de rentas ─────────────────────────────────────
 	console.log('— /rentas: abriendo modal de inspección…');
-	await c.eval(`document.querySelector('a[href="/rentas"]')?.click() || (location.href = '/rentas')`);
+	await c.eval(
+		`document.querySelector('a[href="/rentas"]')?.click() || (location.href = '/rentas')`
+	);
 	await esperar(c, `location.pathname === '/rentas'`, 10000, 'ruta rentas');
-	await esperar(c, `document.querySelectorAll('main table tbody tr').length > 0 || document.body.innerText.includes('No hay rentas')`, 20000, 'tabla rentas');
+	await esperar(
+		c,
+		`document.querySelectorAll('main table tbody tr').length > 0 || document.body.innerText.includes('No hay rentas')`,
+		20000,
+		'tabla rentas'
+	);
 	const filas = await c.eval(`document.querySelectorAll('main table tbody tr').length`);
 	console.log('rentas en la tabla:', filas);
 	paginas.push({ vista: 'rentas-listado', audit: await audit(c) });
@@ -217,11 +228,17 @@ async function main(opts) {
 		await capturar(c, 'revision-1-inspeccion-salida.png', dir);
 
 		// Toggle a Entrada
-		await c.eval(`[...document.querySelectorAll('button[role="tab"]')].find((b) => b.textContent.trim() === 'Entrada')?.click()`);
+		await c.eval(
+			`[...document.querySelectorAll('button[role="tab"]')].find((b) => b.textContent.trim() === 'Entrada')?.click()`
+		);
 		await sleep(400);
 		const tituloEntrada = await c.eval(`document.querySelector('.card h2')?.textContent`);
 		console.log('toggle Entrada:', tituloEntrada);
-		hallazgos.push(tituloEntrada?.includes('Entrada') ? null : `el toggle a Entrada no actualizó el título del modal (queda: ${tituloEntrada})`);
+		hallazgos.push(
+			tituloEntrada?.includes('Entrada')
+				? null
+				: `el toggle a Entrada no actualizó el título del modal (queda: ${tituloEntrada})`
+		);
 		paginas.push({ vista: 'inspeccion-entrada', audit: await audit(c) });
 		await capturar(c, 'revision-2-inspeccion-entrada.png', dir);
 
@@ -232,9 +249,16 @@ async function main(opts) {
 
 	// ── B) Calendario ────────────────────────────────────────────────────────
 	console.log('— /calendario…');
-	await c.eval(`document.querySelector('a[href="/calendario"]')?.click() || (location.href = '/calendario')`);
+	await c.eval(
+		`document.querySelector('a[href="/calendario"]')?.click() || (location.href = '/calendario')`
+	);
 	await esperar(c, `location.pathname === '/calendario'`, 10000, 'ruta calendario');
-	await esperar(c, `document.body.innerText.includes('lun') || document.body.innerText.includes('Lun') || document.querySelectorAll('main .grid').length > 0`, 15000, 'grid calendario');
+	await esperar(
+		c,
+		`document.body.innerText.includes('lun') || document.body.innerText.includes('Lun') || document.querySelectorAll('main .grid').length > 0`,
+		15000,
+		'grid calendario'
+	);
 	const textoCal = await c.eval(`document.body.innerText.slice(0, 300)`);
 	console.log('calendario OK — texto:', textoCal.replace(/\s+/g, ' ').slice(0, 120));
 	paginas.push({ vista: 'calendario', audit: await audit(c) });
@@ -242,9 +266,16 @@ async function main(opts) {
 
 	// ── C) Panel del Agente SIMIT en /comparendos ────────────────────────────
 	console.log('— /comparendos: panel Agente SIMIT…');
-	await c.eval(`document.querySelector('a[href="/comparendos"]')?.click() || (location.href = '/comparendos')`);
+	await c.eval(
+		`document.querySelector('a[href="/comparendos"]')?.click() || (location.href = '/comparendos')`
+	);
 	await esperar(c, `location.pathname === '/comparendos'`, 10000, 'ruta comparendos');
-	await esperar(c, `document.body.innerText.includes('Agente SIMIT') || document.body.innerText.includes('Sincronizar ahora')`, 15000, 'panel SIMIT');
+	await esperar(
+		c,
+		`document.body.innerText.includes('Agente SIMIT') || document.body.innerText.includes('Sincronizar ahora')`,
+		15000,
+		'panel SIMIT'
+	);
 	const panelTexto = await c.eval(`document.body.innerText.includes('Agente SIMIT')`);
 	console.log('panel Agente SIMIT visible:', panelTexto);
 	const infoPanel = await c.eval(`(() => {
@@ -262,17 +293,31 @@ async function main(opts) {
 	const fallos = [];
 	for (const p of paginas) {
 		const a = p.audit;
-		if (a.desbordeX) fallos.push(`${p.vista}: desborde horizontal (scroll ${a.scroll[0]} > viewport ${a.viewport[0]})`);
-		if (a.desbordeY) fallos.push(`${p.vista}: desborde vertical de página (scroll ${a.scroll[1]} > viewport ${a.viewport[1]})`);
-		if (a.imagenesRotas?.length) fallos.push(`${p.vista}: ${a.imagenesRotas.length} imagen(es) rota(s): ${a.imagenesRotas.join(', ')}`);
+		if (a.desbordeX)
+			fallos.push(
+				`${p.vista}: desborde horizontal (scroll ${a.scroll[0]} > viewport ${a.viewport[0]})`
+			);
+		if (a.desbordeY)
+			fallos.push(
+				`${p.vista}: desborde vertical de página (scroll ${a.scroll[1]} > viewport ${a.viewport[1]})`
+			);
+		if (a.imagenesRotas?.length)
+			fallos.push(
+				`${p.vista}: ${a.imagenesRotas.length} imagen(es) rota(s): ${a.imagenesRotas.join(', ')}`
+			);
 	}
 	console.log('\n=== AUDIT ===');
 	for (const p of paginas) {
 		const a = p.audit;
-		console.log(`${p.vista}: viewport=${a.viewport.join('x')} scroll=${a.scroll.join('x')} desbordeX=${a.desbordeX} desbordeY=${a.desbordeY} imágenesRotas=${a.imagenesRotas?.length ?? 0}`);
+		console.log(
+			`${p.vista}: viewport=${a.viewport.join('x')} scroll=${a.scroll.join('x')} desbordeX=${a.desbordeX} desbordeY=${a.desbordeY} imágenesRotas=${a.imagenesRotas?.length ?? 0}`
+		);
 	}
 	console.log('errores de consola:', erroresConsola.length ? erroresConsola : 'ninguno');
-	console.log('hallazgos:', hallazgos.filter(Boolean).length ? hallazgos.filter(Boolean) : 'ninguno');
+	console.log(
+		'hallazgos:',
+		hallazgos.filter(Boolean).length ? hallazgos.filter(Boolean) : 'ninguno'
+	);
 	console.log('fallos de layout:', fallos.length ? fallos : 'ninguno');
 
 	c.close();
@@ -281,7 +326,9 @@ async function main(opts) {
 
 const opts = parseArgs(process.argv.slice(2));
 if (opts.ayuda) {
-	console.log('Uso: node scripts/review-pendientes.mjs [--puerto 9222] [--pwd Admin123!] [--dir dir]');
+	console.log(
+		'Uso: node scripts/review-pendientes.mjs [--puerto 9222] [--pwd Admin123!] [--dir dir]'
+	);
 	process.exit(0);
 }
 main(opts).catch((e) => {
