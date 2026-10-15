@@ -214,7 +214,7 @@
 				{/if}
 			</button>
 		</div>
-		<p class="mt-1 text-xs text-text-secondary/70">
+		<p class="mt-1 text-xs text-text-secondary">
 			Se guarda en <code class="font-mono bg-alt-row px-1 py-0.5 rounded">config.ini</code> [security]
 			y se aplica sin reiniciar la app.
 		</p>

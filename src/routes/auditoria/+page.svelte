@@ -244,7 +244,7 @@
 						<p class="text-text-secondary text-xs font-mono truncate">{e.mensaje || '—'}</p>
 					</div>
 				{:else if col.key === 'ip'}
-					<span class="text-xs text-text-secondary/70 font-mono">{e.ip || '—'}</span>
+					<span class="text-xs text-text-secondary font-mono">{e.ip || '—'}</span>
 				{:else}
 					<span>{String(item[col.key] ?? '—')}</span>
 				{/if}
@@ -279,6 +279,7 @@
 						class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors {p === pagina
 							? 'bg-primary text-white'
 							: 'btn-ghost'}"
+						aria-current={p === pagina ? 'page' : undefined}
 						onclick={() => irPagina(p)}
 					>
 						{p}

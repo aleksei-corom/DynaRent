@@ -60,7 +60,7 @@
 				>
 				<h3 class="text-xs font-bold uppercase tracking-wider text-primary">{titulo}</h3>
 				{#if extra}
-					<span class="text-xs font-medium normal-case text-text-secondary/70">{extra}</span>
+					<span class="text-xs font-medium normal-case text-text-secondary">{extra}</span>
 				{/if}
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -87,7 +87,7 @@
 				>
 				<h3 class="text-xs font-bold uppercase tracking-wider text-primary">{titulo}</h3>
 				{#if extra}
-					<span class="text-xs font-medium normal-case text-text-secondary/70">{extra}</span>
+					<span class="text-xs font-medium normal-case text-text-secondary">{extra}</span>
 				{/if}
 			</div>
 		{/if}

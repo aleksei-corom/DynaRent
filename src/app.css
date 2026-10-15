@@ -10,11 +10,11 @@
 	--color-primary-focus: #3b82f6;
 	--color-fondo: #f5f7fb;
 	/* Semánticos */
-	--color-exito: #15803d;
+	--color-exito: #166534;
 	--color-success-hover: #166534;
 	--color-peligro: #b91c1c;
 	--color-danger-hover: #991b1b;
-	--color-alerta: #c2410c;
+	--color-alerta: #b23a08;
 	/* Superficie */
 	--color-surface: #ffffff;
 	--color-border: #dbe3ef;
@@ -24,7 +24,7 @@
 	/* Estados de auto */
 	--color-estado-disponible: #2e7d32;
 	--color-estado-rentado: #1565c0;
-	--color-estado-mantenimiento: #ef6c00;
+	--color-estado-mantenimiento: #9a4b00;
 	--color-estado-inactivo: #c62828;
 	--color-estado-activo: #2e7d32;
 	--color-estado-vip: #7b1fa2;
@@ -226,7 +226,7 @@ select.input {
 }
 
 .input {
-	@apply w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-secondary/60 transition duration-150 focus:border-primary-focus focus:outline-none focus:ring-2 focus:ring-primary-focus/30;
+	@apply w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-secondary/80 transition duration-150 focus:border-primary-focus focus:outline-none focus:ring-2 focus:ring-primary-focus/30;
 }
 
 .label {

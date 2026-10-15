@@ -337,7 +337,7 @@
 				{#if sidebarOpen}
 					<div class="overflow-hidden">
 						<p class="font-bold text-sm leading-tight">{empresa.nombreMostrar}</p>
-						{#if appInfo.version}<p class="text-[11px] text-white/60">
+						{#if appInfo.version}<p class="text-[11px] text-white/70">
 								ERP v{appInfo.version}
 							</p>{/if}
 					</div>
@@ -348,7 +348,7 @@
 			<nav class="flex-1 overflow-y-auto py-4 px-2 space-y-5">
 				{#each menu as group (group.section)}
 					{#if sidebarOpen}
-						<p class="px-3 text-[10px] font-bold tracking-widest text-white/40 uppercase">
+						<p class="px-3 text-[10px] font-bold tracking-widest text-white/70 uppercase">
 							{group.section}
 						</p>
 					{/if}
@@ -384,7 +384,7 @@
 					</button>
 					<button
 						onclick={cambiarTema}
-						class="p-2 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors shrink-0 inline-flex items-center gap-1.5"
+						class="p-2 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors shrink-0 inline-flex items-center gap-1.5"
 						title={`${etiquetaTema} · clic para cambiar`}
 						aria-label={`${etiquetaTema} · clic para cambiar`}
 						data-tema={tema}
@@ -431,7 +431,7 @@
 						{/if}
 					</button>
 					<div
-						class="w-9 h-9 rounded-full bg-primary-focus flex items-center justify-center text-sm font-bold shrink-0 uppercase"
+						class="w-9 h-9 rounded-full bg-primary-focus flex items-center justify-center text-sm font-bold shrink-0 uppercase text-slate-900"
 					>
 						{(session.user?.nombre || session.user?.username || '?').slice(0, 2)}
 					</div>
@@ -440,7 +440,7 @@
 							<p class="text-sm font-semibold truncate">
 								{session.user?.nombre || session.user?.username}
 							</p>
-							<p class="text-[11px] text-white/60 truncate">{session.user?.rol}</p>
+							<p class="text-[11px] text-white/70 truncate">{session.user?.rol}</p>
 						</div>
 						<button
 							onclick={handleLogout}
@@ -517,7 +517,7 @@
 					</div>
 				{:else}
 					<div
-						class="hidden lg:flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium text-text-secondary/70 hover:text-text-primary transition-colors cursor-default"
+						class="hidden lg:flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium text-text-secondary hover:text-text-primary transition-colors cursor-default"
 						title={appInfo.dbMensaje || 'Firebird conectado'}
 					>
 						<span class="w-1.5 h-1.5 rounded-full bg-exito"></span>

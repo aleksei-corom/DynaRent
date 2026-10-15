@@ -438,7 +438,7 @@
 					<div class="max-w-50">
 						<p class="font-mono text-xs font-semibold text-primary">{m.placa}</p>
 						{#if m.vehiculo}
-							<p class="text-[11px] text-text-secondary/70 truncate">{m.vehiculo}</p>
+							<p class="text-[11px] text-text-secondary truncate">{m.vehiculo}</p>
 						{/if}
 					</div>
 				{:else if col.key === 'tipo'}
@@ -451,7 +451,7 @@
 					<div class="max-w-60">
 						<p class="text-text-primary truncate">{m.descripcion || '—'}</p>
 						{#if m.observaciones}
-							<p class="text-[11px] text-text-secondary/70 truncate">{m.observaciones}</p>
+							<p class="text-[11px] text-text-secondary truncate">{m.observaciones}</p>
 						{/if}
 					</div>
 				{:else if col.key === 'costo'}

@@ -1064,7 +1064,7 @@
 					placeholder="Aparecen en la orden imprimible…"
 					bind:value={form.observaciones}
 					maxlength="2000"></textarea>
-				<p class="text-[10px] text-text-secondary/70 mt-1">
+				<p class="text-[10px] text-text-secondary mt-1">
 					{(form.observaciones ?? '').length}/2000
 				</p>
 			</div>

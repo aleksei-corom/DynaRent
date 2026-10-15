@@ -181,7 +181,7 @@
 										Renta {formatContrato(r.renta.anioContrato, r.renta.noContrato)} ·
 										{formatDate(r.inicio)} → {formatDate(r.fin)}
 										{#if r.renta.fechaDevolucionReal}
-											<span class="text-text-secondary/70"
+											<span class="text-text-secondary"
 												>(devuelto {formatDate(r.renta.fechaDevolucionReal)})</span
 											>
 										{/if}

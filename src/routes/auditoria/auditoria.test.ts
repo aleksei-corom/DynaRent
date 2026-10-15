@@ -295,6 +295,10 @@ describe('ramas de error y paginación de Auditoría', () => {
 		await fireEvent.click(screen.getByRole('button', { name: '5' }));
 		await waitFor(() => expect(screen.getByText(/Página 5 de 20/)).toBeInTheDocument());
 		expect(screen.getByRole('button', { name: /^1$/ })).toBeInTheDocument();
+		// La página activa expone aria-current="page" (WAI-ARIA pagination;
+		// sin esto, el estado actual se comunica solo por color).
+		expect(screen.getByRole('button', { name: '5' })).toHaveAttribute('aria-current', 'page');
+		expect(screen.getByRole('button', { name: /^1$/ })).not.toHaveAttribute('aria-current');
 
 		// Cabecera «1» → vuelve a la primera página
 		await fireEvent.click(screen.getByRole('button', { name: /^1$/ }));

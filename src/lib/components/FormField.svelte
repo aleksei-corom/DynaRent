@@ -95,6 +95,6 @@
 			{error}
 		</p>
 	{:else if hint}
-		<p id={descId} class="mt-0.5 text-[10px] text-text-secondary/70 leading-tight">{hint}</p>
+		<p id={descId} class="mt-0.5 text-[10px] text-text-secondary leading-tight">{hint}</p>
 	{/if}
 </div>

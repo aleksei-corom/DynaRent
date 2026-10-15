@@ -403,7 +403,7 @@
 					<div class="max-w-65">
 						<p class="font-medium text-text-primary truncate">{g.descripcion}</p>
 						{#if g.usuario && g.usuario !== 'Sistema'}
-							<p class="text-[11px] text-text-secondary/70 truncate">por {g.usuario}</p>
+							<p class="text-[11px] text-text-secondary truncate">por {g.usuario}</p>
 						{/if}
 					</div>
 				{:else if col.key === 'monto'}
