@@ -19,6 +19,24 @@
 	let exportando = $state(false);
 	let limpiando = $state(false);
 
+	// Flechas del patrón APG para tabs: el foco y la selección se mueven juntos
+	// (roving tabindex); Home/End van a los extremos.
+	function onTabKeydown(e: KeyboardEvent, t: 'backend' | 'frontend') {
+		let destino: 'backend' | 'frontend';
+		if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+			destino = t === 'backend' ? 'frontend' : 'backend';
+		} else if (e.key === 'Home') {
+			destino = 'backend';
+		} else if (e.key === 'End') {
+			destino = 'frontend';
+		} else {
+			return;
+		}
+		e.preventDefault();
+		tab = destino;
+		document.getElementById(`logs-tab-${destino}`)?.focus();
+	}
+
 	onMount(async () => {
 		if (!guardSesion()) return;
 		if (!esAdmin) {
@@ -107,14 +125,20 @@
 			</div>
 			<div class="flex gap-2">
 				<button class="btn-ghost text-sm" onclick={cargarLogs} disabled={loading}>
-					🔄 Actualizar
+					<span aria-hidden="true">🔄</span> Actualizar
 				</button>
-				<button class="btn-ghost text-sm" onclick={copiarAlPortapapeles}> 📋 Copiar </button>
+				<button class="btn-ghost text-sm" onclick={copiarAlPortapapeles}>
+					<span aria-hidden="true">📋</span> Copiar
+				</button>
 				<button class="btn-primary text-sm" onclick={exportar} disabled={exportando}>
-					{exportando ? '⏳ Exportando…' : '💾 Exportar archivo'}
+					{#if exportando}
+						<span aria-hidden="true">⏳</span> Exportando…
+					{:else}
+						<span aria-hidden="true">💾</span> Exportar archivo
+					{/if}
 				</button>
 				<button class="btn-ghost text-sm text-peligro" onclick={limpiarLogs} disabled={limpiando}>
-					🗑️ Truncar
+					<span aria-hidden="true">🗑️</span> Truncar
 				</button>
 			</div>
 		</div>
@@ -126,29 +150,37 @@
 			aria-label="Tipo de registros"
 		>
 			<button
+				id="logs-tab-backend"
+				aria-controls="logs-panel"
+				tabindex={tab === 'backend' ? 0 : -1}
 				class="px-4 py-2 text-sm font-medium transition-colors {tab === 'backend'
 					? 'text-primary border-b-2 border-primary'
 					: 'text-text-secondary hover:text-text-primary'}"
 				role="tab"
 				aria-selected={tab === 'backend'}
 				onclick={() => (tab = 'backend')}
+				onkeydown={(e) => onTabKeydown(e, 'backend')}
 			>
-				🔧 Backend ({logsBackend.split('\n').length} líneas)
+				<span aria-hidden="true">🔧</span> Backend ({logsBackend.split('\n').length} líneas)
 			</button>
 			<button
+				id="logs-tab-frontend"
+				aria-controls="logs-panel"
+				tabindex={tab === 'frontend' ? 0 : -1}
 				class="px-4 py-2 text-sm font-medium transition-colors {tab === 'frontend'
 					? 'text-primary border-b-2 border-primary'
 					: 'text-text-secondary hover:text-text-primary'}"
 				role="tab"
 				aria-selected={tab === 'frontend'}
 				onclick={() => (tab = 'frontend')}
+				onkeydown={(e) => onTabKeydown(e, 'frontend')}
 			>
-				🌐 Frontend ({logsFrontend.split('\n').length} líneas)
+				<span aria-hidden="true">🌐</span> Frontend ({logsFrontend.split('\n').length} líneas)
 			</button>
 		</div>
 
-		<!-- Log content -->
-		<div class="card p-4">
+		<!-- Log content: panel asociado al tab activo (WAI-ARIA tabs) -->
+		<div class="card p-4" role="tabpanel" id="logs-panel" aria-labelledby={`logs-tab-${tab}`}>
 			{#if loading}
 				<div class="flex items-center justify-center py-12 text-text-secondary">
 					⏳ Cargando logs…

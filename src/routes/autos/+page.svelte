@@ -20,6 +20,7 @@
 	import StatusBadge from '#lib/components/StatusBadge.svelte';
 	import FormField from '#lib/components/FormField.svelte';
 	import CopiarExistente from '#lib/components/CopiarExistente.svelte';
+	import SeccionFormulario from '#lib/components/SeccionFormulario.svelte';
 
 	// sid() viene del store (reemplaza `const sid = () => session.token ?? ''`). Ver TAREA E3.
 
@@ -49,6 +50,11 @@
 	let formError = $state('');
 
 	let placaInput: HTMLInputElement | undefined;
+
+	// Sección 3 (vencimientos) plegable: desplegada al editar/duplicar (hay
+	// datos que ver) y plegada al crear para reducir el scroll del modal en
+	// ventanas de 768px / 640px. El contenido permanece en el DOM (hidden).
+	let vencimientosAbiertos = $state(false);
 
 	// Eliminar
 	let eliminarPlaca = $state<string | null>(null);
@@ -172,6 +178,7 @@
 		form = defaultForm();
 		editando = false;
 		formError = '';
+		vencimientosAbiertos = false;
 		modalOpen = true;
 	}
 
@@ -179,6 +186,7 @@
 		form = desdeAuto(auto);
 		editando = true;
 		formError = '';
+		vencimientosAbiertos = true;
 		modalOpen = true;
 	}
 
@@ -190,6 +198,9 @@
 		// La fecha de ingreso del vehículo origen casi nunca aplica a uno nuevo
 		form.fechaIngreso = today();
 		formError = '';
+		// Los datos copiados incluyen vencimientos: desplegar la sección para
+		// que el usuario vea lo que se copió.
+		vencimientosAbiertos = true;
 		requestAnimationFrame(() => placaInput?.focus());
 	}
 
@@ -516,172 +527,162 @@
 	{/if}
 
 	<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
-		<!-- Identificación -->
-		<div class="col-span-full mb-1">
-			<h3
-				class="text-xs font-bold uppercase tracking-wider text-primary mb-3 flex items-center gap-2"
+		<SeccionFormulario numero={1} titulo="Identificación">
+			<FormField
+				label="Placa"
+				required
+				dense
+				hint="Sin espacios. Se guarda en mayúsculas."
+				error={formError && !form.placa ? 'Obligatoria' : ''}
 			>
-				<span class="w-4 h-4 rounded-md bg-primary/10 flex items-center justify-center text-[10px]"
-					>1</span
-				>
-				Identificación
-			</h3>
-		</div>
-		<FormField
-			label="Placa"
-			required
-			hint="Sin espacios. Se guarda en mayúsculas."
-			error={formError && !form.placa ? 'Obligatoria' : ''}
+				<input
+					class="input uppercase"
+					placeholder="ABC123"
+					bind:this={placaInput}
+					bind:value={form.placa}
+					maxlength="20"
+					disabled={editando}
+				/>
+			</FormField>
+			<FormField label="Fecha de ingreso" required dense>
+				<input class="input" type="date" bind:value={form.fechaIngreso} />
+			</FormField>
+			<FormField label="Marca" required dense>
+				<input class="input" placeholder="Ej: Toyota" bind:value={form.marca} maxlength="80" />
+			</FormField>
+			<FormField label="Modelo" required dense>
+				<input class="input" placeholder="Ej: Corolla" bind:value={form.modelo} maxlength="80" />
+			</FormField>
+			<FormField label="Versión" dense>
+				<input class="input" placeholder="Ej: XEI 1.8" bind:value={form.version} maxlength="80" />
+			</FormField>
+			<FormField label="Color" dense>
+				<input class="input" placeholder="Ej: Blanco" bind:value={form.color} maxlength="50" />
+			</FormField>
+			<FormField label="Tipo" dense>
+				<select class="input" bind:value={form.tipo}>
+					{#each lists?.tiposAuto ?? ['Automóvil', 'Camioneta', 'Van', 'Lujo', 'Moto'] as t (t)}
+						<option value={t}>{t}</option>
+					{/each}
+				</select>
+			</FormField>
+			<FormField label="Cilindraje" dense>
+				<input
+					class="input"
+					placeholder="Ej: 1800 cc"
+					bind:value={form.cilindraje}
+					maxlength="30"
+				/>
+			</FormField>
+			<FormField label="Transmisión" dense>
+				<select class="input" bind:value={form.transmision}>
+					{#each lists?.tiposTransmision ?? ['Automática', 'Mecánica'] as t (t)}
+						<option value={t}>{t}</option>
+					{/each}
+				</select>
+			</FormField>
+			<FormField label="Combustible" dense>
+				<select class="input" bind:value={form.combustible}>
+					{#each lists?.tiposCombustible ?? ['Gasolina', 'Diesel', 'Híbrido', 'Eléctrico', 'Gas'] as t (t)}
+						<option value={t}>{t}</option>
+					{/each}
+				</select>
+			</FormField>
+		</SeccionFormulario>
+
+		<SeccionFormulario numero={2} titulo="Estado y adquisición">
+			<FormField label="Estado" dense>
+				<select class="input" bind:value={form.estado}>
+					{#each lists?.estadosAuto ?? ['Disponible', 'Rentado', 'Mantenimiento', 'Vendido', 'Baja'] as e (e)}
+						<option value={e}>{e}</option>
+					{/each}
+				</select>
+			</FormField>
+			<FormField label="Tipo de adquisición" dense>
+				<select class="input" bind:value={form.tipoAdquisicion}>
+					<option value="">—</option>
+					{#each lists?.tiposAdquisicion ?? ['Propio', 'Leasing', 'Subarrendado'] as t (t)}
+						<option value={t}>{t}</option>
+					{/each}
+				</select>
+			</FormField>
+			<FormField label="Costo fijo mensual (COP)" dense>
+				<input
+					class="input"
+					inputmode="decimal"
+					placeholder="0"
+					bind:value={form.costoFijoMensual}
+				/>
+			</FormField>
+			<FormField label="Kilometraje actual (km)" dense>
+				<input class="input" type="number" min="0" step="1" bind:value={form.kilometraje} />
+			</FormField>
+			<FormField label="Ubicación" dense>
+				<input
+					class="input"
+					placeholder="Ej: Parqueadero principal"
+					bind:value={form.ubicacion}
+					maxlength="150"
+				/>
+			</FormField>
+			<FormField label="Propietario" dense>
+				<input
+					class="input"
+					placeholder="Nombre del propietario"
+					bind:value={form.propietario}
+					maxlength="150"
+				/>
+			</FormField>
+			<FormField label="No. motor" dense>
+				<input class="input" bind:value={form.noMotor} maxlength="80" />
+			</FormField>
+			<FormField label="No. chasis" dense>
+				<input class="input" bind:value={form.noChasis} maxlength="80" />
+			</FormField>
+		</SeccionFormulario>
+
+		<SeccionFormulario
+			numero={3}
+			titulo="Vencimientos y mantenimiento"
+			colapsable
+			abierto={vencimientosAbiertos}
+			ontoggle={() => (vencimientosAbiertos = !vencimientosAbiertos)}
 		>
-			<input
-				class="input uppercase"
-				placeholder="ABC123"
-				bind:this={placaInput}
-				bind:value={form.placa}
-				maxlength="20"
-				disabled={editando}
-			/>
-		</FormField>
-		<FormField label="Fecha de ingreso" required>
-			<input class="input" type="date" bind:value={form.fechaIngreso} />
-		</FormField>
-		<FormField label="Marca" required>
-			<input class="input" placeholder="Ej: Toyota" bind:value={form.marca} maxlength="80" />
-		</FormField>
-		<FormField label="Modelo" required>
-			<input class="input" placeholder="Ej: Corolla" bind:value={form.modelo} maxlength="80" />
-		</FormField>
-		<FormField label="Versión">
-			<input class="input" placeholder="Ej: XEI 1.8" bind:value={form.version} maxlength="80" />
-		</FormField>
-		<FormField label="Color">
-			<input class="input" placeholder="Ej: Blanco" bind:value={form.color} maxlength="50" />
-		</FormField>
-		<FormField label="Tipo">
-			<select class="input" bind:value={form.tipo}>
-				{#each lists?.tiposAuto ?? ['Automóvil', 'Camioneta', 'Van', 'Lujo', 'Moto'] as t (t)}
-					<option value={t}>{t}</option>
-				{/each}
-			</select>
-		</FormField>
-		<FormField label="Cilindraje">
-			<input class="input" placeholder="Ej: 1800 cc" bind:value={form.cilindraje} maxlength="30" />
-		</FormField>
-		<FormField label="Transmisión">
-			<select class="input" bind:value={form.transmision}>
-				{#each lists?.tiposTransmision ?? ['Automática', 'Mecánica'] as t (t)}
-					<option value={t}>{t}</option>
-				{/each}
-			</select>
-		</FormField>
-		<FormField label="Combustible">
-			<select class="input" bind:value={form.combustible}>
-				{#each lists?.tiposCombustible ?? ['Gasolina', 'Diesel', 'Híbrido', 'Eléctrico', 'Gas'] as t (t)}
-					<option value={t}>{t}</option>
-				{/each}
-			</select>
-		</FormField>
-
-		<!-- Adquisición y estado -->
-		<div class="col-span-full mt-4 mb-1">
-			<h3
-				class="text-xs font-bold uppercase tracking-wider text-primary mb-3 flex items-center gap-2"
-			>
-				<span class="w-4 h-4 rounded-md bg-primary/10 flex items-center justify-center text-[10px]"
-					>2</span
-				>
-				Estado y adquisición
-			</h3>
-		</div>
-		<FormField label="Estado">
-			<select class="input" bind:value={form.estado}>
-				{#each lists?.estadosAuto ?? ['Disponible', 'Rentado', 'Mantenimiento', 'Vendido', 'Baja'] as e (e)}
-					<option value={e}>{e}</option>
-				{/each}
-			</select>
-		</FormField>
-		<FormField label="Tipo de adquisición">
-			<select class="input" bind:value={form.tipoAdquisicion}>
-				<option value="">—</option>
-				{#each lists?.tiposAdquisicion ?? ['Propio', 'Leasing', 'Subarrendado'] as t (t)}
-					<option value={t}>{t}</option>
-				{/each}
-			</select>
-		</FormField>
-		<FormField label="Costo fijo mensual (COP)">
-			<input class="input" inputmode="decimal" placeholder="0" bind:value={form.costoFijoMensual} />
-		</FormField>
-		<FormField label="Kilometraje actual (km)">
-			<input class="input" type="number" min="0" step="1" bind:value={form.kilometraje} />
-		</FormField>
-		<FormField label="Ubicación">
-			<input
-				class="input"
-				placeholder="Ej: Parqueadero principal"
-				bind:value={form.ubicacion}
-				maxlength="150"
-			/>
-		</FormField>
-		<FormField label="Propietario">
-			<input
-				class="input"
-				placeholder="Nombre del propietario"
-				bind:value={form.propietario}
-				maxlength="150"
-			/>
-		</FormField>
-		<FormField label="No. motor">
-			<input class="input" bind:value={form.noMotor} maxlength="80" />
-		</FormField>
-		<FormField label="No. chasis">
-			<input class="input" bind:value={form.noChasis} maxlength="80" />
-		</FormField>
-
-		<!-- Vencimientos y mantenimiento -->
-		<div class="col-span-full mt-4 mb-1">
-			<h3
-				class="text-xs font-bold uppercase tracking-wider text-primary mb-3 flex items-center gap-2"
-			>
-				<span class="w-4 h-4 rounded-md bg-primary/10 flex items-center justify-center text-[10px]"
-					>3</span
-				>
-				Vencimientos y mantenimiento
-			</h3>
-		</div>
-		<FormField label="Vencimiento SOAT">
-			<input class="input" type="date" bind:value={form.vencimientoSoat} />
-		</FormField>
-		<FormField label="Vencimiento tecno-mecánica">
-			<input class="input" type="date" bind:value={form.vencimientoTecnico} />
-		</FormField>
-		<FormField label="Vencimiento extintor">
-			<input class="input" type="date" bind:value={form.vencimientoExtintor} />
-		</FormField>
-		<FormField label="Vencimiento batería">
-			<input class="input" type="date" bind:value={form.vencimientoBateria} />
-		</FormField>
-		<FormField label="Próximo cambio de aceite (km)">
-			<input
-				class="input"
-				type="number"
-				min="0"
-				placeholder="Ej: 20000"
-				bind:value={form.proximoAceite}
-			/>
-		</FormField>
-		<FormField label="Próximo cambio de frenos (km)">
-			<input
-				class="input"
-				type="number"
-				min="0"
-				placeholder="Ej: 30000"
-				bind:value={form.proximoFrenos}
-			/>
-		</FormField>
-		<FormField label="Observaciones" hint="Máx. 2000 caracteres.">
-			<textarea class="input min-h-20 resize-y" bind:value={form.observaciones} maxlength="2000"
-			></textarea>
-		</FormField>
+			<FormField label="Vencimiento SOAT" dense>
+				<input class="input" type="date" bind:value={form.vencimientoSoat} />
+			</FormField>
+			<FormField label="Vencimiento tecno-mecánica" dense>
+				<input class="input" type="date" bind:value={form.vencimientoTecnico} />
+			</FormField>
+			<FormField label="Vencimiento extintor" dense>
+				<input class="input" type="date" bind:value={form.vencimientoExtintor} />
+			</FormField>
+			<FormField label="Vencimiento batería" dense>
+				<input class="input" type="date" bind:value={form.vencimientoBateria} />
+			</FormField>
+			<FormField label="Próximo cambio de aceite (km)" dense>
+				<input
+					class="input"
+					type="number"
+					min="0"
+					placeholder="Ej: 20000"
+					bind:value={form.proximoAceite}
+				/>
+			</FormField>
+			<FormField label="Próximo cambio de frenos (km)" dense>
+				<input
+					class="input"
+					type="number"
+					min="0"
+					placeholder="Ej: 30000"
+					bind:value={form.proximoFrenos}
+				/>
+			</FormField>
+			<FormField label="Observaciones" hint="Máx. 2000 caracteres." dense>
+				<textarea class="input min-h-20 resize-y" bind:value={form.observaciones} maxlength="2000"
+				></textarea>
+			</FormField>
+		</SeccionFormulario>
 	</div>
 
 	{#snippet footer()}

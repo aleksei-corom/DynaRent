@@ -30,6 +30,7 @@
 	subtitle="El abono y el saldo pendiente se actualizan automáticamente."
 	{onClose}
 	width="max-w-md"
+	dismissible={!guardandoPago}
 >
 	{#if pagoError}
 		<div

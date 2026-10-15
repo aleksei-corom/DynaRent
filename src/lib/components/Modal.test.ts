@@ -47,6 +47,15 @@ describe('Modal', () => {
 		expect(screen.getByText('Subtítulo')).toBeInTheDocument();
 		expect(screen.getByText('Contenido del cuerpo')).toBeInTheDocument();
 		expect(screen.getByText('Guardar')).toBeInTheDocument();
+		// El subtítulo queda vinculado al diálogo vía aria-describedby (WCAG 4.1.2).
+		const descId = dialog.getAttribute('aria-describedby');
+		expect(descId).toBeTruthy();
+		expect(document.getElementById(descId as string)?.textContent).toContain('Subtítulo');
+	});
+
+	it('sin subtitle el diálogo no expone aria-describedby', async () => {
+		await montar({ children: childrenSnippet });
+		expect(screen.getByRole('dialog')).not.toHaveAttribute('aria-describedby');
 	});
 
 	it('cierra con Escape cuando es dismissible (por defecto)', async () => {
@@ -73,10 +82,20 @@ describe('Modal', () => {
 		expect(onClose).not.toHaveBeenCalled();
 	});
 
-	it('el botón «Cerrar» del header siempre llama onClose', async () => {
-		const { onClose } = await montar({ dismissible: false });
+	it('el botón «Cerrar» del header llama onClose cuando es dismissible', async () => {
+		const { onClose } = await montar();
 		await fireEvent.click(screen.getByLabelText('Cerrar'));
 		expect(onClose).toHaveBeenCalledTimes(1);
+	});
+
+	it('el botón «Cerrar» del header está deshabilitado cuando dismissible=false', async () => {
+		// Regresión: antes la X cerraba incluso con dismissible=false, perdiendo
+		// el formulario mientras el backend guardaba (guardando=true).
+		const { onClose } = await montar({ dismissible: false });
+		const cerrar = screen.getByLabelText('Cerrar');
+		expect(cerrar).toBeDisabled();
+		await fireEvent.click(cerrar);
+		expect(onClose).not.toHaveBeenCalled();
 	});
 
 	it('oculta el footer con noFooter aunque haya snippet', async () => {

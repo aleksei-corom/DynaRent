@@ -144,13 +144,14 @@
 				<p class="text-text-secondary text-xs whitespace-pre-line">{update.body}</p>
 			{/if}
 			{#if descargando}
-				<p class="text-text-secondary text-xs">
+				<!-- Región viva: el progreso cambia sin que el foco esté en él. -->
+				<p class="text-text-secondary text-xs" aria-live="polite">
 					Descargando e instalando…
 					{#if progreso !== null}{progreso}%{/if}
 				</p>
 			{/if}
 			{#if error}
-				<p class="text-alerta text-xs">No se pudo instalar: {error}</p>
+				<p class="text-alerta text-xs" role="alert">No se pudo instalar: {error}</p>
 			{/if}
 		</div>
 	</div>

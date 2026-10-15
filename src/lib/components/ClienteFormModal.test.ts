@@ -169,6 +169,30 @@ describe('panel copiar cliente', () => {
 		await waitFor(() => expect(noDoc).toHaveFocus());
 	});
 
+	it('Esc en la búsqueda «copiar» limpia sin cerrar el modal; vacía, cierra', async () => {
+		tauri.register('listar_clientes', () => []);
+		const onClose = vi.fn();
+		render(ClienteFormModal, {
+			open: true,
+			editando: null,
+			lists: LISTS,
+			clientes: [],
+			onClose,
+			onGuardado: vi.fn()
+		});
+		const input = await abrirPanel();
+		await fireEvent.input(input, { target: { value: 'luis' } });
+
+		// Con texto: Esc limpia la búsqueda y NO llega al Modal (no cierra).
+		await fireEvent.keyDown(input, { key: 'Escape' });
+		expect(input).toHaveValue('');
+		expect(onClose).not.toHaveBeenCalled();
+
+		// Sin texto: el evento burbujea y el Modal cierra con Esc (comportamiento esperado).
+		await fireEvent.keyDown(input, { key: 'Escape' });
+		expect(onClose).toHaveBeenCalledTimes(1);
+	});
+
 	it('formatea el subtitulo de los resultados con y sin documento (incluye ciudad)', async () => {
 		tauri.register('listar_clientes', () => [
 			conPii(
@@ -403,5 +427,36 @@ describe('guardado, edición y listas alternativas', () => {
 		// Fallback de estadosCliente
 		expect(screen.getByText('Lista Negra')).toBeInTheDocument();
 		expect(selects.length).toBeGreaterThanOrEqual(2);
+	});
+
+	it('las secciones opcionales arrancan plegadas al crear y se despliegan con su encabezado', async () => {
+		renderCon();
+
+		const geo = screen.getByRole('button', { name: /Dirección y geografía/ });
+		const lic = screen.getByRole('button', { name: /Licencia y estado/ });
+		expect(geo).toHaveAttribute('aria-expanded', 'false');
+		expect(lic).toHaveAttribute('aria-expanded', 'false');
+
+		await fireEvent.click(geo);
+		expect(geo).toHaveAttribute('aria-expanded', 'true');
+
+		// El campo de la sección responde al binding aunque haya estado plegado
+		// (el contenido permanece en el DOM con `hidden`, no se destruye).
+		const dir = screen.getByLabelText('Dirección de residencia') as HTMLInputElement;
+		await fireEvent.input(dir, { target: { value: 'Cra 1 #2-3' } });
+		expect(dir.value).toBe('Cra 1 #2-3');
+	});
+
+	it('al editar, las secciones opcionales arrancan desplegadas (hay datos que ver)', async () => {
+		renderCon({ editando: cliente({ hotel: 'Plaza', noLicencia: 'LIC-9' }) });
+
+		expect(screen.getByRole('button', { name: /Dirección y geografía/ })).toHaveAttribute(
+			'aria-expanded',
+			'true'
+		);
+		expect(screen.getByRole('button', { name: /Licencia y estado/ })).toHaveAttribute(
+			'aria-expanded',
+			'true'
+		);
 	});
 });

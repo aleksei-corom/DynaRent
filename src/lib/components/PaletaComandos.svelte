@@ -169,7 +169,7 @@
 			aria-label="Buscar página"
 			role="combobox"
 			aria-expanded="true"
-			aria-controls="paleta-resultados"
+			aria-controls={resultados.length > 0 ? 'paleta-resultados' : undefined}
 			aria-activedescendant={resultados[indice] ? `paleta-op-${indice}` : undefined}
 			autocomplete="off"
 		/>

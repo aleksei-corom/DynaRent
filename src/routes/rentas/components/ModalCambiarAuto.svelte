@@ -32,6 +32,7 @@
 	subtitle="Libera el auto anterior y asigna uno nuevo; la renta sigue activa."
 	{onClose}
 	width="max-w-md"
+	dismissible={!guardando}
 >
 	{#if error}
 		<div

@@ -31,6 +31,7 @@
 	subtitle="Modifica los campos financieros y recalcula los totales."
 	{onClose}
 	width="max-w-2xl"
+	dismissible={!editandoCerrada}
 >
 	{#if editCerradaError}
 		<div

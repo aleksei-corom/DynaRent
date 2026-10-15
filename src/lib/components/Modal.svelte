@@ -52,6 +52,7 @@
 	// Al cerrar: devolvemos el foco al elemento guardado.
 	let dialogEl: HTMLDivElement | undefined = $state();
 	let titleId = `modal-title-${Math.random().toString(36).slice(2, 10)}`;
+	let subtitleId = `modal-subtitle-${Math.random().toString(36).slice(2, 10)}`;
 	let previouslyFocused: HTMLElement | null = null;
 
 	const FOCUSABLE =
@@ -154,6 +155,7 @@
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby={titleId}
+		aria-describedby={subtitle ? subtitleId : undefined}
 	>
 		<button
 			class="fixed inset-0 bg-slate-900/50 backdrop-blur-[2px] cursor-default animate-[modal-fade-in_150ms_ease-out]"
@@ -174,16 +176,22 @@
 				<div>
 					<h2 id={titleId} class="text-base font-bold text-text-primary leading-tight">{title}</h2>
 					{#if subtitle}
-						<p class="text-[11px] text-text-secondary mt-0.5">{subtitle}</p>
+						<p id={subtitleId} class="text-[11px] text-text-secondary mt-0.5">{subtitle}</p>
 					{/if}
 				</div>
+				<!-- La X respeta `dismissible`: mientras el formulario guarda
+				     (dismissible=false) no debe cerrar y perder el progreso.
+				     -m-1 recupera el layout de 32px manteniendo un área de toque
+				     de 40×40px (WCAG 2.5.8 / guía de hit areas). -->
 				<button
-					onclick={onClose}
-					class="p-1.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-alt-row transition-colors shrink-0"
+					onclick={() => (dismissible ? onClose() : null)}
+					disabled={!dismissible}
+					class="-m-1 p-2.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-alt-row transition-colors shrink-0 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-text-secondary"
 					aria-label="Cerrar"
 				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
+						aria-hidden="true"
 						class="w-5 h-5"
 						fill="none"
 						viewBox="0 0 24 24"

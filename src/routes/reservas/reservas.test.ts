@@ -445,6 +445,35 @@ describe('ramas de error y cálculo de la página de Reservas', () => {
 		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 	});
 
+	it('deshabilita la X y bloquea Esc mientras guarda (no pierde el progreso)', async () => {
+		tauri.register('listar_reservas', () => []);
+		// Promesa que nunca resuelve: el modal queda en estado «guardando».
+		tauri.register('crear_reserva', () => new Promise(() => {}));
+
+		render(ReservasPage);
+		await screen.findByText(/No hay reservas/i);
+		await fireEvent.click(screen.getByRole('button', { name: 'Nueva Reserva' }));
+		const dialogo = await screen.findByRole('dialog');
+
+		await fireEvent.input(screen.getByPlaceholderText('Nombre para la reserva'), {
+			target: { value: 'Reserva Test' }
+		});
+		const fechas = dialogo.querySelectorAll('input[type="date"]');
+		await fijar(fechas[0], '2026-08-01');
+		await fijar(fechas[1], '2026-08-04');
+		await fireEvent.input(screen.getByPlaceholderText('150000'), {
+			target: { value: '150000' }
+		});
+		await fireEvent.click(within(dialogo).getByRole('button', { name: 'Crear reserva' }));
+
+		// Mientras guarda: X deshabilitada (dismissible={!guardando})…
+		const cerrar = await screen.findByRole('button', { name: 'Cerrar' });
+		await waitFor(() => expect(cerrar).toBeDisabled());
+		// …y Escape no cierra el diálogo (el progreso no se pierde).
+		await fireEvent.keyDown(document, { key: 'Escape' });
+		expect(screen.getByRole('dialog')).toBeInTheDocument();
+	});
+
 	it('edita una reserva: precarga, subtítulo y actualización con total recalculado', async () => {
 		tauri.register('listar_reservas', () => [reserva()]);
 		const actualizar = vi.fn((_args: { sessionId: string; id: number; datos: { total: string } }) =>

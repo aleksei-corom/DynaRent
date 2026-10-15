@@ -722,12 +722,13 @@
 		: 'Registra una reserva para un cliente.'}
 	onClose={() => (modalOpen = false)}
 	width="max-w-6xl"
+	dismissible={!guardando}
 	fullHeight
 	rawBody
 >
 	<div class="flex grow min-h-0">
 		<!-- ── Panel izquierdo: campos (scrollable si es necesario) ── -->
-		<div class="flex-1 min-w-0 overflow-y-auto din-scroll px-5 py-4">
+		<div class="flex-1 min-w-0 overflow-y-auto px-5 py-4">
 			{#if formError}
 				<div
 					class="mb-4 rounded-lg bg-peligro/10 border border-peligro/30 px-3 py-2.5 text-sm text-peligro"

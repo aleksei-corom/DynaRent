@@ -34,6 +34,7 @@
 	subtitle="Registra la devolución real; el sistema recalcula los totales."
 	{onClose}
 	width="max-w-2xl"
+	dismissible={!cerrando}
 >
 	{#if cierreError}
 		<div

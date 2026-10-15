@@ -51,6 +51,9 @@
 	let rootRef = $state<HTMLDivElement | null>(null);
 	let inputRef = $state<HTMLInputElement | null>(null);
 	let listaRef = $state<HTMLUListElement | null>(null);
+	// Sufijo único por instancia: evita ids duplicados (aria-controls /
+	// aria-activedescendant) cuando el mismo formulario monta varios SearchSelect.
+	let uid = Math.random().toString(36).slice(2, 8);
 
 	// Normaliza mayúsculas y tildes para que «JOSE» y «José» coincidan.
 	const norm = (s: string) =>
@@ -120,6 +123,10 @@
 		if (!abierto) return;
 		if (e.key === 'Escape') {
 			e.preventDefault();
+			// Esc cierra SOLO la lista: sin stopPropagation el evento burbujea
+			// hasta el listener de document del Modal y cerraría el formulario
+			// entero (pérdida de lo digitado).
+			e.stopPropagation();
 			cerrar();
 			return;
 		}
@@ -186,8 +193,8 @@
 				role="combobox"
 				aria-label={label || 'Buscar y seleccionar'}
 				aria-expanded={abierto}
-				aria-controls={abierto ? 'lista-opciones' : undefined}
-				aria-activedescendant={abierto && resaltado >= 0 ? `opt-${resaltado}` : undefined}
+				aria-controls={abierto ? `lista-opciones-${uid}` : undefined}
+				aria-activedescendant={abierto && resaltado >= 0 ? `opt-${uid}-${resaltado}` : undefined}
 				{placeholder}
 				value={abierto ? query : labelActual}
 				oninput={onInput}
@@ -218,7 +225,7 @@
 		{#if abierto}
 			<ul
 				bind:this={listaRef}
-				id="lista-opciones"
+				id={`lista-opciones-${uid}`}
 				role="listbox"
 				class="absolute z-30 mt-1 w-full max-h-64 overflow-auto rounded-lg border border-border bg-surface shadow-lg"
 			>
@@ -240,7 +247,7 @@
 					<li
 						role="option"
 						tabindex="-1"
-						id={`opt-${i}`}
+						id={`opt-${uid}-${i}`}
 						data-idx={i}
 						aria-selected={o.value === value}
 						class="px-3 py-2 text-sm cursor-pointer {i === resaltado
@@ -258,13 +265,25 @@
 						{/if}
 					</li>
 				{/each}
+				<!-- role="option" + aria-disabled: un role="listbox" solo admite
+				     hijos option/group (WCAG 4.1.2 / aria-required-children). -->
 				{#if filtradas.length === 0}
-					<li class="px-3 py-2 text-sm text-text-secondary italic">
+					<li
+						class="px-3 py-2 text-sm text-text-secondary italic"
+						role="option"
+						aria-selected="false"
+						aria-disabled="true"
+					>
 						Sin coincidencias para «{query}»
 					</li>
 				{/if}
 				{#if hayMas}
-					<li class="px-3 py-1.5 text-[11px] text-text-secondary border-t border-border">
+					<li
+						class="px-3 py-1.5 text-[11px] text-text-secondary border-t border-border"
+						role="option"
+						aria-selected="false"
+						aria-disabled="true"
+					>
 						{opciones.length - filtradas.length} más — sigue escribiendo para filtrar
 					</li>
 				{/if}

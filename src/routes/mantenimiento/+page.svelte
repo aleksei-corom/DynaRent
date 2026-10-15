@@ -528,7 +528,8 @@
 	title={editando ? `Editar mantenimiento #${editandoId}` : 'Registrar mantenimiento'}
 	subtitle="Historial de mantenimiento por vehículo — los costos se registran en COP."
 	onClose={() => (modalOpen = false)}
-	width="max-w-lg"
+	width="max-w-xl"
+	dismissible={!guardando}
 >
 	{#if formError}
 		<div

@@ -12,6 +12,8 @@
 		hint?: string;
 		placeholder?: string;
 		maxlength?: number;
+		/** Espaciado vertical compacto (mb-3 en vez de mb-4), como FormField. */
+		dense?: boolean;
 		onchange: (v: string) => void;
 	}
 
@@ -23,6 +25,7 @@
 		hint,
 		placeholder = '— Seleccionar —',
 		maxlength = 100,
+		dense = false,
 		onchange
 	}: Props = $props();
 
@@ -65,12 +68,15 @@
 			e.preventDefault();
 			confirmarNuevo();
 		} else if (e.key === 'Escape') {
+			// Esc sale del modo «nuevo» sin cerrar el modal: el evento no debe
+			// burbujear hasta el listener de document de Modal.svelte.
+			e.stopPropagation();
 			modoNuevo = false;
 		}
 	}
 </script>
 
-<FormField {label} {required} {hint}>
+<FormField {label} {required} {hint} {dense}>
 	{#if modoNuevo}
 		<div class="flex gap-2">
 			<input
@@ -91,6 +97,7 @@
 			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
+					aria-hidden="true"
 					class="w-4 h-4"
 					fill="none"
 					viewBox="0 0 24 24"

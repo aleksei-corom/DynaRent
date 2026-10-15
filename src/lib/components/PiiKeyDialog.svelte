@@ -122,6 +122,7 @@
 	subtitle="Configura db_encryption_key para descifrar los datos de clientes de versiones anteriores (Fernet)."
 	onClose={() => (guardando ? null : onClose())}
 	width="max-w-lg"
+	dismissible={!guardando}
 >
 	<!-- Estado actual -->
 	{#if estado}

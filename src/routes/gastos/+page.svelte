@@ -478,7 +478,8 @@
 	title={editando ? `Editar gasto #${editandoId}` : 'Registrar gasto'}
 	subtitle="Caja menor — los montos se registran en pesos colombianos (COP)."
 	onClose={() => (modalOpen = false)}
-	width="max-w-lg"
+	width="max-w-xl"
+	dismissible={!guardando}
 >
 	{#if formError}
 		<div

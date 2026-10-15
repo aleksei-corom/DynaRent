@@ -37,6 +37,7 @@
 	subtitle="Agregar horas o días extras a la renta activa."
 	{onClose}
 	width="max-w-md"
+	dismissible={!extenderando}
 >
 	{#if extenderError}
 		<div

@@ -155,6 +155,36 @@ describe('página de Autos', () => {
 		expect(crear).not.toHaveBeenCalled();
 	});
 
+	it('la sección de vencimientos arranca plegada al crear y desplegada al editar (anti-scroll)', async () => {
+		tauri.register('listar_autos', () => [auto({ placa: 'ABC123' })]);
+
+		render(AutosPage);
+		await screen.findByText('ABC123');
+
+		// Crear: la sección 3 arranca plegada y se despliega con su encabezado.
+		await fireEvent.click(screen.getByRole('button', { name: 'Nuevo Auto' }));
+		await screen.findByRole('dialog');
+		const seccion = screen.getByRole('button', { name: /Vencimientos y mantenimiento/ });
+		expect(seccion).toHaveAttribute('aria-expanded', 'false');
+		await fireEvent.click(seccion);
+		expect(seccion).toHaveAttribute('aria-expanded', 'true');
+
+		// El campo de la sección responde al binding aunque haya estado plegado
+		// (el contenido permanece en el DOM con `hidden`).
+		const soat = screen.getByLabelText('Vencimiento SOAT') as HTMLInputElement;
+		await fireEvent.input(soat, { target: { value: '2026-12-31' } });
+		expect(soat.value).toBe('2026-12-31');
+
+		// Editar: la sección arranca desplegada (hay datos que ver).
+		await fireEvent.click(screen.getByLabelText('Cerrar'));
+		await fireEvent.click(screen.getByTitle('Editar'));
+		await screen.findByRole('dialog');
+		expect(screen.getByRole('button', { name: /Vencimientos y mantenimiento/ })).toHaveAttribute(
+			'aria-expanded',
+			'true'
+		);
+	});
+
 	it('edita un vehículo existente', async () => {
 		tauri.register('listar_autos', () => [auto({ placa: 'ABC123' })]);
 		const actualizar = vi.fn((_args: { sessionId: string; placa: string; datos: AutoDatos }) =>

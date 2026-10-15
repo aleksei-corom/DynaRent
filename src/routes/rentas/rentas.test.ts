@@ -1000,6 +1000,28 @@ describe('ramas de error y cálculo de la página de Rentas', () => {
 		expect(screen.getByRole('dialog')).toBeInTheDocument();
 	});
 
+	it('deshabilita la X y bloquea Esc mientras guarda (no pierde el progreso)', async () => {
+		tauri.register('listar_rentas', () => []);
+		// Promesa que nunca resuelve: el modal queda en estado «guardando».
+		tauri.register('crear_renta', () => new Promise(() => {}));
+
+		render(RentasPage);
+		await screen.findByText('No hay rentas');
+		await fireEvent.click(screen.getByRole('button', { name: 'Nueva Renta' }));
+		await screen.findByRole('dialog');
+		await fireEvent.input(screen.getByPlaceholderText('Nombre para la renta'), {
+			target: { value: 'Cliente Pendiente' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Crear renta' }));
+
+		// Mientras guarda: X deshabilitada (dismissible={!guardando})…
+		const cerrar = await screen.findByRole('button', { name: 'Cerrar' });
+		await waitFor(() => expect(cerrar).toBeDisabled());
+		// …y Escape no cierra el diálogo (el progreso no se pierde).
+		await fireEvent.keyDown(document, { key: 'Escape' });
+		expect(screen.getByRole('dialog')).toBeInTheDocument();
+	});
+
 	it('recalcula el resumen en vivo con IVA, costos colapsables y descuento', async () => {
 		tauri.register('listar_rentas', () => []);
 
@@ -1319,16 +1341,34 @@ describe('ramas de error y cálculo de la página de Rentas', () => {
 		let dialogo = await screen.findByRole('dialog');
 		expect(dialogo).toHaveTextContent('Inspección de Salida — renta #5');
 
+		// El tab activo queda asociado al panel del formulario (WAI-ARIA tabs:
+		// aria-controls → panel y aria-labelledby → tab seleccionado).
+		const tabSalida = within(dialogo).getByRole('tab', { name: 'Salida', selected: true });
+		const panel = within(dialogo).getByRole('tabpanel');
+		expect(tabSalida).toHaveAttribute('aria-controls', panel.id);
+		expect(panel).toHaveAttribute('aria-labelledby', tabSalida.id);
+
 		// Entrada: reinicia el formulario sin km de salida
 		await fireEvent.click(within(dialogo).getByRole('tab', { name: 'Entrada' }));
 		dialogo = await screen.findByRole('dialog');
 		expect(dialogo).toHaveTextContent('Inspección de Entrada — renta #5');
 		expect(within(dialogo).queryByDisplayValue('42000')).not.toBeInTheDocument();
+		const tabEntrada = within(dialogo).getByRole('tab', { name: 'Entrada', selected: true });
+		expect(within(dialogo).getByRole('tabpanel')).toHaveAttribute('aria-labelledby', tabEntrada.id);
 
 		// Volver a Salida: autocomplete el km desde la renta
 		await fireEvent.click(within(dialogo).getByRole('tab', { name: 'Salida' }));
 		dialogo = await screen.findByRole('dialog');
 		expect(within(dialogo).getByDisplayValue('42000')).toBeInTheDocument();
+
+		// Flechas (APG, roving tabindex): ArrowRight desde «Salida» selecciona
+		// «Entrada», mueve el foco y deja «Salida» fuera del orden de Tab.
+		const tabSalidaFinal = within(dialogo).getByRole('tab', { name: 'Salida', selected: true });
+		await fireEvent.keyDown(tabSalidaFinal, { key: 'ArrowRight' });
+		dialogo = await screen.findByRole('dialog');
+		const tabEntradaSel = within(dialogo).getByRole('tab', { name: 'Entrada', selected: true });
+		expect(tabSalidaFinal).toHaveAttribute('tabindex', '-1');
+		expect(tabEntradaSel).toHaveFocus();
 	});
 
 	it('la impresión degrada si obtener_renta falla y cierra orden/contrato', async () => {
@@ -1519,6 +1559,35 @@ describe('Rentas — onClose de modales, confirmaciones y cliente embebido', () 
 		await screen.findByRole('dialog');
 		await fireEvent.keyDown(document, { key: 'Escape' });
 		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+	});
+
+	it('Escape dentro de un SearchSelect abierto cierra SOLO la lista, no el formulario', async () => {
+		tauri.register('listar_rentas', () => []);
+
+		render(RentasPage);
+		await screen.findByText('No hay rentas');
+		await fireEvent.click(screen.getByRole('button', { name: 'Nueva Renta' }));
+		const dialogo = await screen.findByRole('dialog');
+
+		// Los SearchSelect exponen aria-expanded; los <select> nativos, no.
+		const combos = within(dialogo)
+			.getAllByRole('combobox')
+			.filter((el) => el.hasAttribute('aria-expanded'));
+		expect(combos.length).toBeGreaterThan(0);
+		const combo = combos[0];
+
+		await fireEvent.focus(combo);
+		await waitFor(() => expect(combo).toHaveAttribute('aria-expanded', 'true'));
+		const listaId = combo.getAttribute('aria-controls');
+		expect(listaId).toBeTruthy();
+		expect(document.getElementById(listaId as string)).toBeInTheDocument();
+
+		// Regresión: sin stopPropagation, Esc burbujea al listener de document
+		// del Modal y cerraría el formulario entero (pérdida de lo digitado).
+		await fireEvent.keyDown(combo, { key: 'Escape' });
+		await waitFor(() => expect(combo).toHaveAttribute('aria-expanded', 'false'));
+		expect(document.getElementById(listaId as string)).not.toBeInTheDocument();
+		expect(screen.getByRole('dialog')).toBeInTheDocument();
 	});
 
 	it('cierra los modales de acción con Escape sin ejecutar nada', async () => {

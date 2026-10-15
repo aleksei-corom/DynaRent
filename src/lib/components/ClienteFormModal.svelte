@@ -12,6 +12,7 @@
 	import FormField from './FormField.svelte';
 	import SelectConNuevo from './SelectConNuevo.svelte';
 	import CopiarExistente from './CopiarExistente.svelte';
+	import SeccionFormulario from './SeccionFormulario.svelte';
 	import { geografia } from '#lib/utils/geografia.js';
 
 	interface Props {
@@ -35,6 +36,13 @@
 	let formError = $state('');
 
 	let noDocInput: HTMLInputElement | undefined;
+
+	// Secciones opcionales plegables (3 y 4): desplegadas al editar (hay datos
+	// que ver) y plegadas al crear para reducir el scroll del modal en
+	// ventanas de 768px / 640px de alto. El contenido permanece en el DOM
+	// (hidden), así que los bindings siguen activos aunque esté plegado.
+	let geoAbierta = $state(false);
+	let licAbierta = $state(false);
 
 	function defaultForm(): ClienteDatos {
 		return {
@@ -92,6 +100,8 @@
 			formError = '';
 			guardando = false;
 			form = editando ? desdeCliente(editando) : defaultForm();
+			geoAbierta = !!editando;
+			licAbierta = !!editando;
 		}
 	});
 
@@ -108,6 +118,10 @@
 		// El documento es único: se fuerza a escribir el nuevo antes de guardar.
 		form.noDoc = '';
 		formError = '';
+		// Los datos copiados pueden incluir dirección/licencia: desplegar las
+		// secciones opcionales para que el usuario vea lo que se copió.
+		geoAbierta = true;
+		licAbierta = true;
 		requestAnimationFrame(() => noDocInput?.focus());
 	}
 
@@ -167,161 +181,144 @@
 	{/if}
 
 	<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
-		<div class="col-span-full mb-1">
-			<h3
-				class="text-xs font-bold uppercase tracking-wider text-primary mb-3 flex items-center gap-2"
-			>
-				<span class="w-4 h-4 rounded-md bg-primary/10 flex items-center justify-center text-[10px]"
-					>1</span
-				>
-				Identificación
-			</h3>
-		</div>
-		<FormField label="Tipo de documento">
-			<select class="input" bind:value={form.tipoDoc}>
-				<option value="">—</option>
-				{#each lists?.tiposDoc ?? ['Cédula', 'Pasaporte', 'Cédula Extranjería', 'NIT', 'Licencia USA'] as t (t)}
-					<option value={t}>{t}</option>
-				{/each}
-			</select>
-		</FormField>
-		<FormField label="Número de documento" hint="Debe ser único.">
-			<input
-				class="input"
-				placeholder="Ej: 1036672369"
-				bind:this={noDocInput}
-				bind:value={form.noDoc}
-				maxlength="30"
-			/>
-		</FormField>
-		<FormField label="Nombres" required>
-			<input
-				class="input"
-				placeholder="Nombres del cliente"
-				bind:value={form.nombres}
-				maxlength="100"
-			/>
-		</FormField>
-		<FormField label="Apellidos">
-			<input
-				class="input"
-				placeholder="Apellidos del cliente"
-				bind:value={form.apellidos}
-				maxlength="100"
-			/>
-		</FormField>
+		<SeccionFormulario numero={1} titulo="Identificación">
+			<FormField label="Tipo de documento" dense>
+				<select class="input" bind:value={form.tipoDoc}>
+					<option value="">—</option>
+					{#each lists?.tiposDoc ?? ['Cédula', 'Pasaporte', 'Cédula Extranjería', 'NIT', 'Licencia USA'] as t (t)}
+						<option value={t}>{t}</option>
+					{/each}
+				</select>
+			</FormField>
+			<FormField label="Número de documento" hint="Debe ser único." dense>
+				<input
+					class="input"
+					placeholder="Ej: 1036672369"
+					bind:this={noDocInput}
+					bind:value={form.noDoc}
+					maxlength="30"
+				/>
+			</FormField>
+			<FormField label="Nombres" required dense>
+				<input
+					class="input"
+					placeholder="Nombres del cliente"
+					bind:value={form.nombres}
+					maxlength="100"
+				/>
+			</FormField>
+			<FormField label="Apellidos" dense>
+				<input
+					class="input"
+					placeholder="Apellidos del cliente"
+					bind:value={form.apellidos}
+					maxlength="100"
+				/>
+			</FormField>
+		</SeccionFormulario>
 
-		<div class="col-span-full mt-4 mb-1">
-			<h3
-				class="text-xs font-bold uppercase tracking-wider text-primary mb-3 flex items-center gap-2"
-			>
-				<span class="w-4 h-4 rounded-md bg-primary/10 flex items-center justify-center text-[10px]"
-					>2</span
-				>
-				Contacto <span class="normal-case font-medium text-text-secondary/70">(se cifra)</span>
-			</h3>
-		</div>
-		<FormField label="Celular">
-			<input
-				class="input"
-				inputmode="tel"
-				placeholder="Ej: 3101234567"
-				bind:value={form.celular}
-				maxlength="30"
-			/>
-		</FormField>
-		<FormField label="Celular 2">
-			<input
-				class="input"
-				inputmode="tel"
-				placeholder="Opcional"
-				bind:value={form.celular2}
-				maxlength="30"
-			/>
-		</FormField>
-		<FormField label="Correo electrónico">
-			<input
-				class="input"
-				type="email"
-				placeholder="cliente@correo.com"
-				bind:value={form.email}
-				maxlength="100"
-			/>
-		</FormField>
+		<SeccionFormulario numero={2} titulo="Contacto" extra="(se cifra)">
+			<FormField label="Celular" dense>
+				<input
+					class="input"
+					inputmode="tel"
+					placeholder="Ej: 3101234567"
+					bind:value={form.celular}
+					maxlength="30"
+				/>
+			</FormField>
+			<FormField label="Celular 2" dense>
+				<input
+					class="input"
+					inputmode="tel"
+					placeholder="Opcional"
+					bind:value={form.celular2}
+					maxlength="30"
+				/>
+			</FormField>
+			<FormField label="Correo electrónico" dense>
+				<input
+					class="input"
+					type="email"
+					placeholder="cliente@correo.com"
+					bind:value={form.email}
+					maxlength="100"
+				/>
+			</FormField>
+		</SeccionFormulario>
 
-		<div class="col-span-full mt-4 mb-1">
-			<h3
-				class="text-xs font-bold uppercase tracking-wider text-primary mb-3 flex items-center gap-2"
-			>
-				<span class="w-4 h-4 rounded-md bg-primary/10 flex items-center justify-center text-[10px]"
-					>3</span
-				>
-				Dirección y geografía
-			</h3>
-		</div>
-		<FormField label="Dirección de residencia">
-			<input class="input" bind:value={form.dirResidencia} maxlength="255" />
-		</FormField>
-		<FormField label="Dirección temporal / hotel">
-			<input class="input" bind:value={form.dirTemporal} maxlength="255" />
-		</FormField>
-		<SelectConNuevo
-			label="Ciudad"
-			value={form.ciudad ?? ''}
-			opciones={ciudades}
-			placeholder="— Seleccionar ciudad —"
-			onchange={(v) => (form.ciudad = v)}
-		/>
-		<SelectConNuevo
-			label="Departamento / Región"
-			value={form.estadoRegion ?? ''}
-			opciones={departamentos}
-			placeholder="— Seleccionar departamento —"
-			onchange={(v) => (form.estadoRegion = v)}
-		/>
-		<SelectConNuevo
-			label="País"
-			value={form.pais ?? ''}
-			opciones={paises}
-			placeholder="— Seleccionar país —"
-			onchange={(v) => (form.pais = v)}
-		/>
-		<FormField label="Nacionalidad">
-			<input class="input" bind:value={form.nacionalidad} maxlength="80" />
-		</FormField>
-		<FormField label="Hotel">
-			<input class="input" bind:value={form.hotel} maxlength="150" />
-		</FormField>
-		<FormField label="Habitación">
-			<input class="input" bind:value={form.habitacion} maxlength="30" />
-		</FormField>
+		<SeccionFormulario
+			numero={3}
+			titulo="Dirección y geografía"
+			colapsable
+			abierto={geoAbierta}
+			ontoggle={() => (geoAbierta = !geoAbierta)}
+		>
+			<FormField label="Dirección de residencia" dense>
+				<input class="input" bind:value={form.dirResidencia} maxlength="255" />
+			</FormField>
+			<FormField label="Dirección temporal / hotel" dense>
+				<input class="input" bind:value={form.dirTemporal} maxlength="255" />
+			</FormField>
+			<SelectConNuevo
+				label="Ciudad"
+				dense
+				value={form.ciudad ?? ''}
+				opciones={ciudades}
+				placeholder="— Seleccionar ciudad —"
+				onchange={(v) => (form.ciudad = v)}
+			/>
+			<SelectConNuevo
+				label="Departamento / Región"
+				dense
+				value={form.estadoRegion ?? ''}
+				opciones={departamentos}
+				placeholder="— Seleccionar departamento —"
+				onchange={(v) => (form.estadoRegion = v)}
+			/>
+			<SelectConNuevo
+				label="País"
+				dense
+				value={form.pais ?? ''}
+				opciones={paises}
+				placeholder="— Seleccionar país —"
+				onchange={(v) => (form.pais = v)}
+			/>
+			<FormField label="Nacionalidad" dense>
+				<input class="input" bind:value={form.nacionalidad} maxlength="80" />
+			</FormField>
+			<FormField label="Hotel" dense>
+				<input class="input" bind:value={form.hotel} maxlength="150" />
+			</FormField>
+			<FormField label="Habitación" dense>
+				<input class="input" bind:value={form.habitacion} maxlength="30" />
+			</FormField>
+		</SeccionFormulario>
 
-		<div class="col-span-full mt-4 mb-1">
-			<h3
-				class="text-xs font-bold uppercase tracking-wider text-primary mb-3 flex items-center gap-2"
-			>
-				<span class="w-4 h-4 rounded-md bg-primary/10 flex items-center justify-center text-[10px]"
-					>4</span
-				>
-				Licencia y estado
-			</h3>
-		</div>
-		<FormField label="No. licencia" hint="Se cifra.">
-			<input class="input" bind:value={form.noLicencia} maxlength="30" />
-		</FormField>
-		<FormField label="Tipo de licencia">
-			<input class="input" placeholder="Ej: B1" bind:value={form.tipoLicencia} maxlength="50" />
-		</FormField>
-		<FormField label="Vencimiento de licencia">
-			<input class="input" type="date" bind:value={form.vencimientoLicencia} />
-		</FormField>
-		<FormField label="Estado">
-			<select class="input" bind:value={form.estado}>
-				{#each lists?.estadosCliente ?? ['Activo', 'Inactivo', 'Lista Negra', 'VIP'] as e (e)}
-					<option value={e}>{e}</option>
-				{/each}
-			</select>
-		</FormField>
+		<SeccionFormulario
+			numero={4}
+			titulo="Licencia y estado"
+			colapsable
+			abierto={licAbierta}
+			ontoggle={() => (licAbierta = !licAbierta)}
+		>
+			<FormField label="No. licencia" hint="Se cifra." dense>
+				<input class="input" bind:value={form.noLicencia} maxlength="30" />
+			</FormField>
+			<FormField label="Tipo de licencia" dense>
+				<input class="input" placeholder="Ej: B1" bind:value={form.tipoLicencia} maxlength="50" />
+			</FormField>
+			<FormField label="Vencimiento de licencia" dense>
+				<input class="input" type="date" bind:value={form.vencimientoLicencia} />
+			</FormField>
+			<FormField label="Estado" dense>
+				<select class="input" bind:value={form.estado}>
+					{#each lists?.estadosCliente ?? ['Activo', 'Inactivo', 'Lista Negra', 'VIP'] as e (e)}
+						<option value={e}>{e}</option>
+					{/each}
+				</select>
+			</FormField>
+		</SeccionFormulario>
 	</div>
 
 	{#snippet footer()}

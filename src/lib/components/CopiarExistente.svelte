@@ -165,9 +165,12 @@
 					value={termCopiar}
 					oninput={(e) => onTermCopiar((e.currentTarget as HTMLInputElement).value)}
 					onkeydown={(e) => {
-						if (e.key === 'Escape') {
+						// Esc limpia la búsqueda sin cerrar el modal. Si ya está
+						// vacía, el evento burbujea y cierra el modal (acción esperada).
+						if (e.key === 'Escape' && termCopiar) {
 							termCopiar = '';
 							resultadosCopiar = [];
+							e.stopPropagation();
 						}
 					}}
 				/>

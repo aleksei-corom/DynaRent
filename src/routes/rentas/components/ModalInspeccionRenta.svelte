@@ -16,6 +16,24 @@
 		onClose: () => void;
 	}
 
+	const TIPOS = ['Salida', 'Entrada'] as const;
+
+	// Navegación con flechas del patrón APG para tabs: el foco y la selección
+	// se mueven juntos (roving tabindex); Home/End van a los extremos.
+	function onTabKeydown(e: KeyboardEvent, t: 'Salida' | 'Entrada') {
+		const i = TIPOS.indexOf(t);
+		let destino: number;
+		if (e.key === 'ArrowRight') destino = (i + 1) % TIPOS.length;
+		else if (e.key === 'ArrowLeft') destino = (i - 1 + TIPOS.length) % TIPOS.length;
+		else if (e.key === 'Home') destino = 0;
+		else if (e.key === 'End') destino = TIPOS.length - 1;
+		else return;
+		e.preventDefault();
+		onTipoChange(TIPOS[destino]);
+		// Ambas pestañas existen siempre en el DOM: el foco puede ir directo.
+		document.getElementById(`insp-tab-${TIPOS[destino].toLowerCase()}`)?.focus();
+	}
+
 	let {
 		open,
 		rentaId,
@@ -36,6 +54,7 @@
 	subtitle="Verificación del estado del vehículo al entregar o recibir."
 	{onClose}
 	width="max-w-2xl"
+	dismissible={!guardandoInspeccion}
 >
 	{#if inspeccionError}
 		<div
@@ -45,29 +64,40 @@
 			{inspeccionError}
 		</div>
 	{/if}
-	<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
-		<div class="col-span-full mb-1">
-			<div
-				class="inline-flex rounded-lg border border-border p-1 bg-alt-row/60"
-				role="tablist"
-				aria-label="Tipo de inspección"
-			>
-				{#each ['Salida', 'Entrada'] as t (t)}
-					<button
-						type="button"
-						class="px-3 py-1.5 rounded-md text-sm font-semibold transition-colors {inspeccionTipo ===
-						t
-							? 'bg-primary text-white shadow'
-							: 'text-text-secondary hover:text-text-primary'}"
-						role="tab"
-						aria-selected={inspeccionTipo === t}
-						onclick={() => onTipoChange(t as 'Salida' | 'Entrada')}
-					>
-						{t}
-					</button>
-				{/each}
-			</div>
+	<div class="mb-1">
+		<div
+			class="inline-flex rounded-lg border border-border p-1 bg-alt-row/60"
+			role="tablist"
+			aria-label="Tipo de inspección"
+		>
+			{#each ['Salida', 'Entrada'] as t (t)}
+				<button
+					type="button"
+					id={`insp-tab-${t.toLowerCase()}`}
+					aria-controls="insp-panel"
+					class="px-3 py-1.5 rounded-md text-sm font-semibold transition-colors {inspeccionTipo ===
+					t
+						? 'bg-primary text-white shadow'
+						: 'text-text-secondary hover:text-text-primary'}"
+					role="tab"
+					aria-selected={inspeccionTipo === t}
+					tabindex={inspeccionTipo === t ? 0 : -1}
+					onclick={() => onTipoChange(t as 'Salida' | 'Entrada')}
+					onkeydown={(e) => onTabKeydown(e, t as 'Salida' | 'Entrada')}
+				>
+					{t}
+				</button>
+			{/each}
 		</div>
+	</div>
+	<!-- El panel queda asociado al tab activo (aria-labelledby) para que los
+	     lectores de pantalla anuncien qué pestaña controla el formulario. -->
+	<div
+		class="grid grid-cols-1 sm:grid-cols-2 gap-x-4"
+		role="tabpanel"
+		id="insp-panel"
+		aria-labelledby={`insp-tab-${inspeccionTipo.toLowerCase()}`}
+	>
 		<FormField label="Kilometraje" required>
 			<input
 				class="input"

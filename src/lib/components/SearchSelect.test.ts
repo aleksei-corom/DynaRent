@@ -193,8 +193,9 @@ describe('SearchSelect — ramas de teclado, cierre y límites', () => {
 		});
 		const input = screen.getByRole('combobox');
 		await fireEvent.focus(input);
-		// 2 visibles + la opción vacía
-		expect(screen.getAllByRole('option').length).toBe(3);
+		// 2 visibles + la opción vacía + el aviso «más» (option deshabilitado,
+		// para que el role="listbox" solo contenga options: aria-required-children)
+		expect(screen.getAllByRole('option').length).toBe(4);
 		expect(screen.getByText(/2 más — sigue escribiendo para filtrar/)).toBeTruthy();
 		void utils;
 	});

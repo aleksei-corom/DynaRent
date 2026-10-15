@@ -191,6 +191,35 @@ describe('página de Gastos', () => {
 		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 	});
 
+	it('deshabilita la X y bloquea Esc mientras guarda (no pierde el progreso)', async () => {
+		tauri.register('listar_gastos', () => []);
+		// Promesa que nunca resuelve: el modal queda en estado «guardando».
+		tauri.register('crear_gasto', () => new Promise(() => {}));
+
+		render(GastosPage);
+		await screen.findByText('No hay gastos');
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Registrar Gasto' }));
+		const dialogo = await screen.findByRole('dialog');
+		await fireEvent.change(within(dialogo).getByDisplayValue('Selecciona…'), {
+			target: { value: 'COMBUSTIBLE' }
+		});
+		await fireEvent.input(screen.getByPlaceholderText('Ej: Cambio de aceite 15W-40'), {
+			target: { value: 'Tanqueo' }
+		});
+		await fireEvent.input(screen.getByPlaceholderText('Ej: 120000'), {
+			target: { value: '80000' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Registrar gasto' }));
+
+		// Mientras guarda: X deshabilitada (dismissible=!guardando)…
+		const cerrar = await screen.findByRole('button', { name: 'Cerrar' });
+		await waitFor(() => expect(cerrar).toBeDisabled());
+		// …y Escape no cierra el diálogo.
+		await fireEvent.keyDown(document, { key: 'Escape' });
+		expect(screen.getByRole('dialog')).toBeInTheDocument();
+	});
+
 	it('valida los campos obligatorios antes de guardar', async () => {
 		tauri.register('listar_gastos', () => []);
 		const crear = vi.fn((_args: { sessionId: string; datos: GastoDatos }) => gasto());

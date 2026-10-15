@@ -1062,6 +1062,7 @@
 		: 'Registra una multa de tránsito para un vehículo.'}
 	onClose={() => (modalOpen = false)}
 	width="max-w-2xl"
+	dismissible={!guardando}
 >
 	{#if formError}
 		<div
@@ -1098,12 +1099,13 @@
 			</select>
 		</FormField>
 		<FormField label="Observaciones">
-			<input
-				class="input"
+			<!-- textarea (como en mantenimiento/gastos): maxlength 2000 no cabe
+			     en un input de una línea. -->
+			<textarea
+				class="input min-h-20 resize-y"
 				placeholder="Ej: Exceso de velocidad, foto-detección…"
 				bind:value={form.observaciones}
-				maxlength="2000"
-			/>
+				maxlength="2000"></textarea>
 		</FormField>
 	</div>
 
