@@ -220,6 +220,13 @@ jobs:
   smoke-e2e:
     name: Smoke E2E (app compilada vía CDP)
     needs: validate
+    # `validate` sobrevive al sync-bun-lock skipeado con `if: always()`; el
+    # `success()` IMPLÍCITO de este job evalúa toda la grafa y contabiliza ese
+    # skipped → skipearía el smoke en cada run (comportamiento documentado en
+    # community/discussions/45058: a nivel job, success() cuenta los skipped
+    # de la cadena; GitHub Support lo confirma). Condición explícita: correr
+    # solo si validate terminó bien, sin depender de success().
+    if: ${{ always() && needs.validate.result == 'success' }}
     runs-on: windows-latest
     timeout-minutes: 45
     steps:
