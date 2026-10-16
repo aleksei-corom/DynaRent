@@ -283,7 +283,8 @@ jobs:
           }
 
           $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = '--remote-debugging-port=9222'
-          $app = Start-Process -FilePath 'src-tauri\target\release\dynarent.exe' -PassThru
+          $app = Start-Process -FilePath 'src-tauri\target\release\dynarent.exe' -PassThru `
+            -RedirectStandardOutput app-out.log -RedirectStandardError app-err.log
           Write-Host "App lanzada (PID $($app.Id)) con CDP en el puerto 9222"
 
           $smokeExit = 0
@@ -292,8 +293,22 @@ jobs:
             node scripts/smoke-test-app.mjs --pwd admin123
             $smokeExit = $LASTEXITCODE
           } finally {
+            Start-Sleep -Seconds 2
+            $app.Refresh()
+            if ($app.HasExited) {
+              Write-Host "DIAG: el proceso de la app YA no vivia (exit code $($app.ExitCode))"
+            } else {
+              Write-Host 'DIAG: el proceso de la app seguia vivo sin exponer CDP'
+            }
             # Por nombre: mata SOLO el proceso de la app, no este shell
             Stop-Process -Name dynarent -Force -ErrorAction SilentlyContinue
+            Write-Host '--- DIAG stdout de la app ---'
+            Get-Content app-out.log -Tail 80 -ErrorAction SilentlyContinue
+            Write-Host '--- DIAG stderr de la app ---'
+            Get-Content app-err.log -Tail 80 -ErrorAction SilentlyContinue
+            Write-Host '--- DIAG datos creados por la app ---'
+            Get-ChildItem (Join-Path $env:APPDATA 'com.corjar.dynarent') -ErrorAction SilentlyContinue |
+              Select-Object Name, Length | Format-Table | Out-String | Write-Host
           }
           if ($smokeExit -ne 0) { throw "El smoke E2E salio con exit $smokeExit" }
 
