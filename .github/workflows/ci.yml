@@ -266,22 +266,36 @@ jobs:
         working-directory: src-tauri
         run: cargo build --release --bin dynarent
 
-      # Lanza la app con depuración remota de WebView2 y ejecuta el smoke.
-      # Con el APPDATA de la app limpio, la primera ejecución crea
-      # config.ini + dynarent_v3.fdb, aplica las migraciones embebidas y
-      # siembra `admin`/`admin123` con cambio de contraseña forzado (el
-      # script lo maneja y lo deja en 'Admin123!x' — por eso se limpia el
-      # directorio: hace el run determinista aunque el runner reutilice
-      # perfil).
-      - name: Smoke E2E vía CDP (login → rentas → PDFs)
+      # El arranque EN LIMPIO de la app se cuelga en el runner dentro de
+      # `create_pool` (DIAG ejecución 38946485420: proceso vivo, sin panic,
+      # sin `.fdb` — solo config.ini). Mientras se aísla esa causa, se
+      # pre-crea la BD con `seed_ci` (mismo bin que ejercita `validate`, solo
+      # debug) apuntando al directorio del APPDATA de la app: crea
+      # config.ini + .fdb + migraciones + admin con cambio forzado a
+      # `Admin123!` y autos/clientes mínimos. La app entonces solo ABRE la BD
+      # existente y el smoke ejercita el flujo real vía CDP. El paso tiene
+      # timeout propio para fallar rápido (y ver la salida de seed_ci) si el
+      # cuelgue estuviera también en apertura.
+      - name: Sembrar BD en el APPDATA de la app (seed_ci)
+        timeout-minutes: 15
         shell: pwsh
         run: |
           $data = Join-Path $env:APPDATA 'com.corjar.dynarent'
           if (Test-Path $data) {
             Remove-Item -Recurse -Force $data
-            Write-Host "APPDATA de la app limpiado: $data"
+            Write-Host "APPDATA de la app limpiado antes de sembrar: $data"
           }
+          cargo run --manifest-path src-tauri\Cargo.toml --features dev --bin seed_ci -- $data
+          if ($LASTEXITCODE -ne 0) { throw "seed_ci fallo con exit $LASTEXITCODE" }
 
+      # Lanza la app con depuración remota de WebView2 y ejecuta el smoke.
+      # La BD del APPDATA ya viene sembrada por el paso anterior (admin con
+      # cambio forzado a Admin123!, 2 autos, 2 clientes); el script maneja el
+      # cambio forzado y continúa con 'Admin123!x'.
+      - name: Smoke E2E vía CDP (login → rentas → PDFs)
+        shell: pwsh
+        run: |
+          # NO se limpia el APPDATA aquí: la BD viene sembrada por seed_ci
           $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = '--remote-debugging-port=9222'
           $app = Start-Process -FilePath 'src-tauri\target\release\dynarent.exe' -PassThru `
             -RedirectStandardOutput app-out.log -RedirectStandardError app-err.log
@@ -290,7 +304,7 @@ jobs:
           $smokeExit = 0
           try {
             # El script espera el target CDP hasta 60 s (arranque + migraciones)
-            node scripts/smoke-test-app.mjs --pwd admin123
+            node scripts/smoke-test-app.mjs --pwd "Admin123!"
             $smokeExit = $LASTEXITCODE
           } finally {
             Start-Sleep -Seconds 2
