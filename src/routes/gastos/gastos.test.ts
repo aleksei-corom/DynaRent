@@ -572,4 +572,32 @@ describe('guard de respuestas obsoletas (carrera del debounce)', () => {
 		expect(screen.queryByText('GASTO DE FILTRO VIEJO')).not.toBeInTheDocument();
 		expect(screen.getByText('GASTO DEL FILTRO NUEVO')).toBeInTheDocument();
 	});
+
+	it('el rechazo de la carga vieja no emite toast (error llegando obsoleto)', async () => {
+		toasts.splice(0);
+		let llamadas = 0;
+		tauri.register('listar_gastos', () => {
+			llamadas += 1;
+			if (llamadas === 1) {
+				// Primera carga: RECHAZA tarde, ya estando obsoleta
+				return new Promise<Gasto[]>((_, rej) =>
+					setTimeout(() => rej({ kind: 'database', message: 'VIEJO: cayó' }), 300)
+				);
+			}
+			return [gasto({ id: 2, placa: 'XYZ987', descripcion: 'GASTO DEL FILTRO NUEVO' })];
+		});
+
+		render(GastosPage);
+		await waitFor(() => expect(llamadas).toBe(1));
+
+		const select = screen.getByLabelText('Filtrar por placa');
+		await fireEvent.change(select, { target: { value: 'XYZ987' } });
+		expect(await screen.findByText('GASTO DEL FILTRO NUEVO')).toBeInTheDocument();
+
+		// Cuando el rechazo viejo llega, el guard lo descarta: sin toast
+		await new Promise((resolve) => setTimeout(resolve, 400));
+		expect(toasts.some((t) => t.message.includes('VIEJO'))).toBe(false);
+		expect(toasts.some((t) => t.message.includes('No se pudieron cargar los gastos'))).toBe(false);
+		expect(screen.getByText('GASTO DEL FILTRO NUEVO')).toBeInTheDocument();
+	});
 });

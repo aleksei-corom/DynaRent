@@ -315,6 +315,18 @@ describe('syncWebApi.sincronizarReservas', () => {
 		expect(crearReserva).not.toHaveBeenCalled();
 	});
 
+	it('el índice de ya importadas tolera listar resolviendo null (rama ?? [])', async () => {
+		vi.stubGlobal('fetch', fetchMock);
+		respondFetch({ ok: true, reservations: [] });
+		listarReservas.mockResolvedValue(null as never);
+
+		const r = await syncWebApi.sincronizarReservas('sid');
+
+		expect(r.ok).toBe(true);
+		expect(r.totalPendientes).toBe(0);
+		expect(r.importadas).toBe(0);
+	});
+
 	// ── Idempotencia: dedupe por código web + confirmación verificada ──
 
 	it('omite códigos web ya importados: no vuelve a crear la reserva', async () => {

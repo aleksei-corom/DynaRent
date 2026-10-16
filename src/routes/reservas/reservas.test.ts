@@ -1184,3 +1184,33 @@ describe('Reservas — combo de placas con datos reales de la BD', () => {
 		);
 	});
 });
+
+describe('guard de respuestas obsoletas (carrera del filtro)', () => {
+	it('la respuesta vieja no pisa la tabla cuando cambia un filtro con otra carga en vuelo', async () => {
+		let llamadas = 0;
+		tauri.register('listar_reservas', () => {
+			llamadas += 1;
+			if (llamadas === 1) {
+				// Carga sin filtro: resuelve DESPUÉS que la del filtro (carrera)
+				return new Promise<Reserva[]>((resolve) =>
+					setTimeout(() => resolve([reserva({ nombreCliente: 'RESERVA VIEJA' })]), 300)
+				);
+			}
+			return [reserva({ id: 2, nombreCliente: 'RESERVA NUEVA', placaAsignada: 'XYZ987' })];
+		});
+
+		render(ReservasPage);
+		await waitFor(() => expect(llamadas).toBe(1));
+
+		// Cambia el filtro de estado → segunda carga, que llega PRIMERO
+		await fireEvent.change(screen.getByLabelText('Filtrar por estado'), {
+			target: { value: 'Confirmada' }
+		});
+		expect(await screen.findByText('RESERVA NUEVA')).toBeInTheDocument();
+
+		// Cuando llega tarde la respuesta vieja, NO debe pisar la tabla
+		await new Promise((resolve) => setTimeout(resolve, 400));
+		expect(screen.queryByText('RESERVA VIEJA')).not.toBeInTheDocument();
+		expect(screen.getByText('RESERVA NUEVA')).toBeInTheDocument();
+	});
+});

@@ -117,9 +117,11 @@ describe('onSessionExpired (notificación de sesión expirada)', () => {
 		}
 	});
 
-	it('el off desconecta al oyente', async () => {
+	it('el off desconecta al oyente (e inocuo si se invoca dos veces)', async () => {
 		const oyente = vi.fn();
-		onSessionExpired(oyente)();
+		const off = onSessionExpired(oyente);
+		off();
+		off(); // segunda vez: indexOf → -1, sin efectos ni errores
 		tauri.register('cmd_exp_off', () => {
 			throw { kind: 'session_expired', message: 'expirada' };
 		});
