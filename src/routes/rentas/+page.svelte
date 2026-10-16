@@ -23,8 +23,10 @@
 	import { businessLists } from '#lib/stores/business.svelte.js';
 	import { toast } from '#lib/stores/toast.svelte.js';
 	import { formatCOP, formatContrato, formatDate, formatLocalDateISO } from '#lib/utils/format.js';
+	import { textoIgual } from '#lib/utils/texto.js';
 	import { calcularDiasHoras } from '#lib/utils/calcularDiasHoras.js';
 	import { guardSesion, haySesion } from '#lib/utils/guards.js';
+	import { crearSecuencia } from '#lib/utils/carga.js';
 	import DataTable from '#lib/components/DataTable.svelte';
 	import Modal from '#lib/components/Modal.svelte';
 	import ConfirmDialog from '#lib/components/ConfirmDialog.svelte';
@@ -352,20 +354,27 @@
 	}
 
 	// ── Carga de datos ──
+	// Descarta respuestas obsoletas (debounce de filtros con dos cargas en vuelo)
+	const secuenciaCarga = crearSecuencia();
+
 	async function cargar() {
 		if (!haySesion()) return;
+		const miCarga = secuenciaCarga.siguiente();
 		loading = true;
 		try {
-			rentas = await rentaApi.listar(
+			const r = await rentaApi.listar(
 				sid(),
 				busqueda.trim() || undefined,
 				estadoFiltro || undefined,
 				placaFiltro || undefined
 			);
+			if (!secuenciaCarga.esActual(miCarga)) return; // obsoleta
+			rentas = r;
 		} catch (e) {
+			if (!secuenciaCarga.esActual(miCarga)) return; // sin toast de una carga vieja
 			toast.error(e instanceof ApiError ? e.message : 'No se pudieron cargar las rentas.');
 		} finally {
-			loading = false;
+			if (secuenciaCarga.esActual(miCarga)) loading = false;
 		}
 	}
 
@@ -582,7 +591,9 @@
 
 	const autosParaCambio = $derived.by(() => {
 		const actual = rentas.find((r) => r.id === cambiarAutoId);
-		return autos.filter((a) => a.estado === 'Disponible' || a.placa === actual?.placa);
+		// `estado` puede venir en distinta capitalización según config.ini o la
+		// BD heredada → comparar normalizando (mismo criterio que ModalCambiarAuto).
+		return autos.filter((a) => textoIgual(a.estado, 'Disponible') || a.placa === actual?.placa);
 	});
 
 	function abrirCambiarAuto(r: Renta) {

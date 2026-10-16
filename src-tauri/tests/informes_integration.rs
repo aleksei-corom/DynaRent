@@ -13,11 +13,32 @@ use serial_test::serial;
 use dynarent_lib::core::config::AppConfig;
 use dynarent_lib::core::rbac::SessionStore;
 use dynarent_lib::core::security::LoginAttemptTracker;
+use dynarent_lib::core::PooledConnection;
 use dynarent_lib::repositories::auto::AutoRepository;
+use dynarent_lib::repositories::cliente::ClienteRepository;
 use dynarent_lib::repositories::renta::RentaDatos;
+use dynarent_lib::repositories::reserva::ReservaDatos;
 use dynarent_lib::services::informe::InformeService;
 use dynarent_lib::services::renta::RentaService;
+use dynarent_lib::services::reserva::ReservaService;
 use dynarent_lib::services::AppState;
+
+/// Ingresos por abonos de reservas en un día concreto (totales del rango).
+fn ingresos_reservas_en(conn: &mut PooledConnection, dia: &str) -> rust_decimal::Decimal {
+    let informe = InformeService::mensual(conn, dia, dia).expect("informe");
+    informe.ingresos_reservas.parse().expect("numérico")
+}
+
+/// Ingresos (incluye el ABONO de reservas) de un vehículo en un día concreto.
+fn ingresos_de_placa(conn: &mut PooledConnection, dia: &str, placa: &str) -> rust_decimal::Decimal {
+    let informe = InformeService::mensual(conn, dia, dia).expect("informe");
+    informe
+        .utilidad_por_vehiculo
+        .iter()
+        .find(|v| v.placa == placa)
+        .map(|v| v.ingresos.parse().expect("numérico"))
+        .unwrap_or(rust_decimal::Decimal::ZERO)
+}
 
 fn dev_state() -> AppState {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -256,34 +277,54 @@ fn informe_comisiones_y_balance_neto() {
 
 /// RBAC: `informe_mensual` solo es accesible para los roles de
 /// `roles_con_informes` (config.ini — por defecto solo Administrador).
+/// data/config.ini es local (gitignorado) y puede ampliar la lista, así que
+/// las expectativas se derivan de la config cargada: todo rol de la lista
+/// pasa, cualquier otro rol queda denegado.
 #[test]
 #[serial]
 fn informe_requiere_roles_con_informes() {
     let state = dev_state();
 
-    // Operador y Supervisor → denegados con kind "permission"
+    // Mismo fallback que commands::require_informes (config vacía → solo Admin)
+    let roles: Vec<String> = if state.config.roles_con_informes.is_empty() {
+        vec!["Administrador".into()]
+    } else {
+        state.config.roles_con_informes.iter().cloned().collect()
+    };
+    assert!(
+        roles.iter().any(|r| r == "Administrador"),
+        "Administrador siempre está en roles_con_informes"
+    );
+
+    // Un rol fuera de la lista → denegado con kind "permission"
+    let rol_fuera = ["Operador", "Invitado", "Borrador"]
+        .iter()
+        .find(|r| !roles.iter().any(|x| x == *r))
+        .expect("siempre hay un rol fuera de la lista");
     {
         let mut sessions = state.sessions.lock().unwrap_or_else(|e| e.into_inner());
-        let token_op = sessions.create(1, "operador", "Operador", "Op", false);
-        let token_sup = sessions.create(2, "supervisor", "Supervisor", "Sup", false);
+        let token = sessions.create(1, "rol-fuera", rol_fuera, "Fuera", false);
         drop(sessions);
-        let err_op = dynarent_lib::commands::require_informes(&state, &token_op)
-            .expect_err("Operador no puede consultar informes");
-        assert_eq!(err_op.kind, "permission");
-        let err_sup = dynarent_lib::commands::require_informes(&state, &token_sup)
-            .expect_err("Supervisor no puede consultar informes (solo Admin)");
-        assert_eq!(err_sup.kind, "permission");
+        let err = dynarent_lib::commands::require_informes(&state, &token)
+            .expect_err("un rol fuera de roles_con_informes no puede consultar informes");
+        assert_eq!(err.kind, "permission");
     }
 
-    // Administrador → permitido (único rol en default de roles_con_informes)
+    // Cada rol de la lista → permitido
     {
         let mut sessions = state.sessions.lock().unwrap_or_else(|e| e.into_inner());
-        let token_admin = sessions.create(3, "admin", "Administrador", "Adm", false);
+        let tokens: Vec<String> = roles
+            .iter()
+            .enumerate()
+            .map(|(i, rol)| sessions.create(100 + i as i64, &format!("rol-{i}"), rol, rol, false))
+            .collect();
         drop(sessions);
-        assert!(
-            dynarent_lib::commands::require_informes(&state, &token_admin).is_ok(),
-            "Administrador tiene rol de informes"
-        );
+        for (rol, token) in roles.iter().zip(&tokens) {
+            assert!(
+                dynarent_lib::commands::require_informes(&state, token).is_ok(),
+                "el rol {rol} está en roles_con_informes y debe poder consultar informes"
+            );
+        }
     }
 
     // Sin sesión → session_expired
@@ -292,4 +333,84 @@ fn informe_requiere_roles_con_informes() {
             .expect_err("sin sesión no se accede a informes");
         assert_eq!(err.kind, "session_expired");
     }
+}
+
+/// Regresión: una reserva eliminada (soft-delete) NO debe sumar su `abono`
+/// en el informe. Las dos ramas UNION de `reservas` (totales_rango y la
+/// utilidad por vehículo) no filtraban `deleted_at IS NULL`, así que una
+/// reserva borrada seguía inflando los ingresos del mes del propietario.
+#[test]
+#[serial]
+fn informe_excluye_reservas_eliminadas() {
+    let state = dev_state();
+    let cfg = &state.config;
+    let mut conn = state.pool.get().expect("conn");
+
+    // Auto y cliente reales de la BD de dev (solo lectura)
+    let (placa, tipo) = {
+        let autos = AutoRepository::obtener_todos(&mut conn).expect("autos");
+        let a = autos.first().expect("la BD de dev tiene autos");
+        (a.placa.clone(), a.tipo.clone())
+    };
+    let (id_cliente, nombre_cliente) = {
+        let clientes = ClienteRepository::obtener_todos(&mut conn).expect("clientes");
+        let c = clientes.first().expect("la BD de dev tiene clientes");
+        (c.id, c.nombre_completo.clone())
+    };
+
+    let hoy = Local::now().date_naive().format("%Y-%m-%d").to_string();
+
+    // Baselines del día antes de tocar nada
+    let reservas_antes = ingresos_reservas_en(&mut conn, &hoy);
+    let placa_antes = ingresos_de_placa(&mut conn, &hoy, &placa);
+
+    let datos = ReservaDatos {
+        id_cliente: Some(id_cliente),
+        nombre_cliente,
+        nacionalidad: Some("Colombiana".into()),
+        categoria_vehiculo: Some(tipo),
+        placa_asignada: Some(placa.clone()),
+        fecha_recogida: hoy.clone(),
+        hora_recogida: Some("09:00".into()),
+        ubicacion_recogida: Some("Oficina principal".into()),
+        fecha_retorno: hoy.clone(),
+        hora_retorno: Some("18:00".into()),
+        ubicacion_retorno: Some("Oficina principal".into()),
+        dias_calculados: 1,
+        horas_extras: 0,
+        valor_dia: "150000".into(),
+        valor_hora_adic: "0".into(),
+        costo_lavado: "0".into(),
+        abono: "100000".into(),
+        total: "0".into(),
+        observaciones: Some("TEST INFORME RESERVA ELIMINADA".into()),
+        estado: "Confirmada".into(),
+    };
+    let creada = ReservaService::crear(&mut conn, cfg, "test", datos).expect("crear reserva");
+
+    // Mientras existe, su abono SÍ suma en totales y en la utilidad del vehículo
+    assert_eq!(
+        ingresos_reservas_en(&mut conn, &hoy) - reservas_antes,
+        rust_decimal::Decimal::from(100_000),
+        "el abono de la reserva suma a los ingresos por reservas"
+    );
+    assert_eq!(
+        ingresos_de_placa(&mut conn, &hoy, &placa) - placa_antes,
+        rust_decimal::Decimal::from(100_000),
+        "el abono suma a los ingresos del vehículo en la utilidad"
+    );
+
+    // Eliminación lógica → el abono desaparece del informe (fix)
+    ReservaService::eliminar(&mut conn, "test", creada.id).expect("eliminar reserva");
+
+    assert_eq!(
+        ingresos_reservas_en(&mut conn, &hoy),
+        reservas_antes,
+        "una reserva eliminada ya no suma su abono a los ingresos por reservas"
+    );
+    assert_eq!(
+        ingresos_de_placa(&mut conn, &hoy, &placa),
+        placa_antes,
+        "una reserva eliminada ya no suma a la utilidad por vehículo"
+    );
 }

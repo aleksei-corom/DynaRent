@@ -415,6 +415,20 @@ describe('Mantenimiento — ramas de error, filtros y validaciones', () => {
 		);
 	});
 
+	it('avisa cuando falla la carga de vehículos (el combo de placa no queda vacío en silencio)', async () => {
+		toasts.splice(0);
+		tauri.register('listar_autos', () => {
+			throw { kind: 'database', message: 'Autos caídos' };
+		});
+
+		render(MantenimientoPage);
+		await screen.findByText('No hay mantenimientos');
+
+		await waitFor(() =>
+			expect(toasts.some((t) => t.type === 'error' && t.message === 'Autos caídos')).toBe(true)
+		);
+	});
+
 	it('recarga con debounce al buscar por texto', async () => {
 		const listar = vi.fn((_args: { sessionId: string; busqueda: string | null }) => [
 			mantenimiento()

@@ -3,7 +3,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { tauri } from '../../test/tauri';
 import { goto } from '$app/navigation';
 import { session } from '#lib/stores/session.svelte.js';
-import { guardRole, guardSesion, haySesion, tieneRol, validarSesion } from './guards';
+import {
+	alExpirarSesion,
+	guardRole,
+	guardSesion,
+	haySesion,
+	tieneRol,
+	validarSesion
+} from './guards';
+import { ApiError, invokeCmd, onSessionExpired } from '../api/base';
 
 function setSesion(rol: string) {
 	session.setSession({
@@ -109,5 +117,44 @@ describe('guardRole', () => {
 		setSesion('Supervisor');
 		guardRole(['Administrador']);
 		expect(goto).toHaveBeenCalledWith('/dashboard', { replace: true });
+	});
+});
+
+describe('alExpirarSesion (session_expired del backend)', () => {
+	it('limpia la sesión local y reemplaza el historial por /login', () => {
+		setSesion('Administrador');
+		expect(session.isAuthenticated).toBe(true);
+
+		alExpirarSesion();
+
+		expect(session.isAuthenticated).toBe(false);
+		expect(session.token).toBeNull();
+		expect(goto).toHaveBeenCalledWith('/login', { replace: true });
+	});
+
+	it('es idempotente: sin sesión ya limpia no navega otra vez', () => {
+		alExpirarSesion();
+		expect(goto).not.toHaveBeenCalled();
+	});
+
+	it('cadena completa: invokeCmd con session_expired limpia y redirige', async () => {
+		// Mismo cableado que hace el layout: onSessionExpired(alExpirarSesion)
+		const off = onSessionExpired(alExpirarSesion);
+		try {
+			setSesion('Administrador');
+			tauri.register('cmd_exp', () => {
+				throw { kind: 'session_expired', message: 'Tu sesión ha expirado.' };
+			});
+
+			// La página todavía recibe su ApiError (para su toast)…
+			const e = (await invokeCmd('cmd_exp').catch((err) => err)) as ApiError;
+			expect(e).toBeInstanceOf(ApiError);
+			expect(e.kind).toBe('session_expired');
+			// …y el handler global ya limpió la sesión y redirigió a /login.
+			expect(session.isAuthenticated).toBe(false);
+			expect(goto).toHaveBeenCalledWith('/login', { replace: true });
+		} finally {
+			off();
+		}
 	});
 });

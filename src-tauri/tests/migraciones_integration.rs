@@ -34,7 +34,9 @@ use dynarent_lib::services::renta::RentaService;
 use dynarent_lib::core::config::AppConfig;
 use dynarent_lib::core::db::{create_pool, Pool};
 use dynarent_lib::core::migrations::MIGRACIONES_EMBEDIDAS;
-use dynarent_lib::core::migrations::{has_initial_schema, run_migrations, split_sql_statements};
+use dynarent_lib::core::migrations::{
+    has_initial_schema, normalizar_catalogos, run_migrations, split_sql_statements,
+};
 
 /// Encuentra la BD de desarrollo con el nombre actual (dynarent_v3.fdb)
 /// o el anterior (dinamo_rent_v3.fdb) para compatibilidad con CI pre-rebrand.
@@ -1230,4 +1232,126 @@ fn migracion_0016_backfill_atribuye_comparendos() {
         .expect("limpiar renta");
     conn.execute("DELETE FROM autos WHERE placa = ?", (PLACA_TEST_0016,))
         .expect("limpiar auto de prueba");
+}
+
+// ── Normalización de catálogos heredados ─────────────────────────────────────
+// La normalización antigua (mayusculas) guardaba autos.TIPO y
+// reservas.CATEGORIA_VEHICULO en MAYÚSCULAS. `normalizar_catalogos` los
+// reescribe con la forma del config.ini en cada arranque, deja intactos los
+// tipos ajenos al catálogo (datos importados) y es idempotente.
+// Trabaja sobre una COPIA temporal: la BD real no se toca.
+#[test]
+#[serial]
+fn normalizar_catalogos_reescribe_mayusculas_al_config() {
+    let (tmp, _limpieza) = copia_bd_dev();
+    let cfg = config_con_db(&tmp);
+    let pool = create_pool(&cfg).expect("pool embedded");
+    let mut conn = pool.get().expect("conn");
+
+    // Reproducir el estado legado sobre la copia
+    conn.execute(
+        "UPDATE autos SET TIPO = 'AUTOMÓVIL' WHERE PLACA = 'ABC123'",
+        (),
+    )
+    .expect("legado en autos");
+    conn.execute(
+        "UPDATE reservas SET CATEGORIA_VEHICULO = 'AUTOMÓVIL' WHERE CATEGORIA_VEHICULO IS NOT NULL",
+        (),
+    )
+    .expect("legado en reservas");
+
+    let corregidos = normalizar_catalogos(&pool, &cfg.tipos_auto).expect("normalizar");
+    assert!(
+        corregidos >= 2,
+        "corrige al menos TIPO de autos y CATEGORIA_VEHICULO de reservas (obtuvo {corregidos})"
+    );
+
+    let tipo: Option<(String,)> = conn
+        .query_first("SELECT TIPO FROM autos WHERE PLACA = 'ABC123'", ())
+        .expect("leer tipo");
+    assert_eq!(
+        tipo.map(|(t,)| t).as_deref(),
+        Some("Automóvil"),
+        "autos.TIPO reescrito con la forma del config"
+    );
+
+    let pendientes: Option<(i64,)> = conn
+        .query_first(
+            "SELECT COUNT(*) FROM reservas WHERE CATEGORIA_VEHICULO = 'AUTOMÓVIL'",
+            (),
+        )
+        .expect("contar legado");
+    assert_eq!(
+        pendientes.map(|(c,)| c).unwrap_or(-1),
+        0,
+        "ningún valor legado en MAYÚSCULAS queda en reservas"
+    );
+    let canonicas: Option<(i64,)> = conn
+        .query_first(
+            "SELECT COUNT(*) FROM reservas WHERE CATEGORIA_VEHICULO = 'Automóvil'",
+            (),
+        )
+        .expect("contar canónicas");
+    assert!(
+        canonicas.map(|(c,)| c).unwrap_or(0) >= 1,
+        "alguna reserva quedó con la forma del config"
+    );
+
+    // Idempotencia: la segunda pasada no corrige nada
+    let segunda = normalizar_catalogos(&pool, &cfg.tipos_auto).expect("normalizar 2");
+    assert_eq!(segunda, 0, "la normalización es idempotente");
+}
+
+/// `migraciones_pendientes` es lo que decide si el arranque crea el SNAPSHOT
+/// pre-migración. Sobre una BD fresh (sin `schema_migrations`) reporta TODO
+/// el plan pendiente y, tras `run_migrations`, queda sin pendientes.
+#[test]
+#[serial]
+fn migraciones_pendientes_en_bd_fresh_y_tras_migrar() {
+    let (pool, _guard) = crear_bd_fresh();
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("migrations");
+
+    let pendientes = dynarent_lib::core::migrations::migraciones_pendientes(&pool, &dir)
+        .expect("pendientes sobre BD fresh");
+    assert!(
+        !pendientes.is_empty(),
+        "una BD fresh tiene migraciones pendientes"
+    );
+    assert_eq!(
+        pendientes.first().map(String::as_str),
+        Some("0001_initial_schema.sql"),
+        "la primera pendiente es el esquema inicial"
+    );
+    assert_eq!(
+        pendientes.len(),
+        MIGRACIONES_EMBEDIDAS.len(),
+        "el plan completo está pendiente"
+    );
+
+    run_migrations(&pool, &dir).expect("migrar");
+    let tras = dynarent_lib::core::migrations::migraciones_pendientes(&pool, &dir)
+        .expect("pendientes tras migrar");
+    assert!(
+        tras.is_empty(),
+        "tras migrar no queda nada pendiente: {tras:?}"
+    );
+}
+
+/// Una BD existente ya migrada NO tiene pendientes: el arranque NO debe
+/// crear un snapshot en cada inicio (solo cuando hay algo que aplicar).
+#[test]
+#[serial]
+fn migraciones_pendientes_vacio_en_bd_ya_migrada() {
+    let (tmp, _guard) = copia_bd_dev();
+    let cfg = config_con_db(&tmp);
+    let pool = create_pool(&cfg).expect("pool");
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("migrations");
+
+    run_migrations(&pool, &dir).expect("asegurar migradas");
+    let pendientes =
+        dynarent_lib::core::migrations::migraciones_pendientes(&pool, &dir).expect("pendientes");
+    assert!(
+        pendientes.is_empty(),
+        "BD ya migrada: sin pendientes (sin snapshot en cada arranque): {pendientes:?}"
+    );
 }

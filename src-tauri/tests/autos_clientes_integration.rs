@@ -58,7 +58,7 @@ fn auto_crud_roundtrip() {
         placa: placa.to_lowercase(), // debe normalizarse a mayúsculas
         marca: "TESTMARK".into(),
         modelo: "2024".into(),
-        tipo: "Automóvil".into(),
+        tipo: "AUTOMÓVIL".into(), // debe canonizarse a la forma del config
         estado: "Disponible".into(),
         costo_fijo_mensual: "1500000.50".into(),
         kilometraje: 12000.5,
@@ -75,6 +75,10 @@ fn auto_crud_roundtrip() {
         "placa normalizada a mayúsculas"
     );
     assert_eq!(creado.marca, "TESTMARK");
+    assert_eq!(
+        creado.tipo, "Automóvil",
+        "tipo canonizado al config.ini, no guardado en MAYÚSCULAS"
+    );
     assert_eq!(
         creado.costo_fijo_mensual, "1500000.50",
         "decimal sin pérdida"
@@ -93,10 +97,15 @@ fn auto_crud_roundtrip() {
     // Actualizar
     datos.marca = "TESTMARK2".into();
     datos.estado = "Mantenimiento".into();
+    datos.tipo = "camioneta".into();
     let actualizado =
         AutoService::actualizar(&mut conn, cfg, "test", placa, datos).expect("actualizar auto");
     assert_eq!(actualizado.marca, "TESTMARK2");
     assert_eq!(actualizado.estado, "Mantenimiento");
+    assert_eq!(
+        actualizado.tipo, "Camioneta",
+        "tipo canonizado también en actualización"
+    );
 
     // Alertas: incluye el auto si tiene vencimientos próximos (SOAT lejano → no)
     let alertas = AutoService::alertas_vencimiento(&mut conn, cfg).expect("alertas");

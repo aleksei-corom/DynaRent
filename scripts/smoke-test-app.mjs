@@ -10,7 +10,7 @@
 // Requisitos:
 //   - La app debe estar lanzada con depuración remota de WebView2:
 //       WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222 \
-//         ./src-tauri/target/release/dinamo-rent.exe
+//         ./src-tauri/target/release/dynarent.exe
 //   - La BD debe tener un usuario admin activo (dev: `dev_reset_admin`).
 //   - La UI usa selectores del flujo de rentas/impresión; si cambian los
 //     componentes (selectores de botones, ids del login, clases .print-area)
@@ -31,7 +31,7 @@ orden → contrato), verifica el aviso de impresión y captura los PDFs reales.
 
 Requisito: la app debe estar lanzada con depuración remota de WebView2:
   WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222 \\
-    ./src-tauri/target/release/dinamo-rent.exe
+    ./src-tauri/target/release/dynarent.exe
 
 Opciones:
   --puerto <n>   puerto CDP de WebView2 (default 9222, env CDP_PORT)

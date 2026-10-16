@@ -13,6 +13,7 @@
 	import { toast } from '#lib/stores/toast.svelte.js';
 	import { formatDate } from '#lib/utils/format.js';
 	import { guardSesion, haySesion, tieneRol } from '#lib/utils/guards.js';
+	import { crearSecuencia } from '#lib/utils/carga.js';
 	import DataTable from '#lib/components/DataTable.svelte';
 	import ConfirmDialog from '#lib/components/ConfirmDialog.svelte';
 	import StatusBadge from '#lib/components/StatusBadge.svelte';
@@ -51,19 +52,26 @@
 	// ¿Algún cliente con PII legacy no descifrable?
 	const piiLegacy = $derived(clientes.some((c) => c.piiOculto));
 
+	// Descarta respuestas obsoletas (debounce de filtros con dos cargas en vuelo)
+	const secuenciaCarga = crearSecuencia();
+
 	async function cargar() {
 		if (!haySesion()) return;
+		const miCarga = secuenciaCarga.siguiente();
 		loading = true;
 		try {
-			clientes = await clienteApi.listar(
+			const r = await clienteApi.listar(
 				sid(),
 				busqueda.trim() || undefined,
 				estadoFiltro || undefined
 			);
+			if (!secuenciaCarga.esActual(miCarga)) return; // obsoleta
+			clientes = r;
 		} catch (e) {
+			if (!secuenciaCarga.esActual(miCarga)) return; // sin toast de una carga vieja
 			toast.error(e instanceof ApiError ? e.message : 'No se pudieron cargar los clientes.');
 		} finally {
-			loading = false;
+			if (secuenciaCarga.esActual(miCarga)) loading = false;
 		}
 	}
 

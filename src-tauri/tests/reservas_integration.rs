@@ -130,6 +130,28 @@ fn reserva_crud_roundtrip() {
     );
 }
 
+/// La categoría se guarda con la forma del config.ini, no en MAYÚSCULAS:
+/// era la causa raíz de que el combo «Placa asignada» no casara con la BD.
+#[test]
+#[serial]
+fn reserva_categoria_se_canoniza_al_config() {
+    let state = dev_state();
+    let cfg = &state.config;
+    let mut conn = state.pool.get().expect("conn");
+
+    let mut datos = datos_reserva("Cliente Categoria", 2);
+    datos.categoria_vehiculo = Some("AUTOMÓVIL".into());
+
+    let creada = ReservaService::crear(&mut conn, cfg, "test", datos).expect("crear reserva");
+    assert_eq!(
+        creada.categoria_vehiculo.as_deref(),
+        Some("Automóvil"),
+        "categoria canonizada al config.ini, no en MAYÚSCULAS"
+    );
+
+    ReservaService::eliminar(&mut conn, "test", creada.id).expect("eliminar reserva");
+}
+
 #[test]
 #[serial]
 fn reserva_validaciones() {
@@ -231,4 +253,14 @@ fn reserva_proximas_y_contar() {
 
     // Limpieza
     ReservaService::eliminar(&mut conn, "test", id).expect("eliminar");
+
+    // Regresión: la reserva eliminada (soft-delete) NO debe seguir apareciendo
+    // en «Próximas reservas» (panel «Próximas entregas» de /reservas).
+    assert!(
+        !ReservaService::proximas(&mut conn, 1000)
+            .expect("proximas tras eliminar")
+            .iter()
+            .any(|r| r.id == id),
+        "una reserva eliminada ya no aparece en próximas"
+    );
 }

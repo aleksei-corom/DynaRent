@@ -72,7 +72,7 @@ use rsfbclient::{Execute, Queryable};
 
 use crate::core::error::AppError;
 
-use super::db::Pool;
+use super::db::{Pool, PooledConnection};
 
 /// Migraciones embebidas en el binario (fallback de instalación limpia).
 ///
@@ -205,11 +205,10 @@ pub const MIGRACIONES_EMBEDIDAS: &[(&str, &str)] = &[
     ),
 ];
 
-/// Aplica las migraciones pendientes. `migrations_dir` = src-tauri/migrations
-pub fn run_migrations(pool: &Pool, migrations_dir: &Path) -> Result<(), AppError> {
-    let mut conn = pool.get()?;
-
-    // 1) Crear tabla de migraciones si no existe (Firebird no soporta IF NOT EXISTS)
+/// Crea la tabla `schema_migrations` si no existe (Firebird no soporta IF NOT
+/// EXISTS) y devuelve las versiones ya aplicadas. Compartido por
+/// `run_migrations` y `migraciones_pendientes`.
+fn estado_migraciones(conn: &mut PooledConnection) -> Result<Vec<String>, AppError> {
     let has_migrations_table: Option<(i64,)> = conn.query_first(
         "SELECT COUNT(*) FROM RDB$RELATIONS WHERE RDB$RELATION_NAME = 'SCHEMA_MIGRATIONS'",
         (),
@@ -223,18 +222,18 @@ pub fn run_migrations(pool: &Pool, migrations_dir: &Path) -> Result<(), AppError
             (),
         )?;
     }
-
-    // 2) Leer migraciones aplicadas
-    let applied: Vec<String> = conn
+    Ok(conn
         .query("SELECT version FROM schema_migrations", ())
         .map(|rows: Vec<(String,)>| rows.into_iter().map(|r| r.0).collect())
-        .unwrap_or_default();
+        .unwrap_or_default())
+}
 
-    // 3) Migraciones a aplicar (nombre, sql). Preferimos el directorio en
-    //    disco (dev: permite editar los .sql sin recompilar); si no existe
-    //    (equipo limpio: el bundle NO incluye migrations/ y CARGO_MANIFEST_DIR
-    //    apunta a la máquina de build), usamos las embebidas en el binario.
-    let migraciones: Vec<(String, String)> = match std::fs::read_dir(migrations_dir) {
+/// Carga el plan de migraciones (nombre, sql). Preferimos el directorio en
+/// disco (dev: permite editar los .sql sin recompilar); si no existe (equipo
+/// limpio: el bundle NO incluye migrations/ y CARGO_MANIFEST_DIR apunta a la
+/// máquina de build), usamos las embebidas en el binario.
+fn cargar_migraciones(migrations_dir: &Path) -> Result<Vec<(String, String)>, AppError> {
+    match std::fs::read_dir(migrations_dir) {
         Ok(dir) => {
             let mut v: Vec<(String, String)> = dir
                 .filter_map(Result::ok)
@@ -247,7 +246,7 @@ pub fn run_migrations(pool: &Pool, migrations_dir: &Path) -> Result<(), AppError
                 })
                 .collect::<Result<_, AppError>>()?;
             v.sort_by(|a, b| a.0.cmp(&b.0));
-            v
+            Ok(v)
         }
         Err(_) => {
             log::info!(
@@ -255,12 +254,45 @@ pub fn run_migrations(pool: &Pool, migrations_dir: &Path) -> Result<(), AppError
                 migrations_dir,
                 MIGRACIONES_EMBEDIDAS.len()
             );
-            MIGRACIONES_EMBEDIDAS
+            Ok(MIGRACIONES_EMBEDIDAS
                 .iter()
                 .map(|(n, s)| (n.to_string(), s.to_string()))
-                .collect()
+                .collect())
         }
+    }
+}
+
+/// Nombres de las migraciones pendientes, sin aplicar NINGUNA (crea la tabla
+/// `schema_migrations` si no existe, con el mismo efecto lateral que
+/// `run_migrations`).
+///
+/// El arranque (`lib.rs`) la usa para decidir si guarda un SNAPSHOT de la BD
+/// ANTES de aplicar las migraciones de una versión nueva: si la actualización
+/// falla a mitad, el usuario puede restaurar la copia desde el panel de
+/// Backups. Una BD existente con esquema inicial pero sin `schema_migrations`
+/// (adoptada por una versión nueva) reporta TODO pendiente — es justo el caso
+/// en el que protege datos reales.
+pub fn migraciones_pendientes(pool: &Pool, migrations_dir: &Path) -> Result<Vec<String>, AppError> {
+    let aplicadas = {
+        let mut conn = pool.get()?;
+        estado_migraciones(&mut conn)?
     };
+    Ok(cargar_migraciones(migrations_dir)?
+        .into_iter()
+        .map(|(name, _)| name)
+        .filter(|name| !aplicadas.contains(name))
+        .collect())
+}
+
+/// Aplica las migraciones pendientes. `migrations_dir` = src-tauri/migrations
+pub fn run_migrations(pool: &Pool, migrations_dir: &Path) -> Result<(), AppError> {
+    let mut conn = pool.get()?;
+
+    // 1) + 2) Tabla de migraciones (si no existe) y versiones ya aplicadas
+    let applied = estado_migraciones(&mut conn)?;
+
+    // 3) Migraciones a aplicar (nombre, sql)
+    let migraciones = cargar_migraciones(migrations_dir)?;
 
     // Si la BD ya tiene el esquema inicial (ej: .fdb de producción reutilizado),
     // registrar 0001 como aplicada sin ejecutarla.
@@ -316,6 +348,40 @@ pub fn run_migrations(pool: &Pool, migrations_dir: &Path) -> Result<(), AppError
         log::debug!("Migraciones: sin cambios");
     }
     Ok(())
+}
+
+/// Normaliza en la BD los catálogos que la normalización antigua guardaba en
+/// MAYÚSCULAS (autos.TIPO y reservas.CATEGORIA_VEHICULO) a la forma canónica
+/// de `tipos_auto` del config.ini («AUTOMÓVIL» → «Automóvil»).
+///
+/// Idempotente y barata (SELECT DISTINCT + UPDATE solo de valores que cambian);
+/// se ejecuta tras las migraciones en cada arranque. Los valores que no
+/// coinciden con el config (p. ej. tipos de vehículos importados como «Sedán»)
+/// se conservan tal cual: solo manda el catálogo del config.
+/// Devuelve la cantidad de valores distintos corregidos.
+pub fn normalizar_catalogos(pool: &Pool, tipos_auto: &[String]) -> Result<u32, AppError> {
+    if tipos_auto.is_empty() {
+        return Ok(0);
+    }
+    let mut conn = pool.get()?;
+    let mut corregidos = 0u32;
+    for (tabla, columna) in [("AUTOS", "TIPO"), ("RESERVAS", "CATEGORIA_VEHICULO")] {
+        let valores: Vec<(String,)> = conn.query(
+            &format!("SELECT DISTINCT {columna} FROM {tabla} WHERE {columna} IS NOT NULL"),
+            (),
+        )?;
+        for (valor,) in valores {
+            let canonica = crate::core::validators::canonico(&valor, tipos_auto);
+            if canonica != valor {
+                conn.execute(
+                    &format!("UPDATE {tabla} SET {columna} = ? WHERE {columna} = ?"),
+                    (canonica, valor),
+                )?;
+                corregidos += 1;
+            }
+        }
+    }
+    Ok(corregidos)
 }
 
 /// Verifica si la BD tiene el esquema inicial COMPLETO de 0001.

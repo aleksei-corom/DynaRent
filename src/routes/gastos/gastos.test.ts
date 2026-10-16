@@ -340,6 +340,21 @@ describe('ramas de error y vacíos de Gastos', () => {
 		await waitFor(() => expect(toasts.some((t) => t.message.includes('Tabla caída'))).toBe(true));
 	});
 
+	it('avisa cuando falla la carga de vehículos (el combo de placa no queda vacío en silencio)', async () => {
+		toasts.splice(0);
+		tauri.register('listar_autos', () => {
+			throw { kind: 'database', message: 'Autos caídos' };
+		});
+
+		render(GastosPage);
+
+		await waitFor(() =>
+			expect(toasts.some((t) => t.type === 'error' && t.message === 'Autos caídos')).toBe(true)
+		);
+		// La página sigue viva y el filtro de placa existe (aunque vacío)
+		expect(screen.getByLabelText('Filtrar por placa')).toBeInTheDocument();
+	});
+
 	it('muestra los vacíos de totales cuando el backend los devuelve huecos', async () => {
 		tauri.register('totales_gastos', () =>
 			totales({
@@ -524,5 +539,37 @@ describe('ramas de error y vacíos de Gastos', () => {
 			).toBe(true)
 		);
 		eliminarSpy.mockRestore();
+	});
+});
+
+describe('guard de respuestas obsoletas (carrera del debounce)', () => {
+	it('la respuesta vieja no pisa la tabla cuando cambia un filtro con otra carga en vuelo', async () => {
+		let llamadas = 0;
+		tauri.register('listar_gastos', () => {
+			llamadas += 1;
+			if (llamadas === 1) {
+				// Carga sin filtro: resuelve DESPUÉS que la del filtro (carrera clásica)
+				return new Promise<Gasto[]>((resolve) =>
+					setTimeout(() => resolve([gasto({ id: 1, descripcion: 'GASTO DE FILTRO VIEJO' })]), 300)
+				);
+			}
+			return [gasto({ id: 2, placa: 'XYZ987', descripcion: 'GASTO DEL FILTRO NUEVO' })];
+		});
+
+		render(GastosPage);
+		// La primera carga queda en vuelo (sin resolver)
+		await waitFor(() => expect(llamadas).toBe(1));
+
+		// Cambia el filtro de placa → segunda carga, que llega PRIMERO
+		const select = screen.getByLabelText('Filtrar por placa');
+		await fireEvent.change(select, { target: { value: 'XYZ987' } });
+		expect(await screen.findByText('GASTO DEL FILTRO NUEVO')).toBeInTheDocument();
+
+		// Cuando por fin llega la respuesta vieja, NO debe pisar la tabla:
+		// sin el guard (secuenciaCarga.esActual) el gasto del filtro anterior
+		// reemplazaría al nuevo y el test fallaría.
+		await new Promise((resolve) => setTimeout(resolve, 400));
+		expect(screen.queryByText('GASTO DE FILTRO VIEJO')).not.toBeInTheDocument();
+		expect(screen.getByText('GASTO DEL FILTRO NUEVO')).toBeInTheDocument();
 	});
 });

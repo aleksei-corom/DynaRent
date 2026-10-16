@@ -6,8 +6,8 @@
 	import { session } from '#lib/stores/session.svelte.js';
 	import { empresa } from '#lib/stores/empresa.svelte.js';
 	import { appInfo } from '#lib/stores/app.svelte.js';
-	import { authApi } from '#lib/api.js';
-	import { validarSesion } from '#lib/utils/guards.js';
+	import { authApi, onSessionExpired } from '#lib/api.js';
+	import { alExpirarSesion, validarSesion } from '#lib/utils/guards.js';
 	import Toast from '#lib/components/Toast.svelte';
 	import Icon from '#lib/components/Icon.svelte';
 	import AtajosModal, { esAtajoAyuda } from '#lib/components/AtajosModal.svelte';
@@ -52,6 +52,9 @@
 	// ── Guard de sesión (validación centralizada en guards.ts) ──
 	onMount(() => {
 		let stopDbMonitor: (() => void) | undefined;
+		// Sesión expirada (purgada por el backend): limpiar y volver a /login
+		// en vez de dejar al usuario en una página donde todo falla.
+		const offSesionExpirada = onSessionExpired(alExpirarSesion);
 		(async () => {
 			await validarSesion();
 			checking = false;
@@ -71,6 +74,7 @@
 		})();
 
 		return () => {
+			offSesionExpirada();
 			stopDbMonitor?.();
 		};
 	});

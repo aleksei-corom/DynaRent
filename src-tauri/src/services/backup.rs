@@ -92,9 +92,9 @@ const GCM_NONCE_LEN: usize = 12;
 /// Longitud del tag de autenticación GCM
 const GCM_TAG_LEN: usize = 16;
 
-/// Nombre de archivo de un backup: `Backup_DynaRent_<YYYYMMDD_HHMMSS>.fbk`
-fn nombre_backup(ahora: &DateTime<Local>) -> String {
-    format!("{PREFIJO_BACKUP}{}.fbk", ahora.format("%Y%m%d_%H%M%S"))
+/// Nombre de archivo de un backup: `<prefijo><YYYYMMDD_HHMMSS>.fbk`
+fn nombre_backup_con(prefijo: &str, ahora: &DateTime<Local>) -> String {
+    format!("{prefijo}{}.fbk", ahora.format("%Y%m%d_%H%M%S"))
 }
 
 /// Directorio de backups: `backup.directory` (absoluto) o `data_dir/<dir>`
@@ -113,8 +113,9 @@ fn encontrar_gbak(cfg: &AppConfig) -> PathBuf {
     cfg.resource_dir.join("firebird").join("gbak.exe")
 }
 
-/// Lista los backups existentes (`Backup_DynaRent_*.fbk`), ordenados del más
-/// viejo al más nuevo (el timestamp del nombre es cronológico).
+/// Lista los backups existentes (`Backup_DynaRent_*.fbk` y los snapshots
+/// `Backup_PreMigracion_*.fbk`), ordenados del más viejo al más nuevo (el
+/// timestamp del nombre es cronológico).
 pub fn listar_backups(cfg: &AppConfig) -> Vec<PathBuf> {
     let dir = dir_backups(cfg);
     let Ok(entries) = std::fs::read_dir(&dir) else {
@@ -126,7 +127,9 @@ pub fn listar_backups(cfg: &AppConfig) -> Vec<PathBuf> {
         .filter(|p| {
             let nombre = p.file_name().map(|n| n.to_string_lossy().into_owned());
             nombre.as_deref().is_some_and(|n| {
-                (n.starts_with(PREFIJO_BACKUP) || n.starts_with("Backup_Dinamo_"))
+                (n.starts_with(PREFIJO_BACKUP)
+                    || n.starts_with("Backup_Dinamo_")
+                    || n.starts_with(PREFIJO_SNAPSHOT_PRE_MIGRACION))
                     && n.ends_with(".fbk")
             })
         })
@@ -383,7 +386,8 @@ pub fn descifrar_archivo(origen: &Path, destino: &Path, password: &str) -> Resul
 
 /// Crea un backup (gbak con fallback a copia del `.fdb`), lo cifra si está
 /// habilitado y aplica la rotación. Devuelve la ruta del backup creado. Lo
-/// usan el scheduler automático y (a futuro) el comando manual de backups.
+/// usan el scheduler automático, el comando manual y el snapshot
+/// pre-migración del arranque.
 ///
 /// El backup se genera en un archivo temporal: si el cifrado está activo se
 /// cifra ANTES de dejarlo con su nombre final — nunca queda un `.fbk` en
@@ -392,15 +396,34 @@ pub fn descifrar_archivo(origen: &Path, destino: &Path, password: &str) -> Resul
 /// (misconfiguración: mejor fallar ruidoso que escribir en claro creyendo
 /// que está cifrado) y no queda ningún archivo.
 pub fn crear_backup(cfg: &AppConfig) -> Result<PathBuf, AppError> {
+    crear_backup_con_prefijo(cfg, PREFIJO_BACKUP)
+}
+
+/// Prefijo de los snapshots pre-migración (arranque con migraciones
+/// pendientes sobre una BD existente). El nombre propio deja claro POR QUÉ
+/// existe la copia; pasa por `listar_backups`, así que aparece en el panel de
+/// restauración y la rotación la cuenta como cualquier otro backup.
+pub const PREFIJO_SNAPSHOT_PRE_MIGRACION: &str = "Backup_PreMigracion_";
+
+/// Snapshot de seguridad que el arranque (`lib.rs`) guarda ANTES de aplicar
+/// migraciones pendientes: mismo pipeline que `crear_backup` (gbak con
+/// fallback a copia del `.fdb`, cifrado si está activo, rotación) pero con el
+/// prefijo `Backup_PreMigracion_`. Si la actualización falla a mitad, el
+/// usuario restaura esta copia desde el panel de Backups.
+pub fn crear_snapshot_pre_migracion(cfg: &AppConfig) -> Result<PathBuf, AppError> {
+    crear_backup_con_prefijo(cfg, PREFIJO_SNAPSHOT_PRE_MIGRACION)
+}
+
+fn crear_backup_con_prefijo(cfg: &AppConfig, prefijo: &str) -> Result<PathBuf, AppError> {
     let dir = dir_backups(cfg);
     std::fs::create_dir_all(&dir)?;
-    let mut destino = dir.join(nombre_backup(&Local::now()));
+    let mut destino = dir.join(nombre_backup_con(prefijo, &Local::now()));
     // Colisión en el mismo segundo (p. ej. backup manual + automático): NO
     // sobrescribir el archivo existente — numerar el nombre (_2, _3, …).
     let mut sufijo = 2u32;
     while destino.exists() {
         destino = dir.join(format!(
-            "{PREFIJO_BACKUP}{}_{sufijo}.fbk",
+            "{prefijo}{}_{sufijo}.fbk",
             Local::now().format("%Y%m%d_%H%M%S")
         ));
         sufijo += 1;
@@ -998,7 +1021,7 @@ mod tests {
     #[test]
     fn nombre_backup_formato() {
         let ahora = Local::now();
-        let nombre = nombre_backup(&ahora);
+        let nombre = nombre_backup_con(PREFIJO_BACKUP, &ahora);
         assert!(nombre.starts_with(PREFIJO_BACKUP), "{nombre}");
         assert!(nombre.ends_with(".fbk"), "{nombre}");
         // Timestamp YYYYMMDD_HHMMSS (8+1+6 = 15 caracteres) entre prefijo y extensión
@@ -1008,6 +1031,11 @@ mod tests {
             ts.chars().all(|c| c.is_ascii_digit() || c == '_'),
             "{nombre}"
         );
+
+        // El snapshot pre-migración usa la misma plantilla con su prefijo propio
+        let snap = nombre_backup_con(PREFIJO_SNAPSHOT_PRE_MIGRACION, &ahora);
+        assert!(snap.starts_with(PREFIJO_SNAPSHOT_PRE_MIGRACION), "{snap}");
+        assert!(snap.ends_with(".fbk"), "{snap}");
     }
 
     #[test]

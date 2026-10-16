@@ -12,7 +12,7 @@ use serde::Serialize;
 
 use crate::core::config::AppConfig;
 use crate::core::error::AppError;
-use crate::core::validators::{mayusculas, validate_no_xss};
+use crate::core::validators::{canonico, mayusculas, validate_no_xss};
 use crate::core::PooledConnection;
 use crate::repositories::auto::{Auto, AutoDatos, AutoRepository};
 
@@ -75,7 +75,7 @@ impl AutoService {
         usuario: &str,
         mut datos: AutoDatos,
     ) -> Result<Auto, AppError> {
-        normalizar(&mut datos);
+        normalizar(&mut datos, cfg);
         validar(&datos, cfg)?;
         if AutoRepository::existe(conn, &datos.placa)? {
             return Err(AppError::Duplicate(format!(
@@ -110,7 +110,7 @@ impl AutoService {
         })?;
         // La placa no cambia en edición
         datos.placa = placa.clone();
-        normalizar(&mut datos);
+        normalizar(&mut datos, cfg);
         validar(&datos, cfg)?;
         AutoRepository::actualizar(conn, &placa, &datos)?;
         crate::core::audit::log_audit(
@@ -246,12 +246,16 @@ fn estado_vencimiento(dias: i64) -> String {
     }
 }
 
-/// Normaliza campos (trim → mayúsculas, defaults)
-fn normalizar(d: &mut AutoDatos) {
+/// Normaliza campos (trim → mayúsculas, defaults).
+///
+/// `tipo` NO se pasa a mayúsculas: se canoniza contra `tipos_auto` del
+/// config.ini («AUTOMÓVIL» → «Automóvil») para que los combos del frontend
+/// puedan comparar el catálogo y la BD con la misma forma.
+fn normalizar(d: &mut AutoDatos, cfg: &AppConfig) {
     d.placa = mayusculas(&d.placa);
     d.marca = mayusculas(&d.marca);
     d.modelo = mayusculas(&d.modelo);
-    d.tipo = mayusculas(&d.tipo);
+    d.tipo = canonico(&d.tipo, &cfg.tipos_auto);
     d.estado = d.estado.trim().to_string(); // estado con capitalización
     d.costo_fijo_mensual = d.costo_fijo_mensual.trim().replace(',', ".");
     if d.costo_fijo_mensual.is_empty() {

@@ -66,4 +66,3 @@ pub fn app_db_health(state: tauri::State<'_, crate::services::AppState>) -> DbHe
     let (ok, mensaje) = crate::core::db::check_connection(&state.pool);
     DbHealthStatus { ok, mensaje }
 }
-

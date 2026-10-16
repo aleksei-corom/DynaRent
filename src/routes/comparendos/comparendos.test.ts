@@ -1101,7 +1101,7 @@ describe('ramas de sincronización, exportación y eventos del Agente SIMIT', ()
 		expect(await screen.findByText('No hay comparendos')).toBeInTheDocument();
 	});
 
-	it('si listar_autos falla el filtro de placa queda vacío', async () => {
+	it('si listar_autos falla el filtro de placa queda vacío y avisa en toast', async () => {
 		tauri.register('listar_comparendos', () => [comparendo()]);
 		tauri.register('listar_autos', () => {
 			throw { kind: 'database', message: 'sin autos' };
@@ -1115,6 +1115,9 @@ describe('ramas de sincronización, exportación y eventos del Agente SIMIT', ()
 		expect(
 			within(selectPlaca).getByRole('option', { name: 'Todas las placas' })
 		).toBeInTheDocument();
+
+		// Además se avisa del fallo (antes el combo quedaba vacío en silencio)
+		await waitFor(() => expect(hayToast('error', 'sin autos')).toBe(true));
 	});
 
 	it('descarga el Excel del SIMIT cuando hay registros', async () => {

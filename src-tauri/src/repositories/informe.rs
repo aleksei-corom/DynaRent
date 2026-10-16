@@ -87,7 +87,7 @@ impl InformeRepository {
             UNION ALL \
             SELECT CAST('RESERVAS' AS VARCHAR(8)), \
                    CAST(COALESCE(SUM(abono), 0) AS VARCHAR(12)) \
-            FROM reservas WHERE estado <> 'Cancelada' \
+            FROM reservas WHERE estado <> 'Cancelada' AND deleted_at IS NULL \
               AND fecha_recogida >= ? AND fecha_recogida <= ? \
             UNION ALL \
             SELECT CAST('GASTOS' AS VARCHAR(8)), \
@@ -163,7 +163,8 @@ impl InformeRepository {
             SELECT placa_asignada, CAST('ABONO' AS VARCHAR(8)), \
                    CAST(SUM(abono) AS VARCHAR(12)) \
             FROM reservas \
-            WHERE estado <> 'Cancelada' AND placa_asignada IS NOT NULL \
+            WHERE estado <> 'Cancelada' AND deleted_at IS NULL \
+              AND placa_asignada IS NOT NULL \
               AND fecha_recogida >= ? AND fecha_recogida <= ? \
             GROUP BY placa_asignada \
             UNION ALL \

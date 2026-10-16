@@ -92,6 +92,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let pool = create_pool(&cfg)?;
     // Migraciones idempotentes (mismo arranque que lib.rs)
     dynarent_lib::core::migrations::run_migrations(&pool, &manifest.join("migrations"))?;
+    // Catálogos heredados en mayúsculas → forma del config.ini (mismo arranque)
+    let corregidos = dynarent_lib::core::migrations::normalizar_catalogos(&pool, &cfg.tipos_auto)?;
+    if corregidos > 0 {
+        println!("== Catálogos normalizados al config.ini: {corregidos} valores");
+    }
 
     let mut conn = pool.get()?;
 

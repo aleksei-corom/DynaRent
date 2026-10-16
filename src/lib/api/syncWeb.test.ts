@@ -1,8 +1,10 @@
 // src/lib/api/syncWeb.test.ts — sincronización de reservas web → Firebird.
 // Mockea fetch (GET de pendientes + POST de confirmación) y los módulos de
 // clienteApi/reservaApi para ejercitar la ruta feliz, la deduplicación de
-// clientes, los defaults de fechas/horas/observaciones y los caminos de error.
-import { describe, it, expect, vi, afterEach } from 'vitest';
+// clientes, el dedupe por código web (idempotencia), la verificación de la
+// confirmación, los defaults de fechas/horas/observaciones y los caminos de
+// error.
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { syncWebApi, DEFAULT_WEB_SYNC_URL, type WebReservation } from './syncWeb';
 import { clienteApi } from './clientes';
 import { reservaApi } from './reservas';
@@ -11,13 +13,28 @@ vi.mock('./clientes', () => ({
 	clienteApi: { listar: vi.fn(), crear: vi.fn() }
 }));
 vi.mock('./reservas', () => ({
-	reservaApi: { crear: vi.fn() }
+	reservaApi: { listar: vi.fn(), crear: vi.fn() }
 }));
 
 const listar = vi.mocked(clienteApi.listar);
 const crearCliente = vi.mocked(clienteApi.crear);
+const listarReservas = vi.mocked(reservaApi.listar);
 const crearReserva = vi.mocked(reservaApi.crear);
 const fetchMock = vi.fn();
+
+/** Respuesta HTTP con la forma real de Response (ok/status + json). */
+function httpOk(json: unknown, status = 200) {
+	return { ok: status >= 200 && status < 300, status, json: async () => json };
+}
+
+/** Reserva ya importada desde la web (con el marcador en observaciones). */
+function yaImportada(codigo: string, id = 31) {
+	return {
+		id,
+		idCliente: 7,
+		observaciones: `[ORIGEN: WEB - ${codigo}]\nPago: PAGADA ONLINE Place to Pay`
+	} as never;
+}
 
 function webRes(overrides: Partial<WebReservation> = {}): WebReservation {
 	return {
@@ -58,7 +75,12 @@ function webRes(overrides: Partial<WebReservation> = {}): WebReservation {
 function respondFetch(...payloads: unknown[]) {
 	fetchMock.mockReset();
 	for (const p of payloads) {
-		fetchMock.mockResolvedValueOnce({ json: async () => p });
+		// Un payload que ya trae forma de Response (httpOk) se usa tal cual;
+		// cualquier otro es el cuerpo JSON de una respuesta 200.
+		const esRespuesta = typeof p === 'object' && p !== null && 'ok' in p && 'json' in p;
+		fetchMock.mockResolvedValueOnce(
+			esRespuesta ? p : ({ ok: true, status: 200, json: async () => p } as Response)
+		);
 	}
 }
 
@@ -67,7 +89,13 @@ afterEach(() => {
 	vi.restoreAllMocks();
 	listar.mockReset();
 	crearCliente.mockReset();
+	listarReservas.mockReset();
 	crearReserva.mockReset();
+});
+
+beforeEach(() => {
+	// Por defecto: ninguna reserva importada todavía (sin duplicados).
+	listarReservas.mockResolvedValue([]);
 });
 
 describe('syncWebApi.consultarPendientes', () => {
@@ -122,6 +150,7 @@ describe('syncWebApi.sincronizarReservas', () => {
 			ok: true,
 			totalPendientes: 0,
 			importadas: 0,
+			omitidas: 0,
 			clientesNuevos: 0,
 			clientesReutilizados: 0,
 			errores: []
@@ -142,7 +171,7 @@ describe('syncWebApi.sincronizarReservas', () => {
 
 	it('reutiliza cliente existente, recorta fechas con T y notifica a la web', async () => {
 		vi.stubGlobal('fetch', fetchMock);
-		respondFetch({ ok: true, reservations: [webRes()] });
+		respondFetch({ ok: true, reservations: [webRes()] }, httpOk({ ok: true }));
 		listar.mockResolvedValue([{ cliente: { id: 44, noDoc: '1001234567' } } as never]);
 		crearReserva.mockResolvedValue({ id: 55 } as never);
 
@@ -183,7 +212,7 @@ describe('syncWebApi.sincronizarReservas', () => {
 
 	it('days=0 usa 1 como divisor de valorDia (no divide entre cero)', async () => {
 		vi.stubGlobal('fetch', fetchMock);
-		respondFetch({ ok: true, reservations: [webRes({ days: 0 })] });
+		respondFetch({ ok: true, reservations: [webRes({ days: 0 })] }, httpOk({ ok: true }));
 		listar.mockResolvedValue([{ cliente: { id: 44, noDoc: '1001234567' } } as never]);
 		crearReserva.mockResolvedValue({ id: 55 } as never);
 
@@ -217,7 +246,7 @@ describe('syncWebApi.sincronizarReservas', () => {
 			pickupTime: '',
 			returnTime: ''
 		} as Partial<WebReservation>);
-		respondFetch({ ok: true, reservations: [r0] });
+		respondFetch({ ok: true, reservations: [r0] }, httpOk({ ok: true }));
 		listar.mockResolvedValue([]);
 		crearCliente.mockResolvedValue({ cliente: { id: 9 } } as never);
 		crearReserva.mockResolvedValue({ id: 77 } as never);
@@ -261,7 +290,8 @@ describe('syncWebApi.sincronizarReservas', () => {
 				ok: true,
 				reservations: [webRes({ code: 'WEB-ROTA' }), webRes({ id: 'wr-2', code: 'WEB-OK' })]
 			},
-			{ json: async () => ({ ok: true }) }
+			httpOk({ ok: true }),
+			httpOk({ ok: true })
 		);
 		listar.mockRejectedValueOnce(new Error('firebird dice no')).mockResolvedValueOnce([]);
 		crearCliente.mockResolvedValue({ cliente: { id: 12 } } as never);
@@ -282,6 +312,97 @@ describe('syncWebApi.sincronizarReservas', () => {
 		// servidor web»); aquí se comprueba que el error NO se convierte en
 		// un resultado vacío con ok:true que mostraría «No hay pendientes».
 		await expect(syncWebApi.sincronizarReservas('sid')).rejects.toThrow('red caída');
+		expect(crearReserva).not.toHaveBeenCalled();
+	});
+
+	// ── Idempotencia: dedupe por código web + confirmación verificada ──
+
+	it('omite códigos web ya importados: no vuelve a crear la reserva', async () => {
+		vi.stubGlobal('fetch', fetchMock);
+		respondFetch(
+			{
+				ok: true,
+				reservations: [webRes({ code: 'WEB-DUP' }), webRes({ id: 'wr-2', code: 'WEB-NUEVA' })]
+			},
+			httpOk({ ok: true }), // confirmación reenviada para el código ya importado
+			httpOk({ ok: true }) // confirmación de la reserva nueva
+		);
+		listarReservas.mockResolvedValue([yaImportada('WEB-DUP')]);
+		listar.mockResolvedValue([{ cliente: { id: 44, noDoc: '1001234567' } } as never]);
+		crearReserva.mockResolvedValue({ id: 91 } as never);
+
+		const r = await syncWebApi.sincronizarReservas('sid', 'http://x/sync');
+
+		expect(r.totalPendientes).toBe(2);
+		expect(r.omitidas).toBe(1);
+		expect(r.importadas).toBe(1);
+		// Solo la reserva nueva llegó a Firebird (la duplicada no se recrea)
+		expect(crearReserva).toHaveBeenCalledTimes(1);
+		expect(crearReserva).toHaveBeenCalledWith(
+			'sid',
+			expect.objectContaining({ nombreCliente: 'María Pérez' })
+		);
+		// El cliente solo se resolvió para la nueva
+		expect(listar).toHaveBeenCalledTimes(1);
+	});
+
+	it('si la web no confirma (HTTP 500) lo reporta y la próxima pasada no duplica', async () => {
+		vi.stubGlobal('fetch', fetchMock);
+		// 1ª pasada: la web rechaza el desktopRef con 500 → error visible
+		respondFetch(
+			{ ok: true, reservations: [webRes({ code: 'WEB-500' })] },
+			httpOk({ ok: false }, 500)
+		);
+		listar.mockResolvedValue([{ cliente: { id: 44, noDoc: '1001234567' } } as never]);
+		crearReserva.mockResolvedValue({ id: 60 } as never);
+
+		const p1 = await syncWebApi.sincronizarReservas('sid', 'http://x/sync');
+
+		expect(p1.importadas).toBe(1);
+		expect(p1.errores).toHaveLength(1);
+		expect(p1.errores[0]).toContain('WEB-500');
+		expect(p1.errores[0]).toContain('HTTP 500');
+		expect(p1.errores[0]).toContain('no se duplicará');
+
+		// 2ª pasada: la web sigue ofreciendo el código, pero ya está en Firebird
+		respondFetch({ ok: true, reservations: [webRes({ code: 'WEB-500' })] }, httpOk({ ok: true }));
+		listarReservas.mockResolvedValue([yaImportada('WEB-500', 60)]);
+
+		const p2 = await syncWebApi.sincronizarReservas('sid', 'http://x/sync');
+
+		expect(p2.importadas).toBe(0);
+		expect(p2.omitidas).toBe(1);
+		expect(p2.errores).toEqual([]);
+		// Sigue siendo solo la reserva de la 1ª pasada: ninguna duplicada
+		expect(crearReserva).toHaveBeenCalledTimes(1);
+	});
+
+	it('si la confirmación muere de red, lo reporta sin perder la importación', async () => {
+		vi.stubGlobal('fetch', fetchMock);
+		fetchMock
+			.mockReset()
+			.mockResolvedValueOnce(httpOk({ ok: true, count: 1, reservations: [webRes()] }))
+			.mockRejectedValueOnce(new Error('ECONNRESET'));
+		listar.mockResolvedValue([{ cliente: { id: 44, noDoc: '1001234567' } } as never]);
+		crearReserva.mockResolvedValue({ id: 61 } as never);
+
+		const r = await syncWebApi.sincronizarReservas('sid', 'http://x/sync');
+
+		expect(r.importadas).toBe(1);
+		expect(r.errores).toHaveLength(1);
+		expect(r.errores[0]).toContain('ECONNRESET');
+		// El usuario debe saber que la reserva YA está en Firebird
+		expect(r.errores[0]).toContain('está en Firebird');
+	});
+
+	it('aborta si no puede verificar las reservas ya importadas (no arriesga duplicados)', async () => {
+		vi.stubGlobal('fetch', fetchMock);
+		respondFetch({ ok: true, reservations: [webRes()] });
+		listarReservas.mockRejectedValue(new Error('tabla caída'));
+
+		await expect(syncWebApi.sincronizarReservas('sid')).rejects.toThrow(
+			'No se pudieron leer las reservas existentes'
+		);
 		expect(crearReserva).not.toHaveBeenCalled();
 	});
 });

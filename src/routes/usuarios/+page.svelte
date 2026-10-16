@@ -13,6 +13,7 @@
 	import { toast } from '#lib/stores/toast.svelte.js';
 	import { formatDateTime } from '#lib/utils/format.js';
 	import { guardRole, guardSesion, haySesion, tieneRol } from '#lib/utils/guards.js';
+	import { crearSecuencia } from '#lib/utils/carga.js';
 	import DataTable from '#lib/components/DataTable.svelte';
 	import Modal from '#lib/components/Modal.svelte';
 	import ConfirmDialog from '#lib/components/ConfirmDialog.svelte';
@@ -62,18 +63,25 @@
 		};
 	}
 
+	// Descarta respuestas obsoletas (debounce de búsqueda con dos cargas en vuelo)
+	const secuenciaCarga = crearSecuencia();
+
 	async function cargar() {
 		// Guard de sesión + rol: nunca consultar sin sesión ni si el usuario
 		// no es administrador (cubre también el debounce durante una redirección).
 		if (!haySesion()) return;
 		if (!tieneRol(['Administrador'])) return;
+		const miCarga = secuenciaCarga.siguiente();
 		loading = true;
 		try {
-			usuarios = await usuarioApi.listar(sid(), busqueda.trim() || undefined);
+			const r = await usuarioApi.listar(sid(), busqueda.trim() || undefined);
+			if (!secuenciaCarga.esActual(miCarga)) return; // obsoleta
+			usuarios = r;
 		} catch (e) {
+			if (!secuenciaCarga.esActual(miCarga)) return; // sin toast de una carga vieja
 			toast.error(e instanceof ApiError ? e.message : 'No se pudieron cargar los usuarios.');
 		} finally {
-			loading = false;
+			if (secuenciaCarga.esActual(miCarga)) loading = false;
 		}
 	}
 

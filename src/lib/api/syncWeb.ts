@@ -1,6 +1,20 @@
 // syncWeb.ts — Cliente de sincronización con la plataforma Web (Neon PostgreSQL)
 import { clienteApi } from './clientes';
-import { reservaApi } from './reservas';
+import { reservaApi, type Reserva } from './reservas';
+
+/**
+ * Marcador que identifica el código web de una reserva importada. Se escribe
+ * en `observaciones` al importar (PASO 2) y se lee en el PASO 0 como clave de
+ * idempotencia: si la web vuelve a ofrecer un código que ya está en Firebird,
+ * la reserva NO se vuelve a crear (era el bug que duplicaba reservas pagadas
+ * con su abono cuando la confirmación a la web se perdía).
+ */
+const MARCA_ORIGEN_WEB = /\[ORIGEN: WEB - ([^\]]+)\]/g;
+
+/** Extrae los códigos web marcados en las observaciones de una reserva. */
+function codigosDe(observaciones: string | null | undefined): string[] {
+	return [...(observaciones ?? '').matchAll(MARCA_ORIGEN_WEB)].map((m) => m[1].trim());
+}
 
 export interface WebReservation {
 	id: string;
@@ -48,9 +62,73 @@ export interface SyncWebResult {
 	ok: boolean;
 	totalPendientes: number;
 	importadas: number;
+	/** Códigos web que YA estaban en Firebird: no se duplicaron (idempotencia). */
+	omitidas: number;
 	clientesNuevos: number;
 	clientesReutilizados: number;
 	errores: string[];
+}
+
+/**
+ * Índice (código web → reserva) de las reservas ya importadas a Firebird.
+ * Se carga UNA vez por sincronización, no una llamada por reserva.
+ *
+ * Si esta lectura falla se ABORTA la sincronización: continuar sin el índice
+ * equivaldría a arriesgar reservas duplicadas con su abono.
+ */
+async function reservasYaImportadas(sessionId: string): Promise<Map<string, Reserva>> {
+	let reservas: Reserva[];
+	try {
+		reservas = (await reservaApi.listar(sessionId)) ?? [];
+	} catch (e) {
+		throw new Error(
+			`No se pudieron leer las reservas existentes para evitar duplicados: ${(e as Error).message}`,
+			{ cause: e }
+		);
+	}
+	const porCodigo = new Map<string, Reserva>();
+	for (const reserva of reservas) {
+		for (const codigo of codigosDe(reserva.observaciones)) {
+			porCodigo.set(codigo, reserva);
+		}
+	}
+	return porCodigo;
+}
+
+/**
+ * Apretón de manos con la web: le informa el id de mostrador de la reserva
+ * importada. La respuesta SE COMPROBABA antes solo se ignoraba: si la web
+ * devolvía un error HTTP (o la petición moría de red), el pendiente seguía en
+ * su lista y la próxima sincronización creaba una reserva DUPLICADA.
+ * Ahora el fallo se reporta y el PASO 0 garantiza que no se duplique igual.
+ */
+async function confirmarEnWeb(
+	syncUrl: string,
+	webR: WebReservation,
+	idReserva: number,
+	idCliente: number | null
+): Promise<void> {
+	const detalle = `la reserva SÍ está en Firebird pero la web no confirmó la importación`;
+	let respuesta: Response;
+	try {
+		respuesta = await fetch(syncUrl, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				entity: 'RESERVATION',
+				entityId: webR.id,
+				desktopRef: `RES-FB-${idReserva}`,
+				desktopCustomerId: idCliente
+			})
+		});
+	} catch (e) {
+		throw new Error(`${detalle} (${(e as Error).message}); no se duplicará en la próxima pasada`, {
+			cause: e
+		});
+	}
+	if (!respuesta.ok) {
+		throw new Error(`${detalle} (HTTP ${respuesta.status}); no se duplicará en la próxima pasada`);
+	}
 }
 
 export const DEFAULT_WEB_SYNC_URL = 'http://localhost:5174/api/sync';
@@ -88,6 +166,7 @@ export const syncWebApi = {
 			ok: true,
 			totalPendientes: 0,
 			importadas: 0,
+			omitidas: 0,
 			clientesNuevos: 0,
 			clientesReutilizados: 0,
 			errores: []
@@ -103,8 +182,24 @@ export const syncWebApi = {
 
 		resultado.totalPendientes = pendientesRes.reservations.length;
 
+		// ── PASO 0: dedupe por código web (idempotencia) ──
+		// La web lista como pendiente toda reserva cuya confirmación no le
+		// llegó. El índice se consulta una sola vez y corta cualquier intento
+		// de reimportar un código que ya está en Firebird.
+		const yaImportadas = await reservasYaImportadas(sessionId);
+
 		for (const webR of pendientesRes.reservations) {
 			try {
+				const existente = yaImportadas.get(webR.code.trim());
+				if (existente) {
+					// Ya está en Firebird: NO se vuelve a crear. Solo se
+					// reintenta la confirmación, porque si la web sigue
+					// ofreciéndolo es porque nunca recibió el desktopRef.
+					resultado.omitidas++;
+					await confirmarEnWeb(syncUrl, webR, existente.id, existente.idCliente);
+					continue;
+				}
+
 				// ── PASO 1: Deduplicación estricta de cliente en Firebird ──
 				const cleanDoc = webR.customer.docNumber.trim();
 				let idCliente: number | null = null;
@@ -170,19 +265,12 @@ export const syncWebApi = {
 					observaciones: obs
 				});
 
-				// ── PASO 3: Notificar a la Web la confirmación con IDs de mostrador ──
-				await fetch(syncUrl, {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({
-						entity: 'RESERVATION',
-						entityId: webR.id,
-						desktopRef: `RES-FB-${reservaCreada.id}`,
-						desktopCustomerId: idCliente
-					})
-				});
-
+				// La reserva YA está en Firebird: se cuenta como importada
+				// aunque después falle la confirmación (el fallo se reporta aparte).
 				resultado.importadas++;
+
+				// ── PASO 3: Notificar a la Web la confirmación con IDs de mostrador ──
+				await confirmarEnWeb(syncUrl, webR, reservaCreada.id, idCliente);
 			} catch (err) {
 				console.error(`Error importando reserva web ${webR.code}:`, err);
 				resultado.errores.push(`${webR.code}: ${(err as Error).message}`);

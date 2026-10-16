@@ -130,6 +130,48 @@ pub fn mayusculas(s: &str) -> String {
     s.trim().to_uppercase()
 }
 
+/// Clave de comparación: minúsculas, sin acentos ni espacios sobrantes.
+/// Espejo de `normalizarTexto()` del frontend (src/lib/utils/texto.ts).
+fn clave(s: &str) -> String {
+    s.trim()
+        .to_lowercase()
+        .chars()
+        .map(|c| match c {
+            'á' | 'à' | 'â' | 'ä' => 'a',
+            'é' | 'è' | 'ê' | 'ë' => 'e',
+            'í' | 'ì' | 'î' | 'ï' => 'i',
+            'ó' | 'ò' | 'ô' | 'ö' => 'o',
+            'ú' | 'ù' | 'û' | 'ü' => 'u',
+            'ñ' => 'n',
+            _ => c,
+        })
+        .collect()
+}
+
+/// ¿Dos textos equivalen ignorando mayúsculas, acentos y espacios?
+pub fn equivalente(a: &str, b: &str) -> bool {
+    clave(a) == clave(b)
+}
+
+/// Forma canónica de `valor` según `lista` (p. ej. `tipos_auto` del config.ini).
+///
+/// El catálogo del config manda: si `valor` coincide (sin distinguir
+/// mayúsculas ni acentos) se devuelve el texto tal como está en la lista
+/// («AUTOMÓVIL» → «Automóvil»); si no, se devuelve `valor` recortado tal cual.
+/// Vacío → cadena vacía (el caller aplica su default).
+pub fn canonico(valor: &str, lista: &[String]) -> String {
+    let v = valor.trim();
+    if v.is_empty() {
+        return String::new();
+    }
+    let k = clave(v);
+    lista
+        .iter()
+        .find(|o| clave(o) == k)
+        .cloned()
+        .unwrap_or_else(|| v.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -148,5 +190,31 @@ mod tests {
         assert!(!validate_password_strength("short1A").is_empty()); // 7 chars
         assert_eq!(validate_password_strength("Passw0rd!").len(), 0); // válida
         assert!(!validate_password_strength("alllower1!").is_empty()); // sin mayúscula
+    }
+
+    #[test]
+    fn equivalente_ignora_mayusculas_y_acentos() {
+        assert!(equivalente("AUTOMÓVIL", "Automóvil"));
+        assert!(equivalente("SEDÁN", "Sedán"));
+        assert!(equivalente(" hatchback ", "Hatchback"));
+        assert!(!equivalente("Camioneta", "Automóvil"));
+        assert!(!equivalente("", "Automóvil"));
+    }
+
+    #[test]
+    fn canonico_usa_el_catalogo_del_config() {
+        let lista = vec![
+            "Automóvil".to_string(),
+            "Camioneta".to_string(),
+            "Van".to_string(),
+        ];
+        // Guardado en mayúsculas por la normalización antigua → forma del config
+        assert_eq!(canonico("AUTOMÓVIL", &lista), "Automóvil");
+        assert_eq!(canonico("automóvil", &lista), "Automóvil");
+        assert_eq!(canonico("  CAMIONETA", &lista), "Camioneta");
+        // Tipos fuera del config (datos importados) se conservan tal cual
+        assert_eq!(canonico("Sedán", &lista), "Sedán");
+        // Vacío → vacío (el servicio aplica su default)
+        assert_eq!(canonico("   ", &lista), "");
     }
 }

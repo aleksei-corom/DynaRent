@@ -13,7 +13,7 @@ use serde::Serialize;
 
 use crate::core::config::AppConfig;
 use crate::core::error::AppError;
-use crate::core::validators::{mayusculas, validate_no_xss};
+use crate::core::validators::{canonico, mayusculas, validate_no_xss};
 use crate::core::PooledConnection;
 use crate::repositories::cliente::ClienteRepository;
 use crate::repositories::reserva::{Reserva, ReservaDatos, ReservaRepository};
@@ -61,7 +61,7 @@ impl ReservaService {
         usuario: &str,
         mut datos: ReservaDatos,
     ) -> Result<Reserva, AppError> {
-        normalizar(&mut datos);
+        normalizar(&mut datos, cfg);
         completar_cliente(conn, &mut datos)?;
         calcular_total(&mut datos);
         validar(&datos, cfg)?;
@@ -85,7 +85,7 @@ impl ReservaService {
         mut datos: ReservaDatos,
     ) -> Result<Reserva, AppError> {
         Self::obtener(conn, id)?;
-        normalizar(&mut datos);
+        normalizar(&mut datos, cfg);
         completar_cliente(conn, &mut datos)?;
         calcular_total(&mut datos);
         validar(&datos, cfg)?;
@@ -146,8 +146,12 @@ impl ReservaService {
     }
 }
 
-/// Normaliza campos (trim → mayúsculas, defaults)
-fn normalizar(d: &mut ReservaDatos) {
+/// Normaliza campos (trim → mayúsculas, defaults).
+///
+/// `categoria_vehiculo` NO se pasa a mayúsculas: se canoniza contra
+/// `tipos_auto` del config.ini («AUTOMÓVIL» → «Automóvil»), igual que
+/// `services/auto.rs`, para que los combos del frontend casen con la BD.
+fn normalizar(d: &mut ReservaDatos, cfg: &AppConfig) {
     d.nombre_cliente = mayusculas(&d.nombre_cliente);
     d.nacionalidad = d
         .nacionalidad
@@ -157,7 +161,7 @@ fn normalizar(d: &mut ReservaDatos) {
     d.categoria_vehiculo = d
         .categoria_vehiculo
         .as_ref()
-        .map(|s| mayusculas(s))
+        .map(|s| canonico(s, &cfg.tipos_auto))
         .filter(|s| !s.is_empty());
     d.placa_asignada = d
         .placa_asignada

@@ -174,11 +174,56 @@ pub fn run() {
                 });
 
             // ── Pool de BD Firebird Embedded ──
+            // ¿Existía ANTES de abrir el pool? Distingue «instalación nueva»
+            // (BD recién creada: no hay nada que proteger) de «actualización»
+            // (BD con datos reales: el snapshot pre-migración tiene sentido).
+            let bd_previa = config.db_path.exists();
             let pool = crate::core::db::create_pool(&config)?;
 
             // ── Migraciones ──
             let migrations_dir = manifest_dir.join("migrations");
+
+            // ── Snapshot pre-migración ──
+            // Si es una BD existente con migraciones pendientes (actualización
+            // de versión), guardar UNA copia ANTES de aplicarlas: si una
+            // migración falla a mitad, el usuario puede restaurarla desde el
+            // panel de Backups (prefijo `Backup_PreMigracion_`). Un fallo de
+            // snapshot NO bloquea el arranque (mismo criterio best-effort que
+            // el resto de este bloque), pero queda logueado como error.
+            if bd_previa {
+                match crate::core::migrations::migraciones_pendientes(&pool, &migrations_dir) {
+                    Ok(pendientes) if !pendientes.is_empty() => {
+                        log::info!(
+                            "Migraciones pendientes ({}): creando snapshot pre-migración…",
+                            pendientes.len()
+                        );
+                        match services::backup::crear_snapshot_pre_migracion(&config) {
+                            Ok(path) => {
+                                log::info!("Snapshot pre-migración creado: {}", path.display())
+                            }
+                            Err(e) => log::error!(
+                                "Snapshot pre-migración falló (las migraciones continúan): {e}"
+                            ),
+                        }
+                    }
+                    Ok(_) => {}
+                    Err(e) => {
+                        log::warn!("No se pudieron consultar las migraciones pendientes: {e}")
+                    }
+                }
+            }
+
             crate::core::migrations::run_migrations(&pool, &migrations_dir)?;
+
+            // ── Catálogos heredados (idempotente) ──
+            // Versiones anteriores guardaban autos.TIPO y
+            // reservas.CATEGORIA_VEHICULO en MAYÚSCULAS; se reescriben con la
+            // forma del config.ini. No bloquea el arranque si falla.
+            match crate::core::migrations::normalizar_catalogos(&pool, &config.tipos_auto) {
+                Ok(0) => {}
+                Ok(n) => log::info!("Catálogos normalizados al config.ini: {n} valores"),
+                Err(e) => log::warn!("No se pudieron normalizar los catálogos: {e}"),
+            }
 
             // ── Seed admin (solo si la tabla está vacía) ──
             seed_admin(&pool)?;

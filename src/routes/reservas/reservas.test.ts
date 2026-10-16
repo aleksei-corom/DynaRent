@@ -238,7 +238,8 @@ describe('ramas de error y cálculo de la página de Reservas', () => {
 		const pendienteLargo = deferido<{ json: () => Promise<unknown> }>();
 		const fetchMock = vi.fn((url: string, init?: { method?: string }) => {
 			if (init?.method === 'POST') {
-				return Promise.resolve({ json: async () => ({ ok: true }) });
+				// Confirmación a la web: respuesta HTTP real (ok/status)
+				return Promise.resolve({ ok: true, status: 200, json: async () => ({ ok: true }) });
 			}
 			get++;
 			if (get === 1 || get >= 3) {
@@ -302,7 +303,8 @@ describe('ramas de error y cálculo de la página de Reservas', () => {
 		let get = 0;
 		const fetchMock = vi.fn((url: string, init?: { method?: string }) => {
 			if (init?.method === 'POST') {
-				return Promise.resolve({ json: async () => ({ ok: true }) });
+				// Confirmación a la web: respuesta HTTP real (ok/status)
+				return Promise.resolve({ ok: true, status: 200, json: async () => ({ ok: true }) });
 			}
 			get++;
 			if (get === 1) {
@@ -351,6 +353,72 @@ describe('ramas de error y cálculo de la página de Reservas', () => {
 		await fireEvent.click(screen.getByTitle(/Sincronizar reservas pagadas/));
 		await waitFor(() => expect(screen.getByText('Sincronizar Web')).toBeInTheDocument());
 		expect(screen.getByTitle(/Sincronizar reservas pagadas/)).toBeEnabled();
+	});
+
+	it('no duplica reservas web ya importadas: omite el código y lo avisa en el toast', async () => {
+		// Regresión del bug de idempotencia: Firebird YA tiene la reserva de
+		// WEB-001 (marcador `[ORIGEN: WEB - …]` en observaciones). Si la web
+		// la vuelve a ofrecer (p. ej. porque su confirmación se perdió),
+		// sincronizarla otra vez creaba una SEGUNDA reserva con su abono.
+		tauri.register('listar_reservas', () => [
+			reserva({
+				id: 42,
+				nombreCliente: 'Persona Web',
+				observaciones: '[ORIGEN: WEB - WEB-001]\nPago: PAGADA ONLINE Place to Pay (VISA •••• 1234)'
+			})
+		]);
+		const webReserva = {
+			id: 'w-1',
+			code: 'WEB-001',
+			status: 'PAID',
+			totalAmount: 300000,
+			blockingAmount: 100000,
+			days: 2,
+			pickupDate: '2026-08-10',
+			returnDate: '2026-08-12',
+			pickupTime: '10:00',
+			returnTime: '10:00',
+			pickupLocation: 'Aeropuerto',
+			returnLocation: 'Oficina',
+			insurancePlan: 'TOTAL',
+			synced: false,
+			desktopRef: null,
+			customer: {
+				id: 'c-1',
+				docNumber: '1000001',
+				fullName: 'Persona Web',
+				email: 'web@ejemplo.com',
+				phone: '3001112233'
+			},
+			vehicle: { id: 'v-1', name: 'Toyota Corolla', plate: 'ABC123', image: '' },
+			payment: { status: 'PAID', cardBrand: 'VISA', cardLast4: '1234' }
+		};
+		vi.stubGlobal(
+			'fetch',
+			vi.fn((url: string, init?: { method?: string }) =>
+				Promise.resolve(
+					init?.method === 'POST'
+						? { ok: true, status: 200, json: async () => ({ ok: true }) }
+						: { json: async () => ({ ok: true, count: 1, reservations: [webReserva] }) }
+				)
+			)
+		);
+		const crearReserva = vi.fn();
+		tauri.register('crear_reserva', crearReserva);
+		toasts.splice(0);
+
+		render(ReservasPage);
+		// La tabla lista la reserva importada (no el fixture «Juan Perez»)
+		await screen.findByText('Persona Web');
+
+		await fireEvent.click(screen.getByTitle(/Sincronizar reservas pagadas/));
+
+		// El dedupe por código corta la segunda creación y lo comunica
+		await waitFor(() =>
+			expect(toasts.some((t) => t.message.includes('ya estaban importadas'))).toBe(true)
+		);
+		expect(crearReserva).not.toHaveBeenCalled();
+		await waitFor(() => expect(screen.getByTitle(/Sincronizar reservas pagadas/)).toBeEnabled());
 	});
 
 	it('recarga con los filtros (estado inmediato y búsqueda con debounce)', async () => {
@@ -987,6 +1055,132 @@ describe('Reservas — errores de red y fallbacks de ApiError', () => {
 		expect(toasts.some((t) => t.message === 'Error al conectar con el servidor web.')).toBe(false);
 		expect(toasts.some((t) => t.message === 'No hay reservas web pendientes por importar.')).toBe(
 			false
+		);
+	});
+});
+
+// ── Regresión del combo «Placa asignada» ──
+// La BD real guarda autos.TIPO en MAYÚSCULAS (crear_auto → mayusculas) y los
+// vehículos importados traen tipos fuera del config.ini («Sedán», «Hatchback»).
+// El filtro usaba igualdad exacta contra las categorías del config, así que el
+// modal de Nueva Reserva salía vacío aunque la BD tuviera vehículos.
+describe('Reservas — combo de placas con datos reales de la BD', () => {
+	function auto(overrides: Partial<Auto>): Auto {
+		return {
+			placa: 'ABC123',
+			marca: 'Toyota',
+			modelo: 'Corolla',
+			version: null,
+			color: null,
+			tipo: 'Automóvil',
+			cilindraje: null,
+			transmision: null,
+			combustible: null,
+			noMotor: null,
+			noChasis: null,
+			propietario: null,
+			estado: 'Disponible',
+			costoFijoMensual: '0',
+			kilometraje: 0,
+			ubicacion: null,
+			tipoAdquisicion: null,
+			proximoAceite: null,
+			proximoFrenos: null,
+			vencimientoSoat: null,
+			vencimientoTecnico: null,
+			vencimientoExtintor: null,
+			vencimientoBateria: null,
+			observaciones: null,
+			fechaIngreso: '2026-01-01',
+			createdAt: null,
+			...overrides
+		};
+	}
+
+	function opcionesDe(dialogo: HTMLElement): string[] {
+		const listbox = within(dialogo).getByRole('listbox');
+		return within(listbox as HTMLElement)
+			.getAllByRole('option')
+			.map((o) => o.textContent ?? '');
+	}
+
+	it('lista todas las placas al abrir y filtra por categorías heredadas', async () => {
+		tauri.register('listar_reservas', () => []);
+		tauri.register('listar_autos', () => [
+			// Creado por la app: el backend lo guarda en MAYÚSCULAS
+			auto({ placa: 'ABC123', tipo: 'AUTOMÓVIL' }),
+			// Importado: tipo fuera del config.ini
+			auto({ placa: 'XYZ789', marca: 'Chevrolet', modelo: 'Spark', tipo: 'Hatchback' })
+		]);
+
+		render(ReservasPage);
+		await screen.findByText(/No hay reservas/i);
+		await fireEvent.click(screen.getByRole('button', { name: 'Nueva Reserva' }));
+		const dialogo = await screen.findByRole('dialog');
+		const comboPlaca = within(dialogo).getByPlaceholderText('Buscar placa, marca o modelo…');
+		const selects = dialogo.querySelectorAll('select');
+
+		// 1) Por defecto «— Todas las categorías —» → se listan las 2 placas
+		await fireEvent.focus(comboPlaca);
+		await waitFor(() => expect(within(dialogo).queryByRole('listbox')).toBeInTheDocument());
+		let opciones = opcionesDe(dialogo).join(' | ');
+		expect(opciones).toContain('ABC123 · Toyota Corolla');
+		expect(opciones).toContain('XYZ789 · Chevrolet Spark');
+		expect((selects[0] as HTMLSelectElement).value).toBe('');
+
+		// 2) «Hatchback» no está en el config pero sí en la flota → filtra a XYZ789
+		await fireEvent.change(selects[0], { target: { value: 'Hatchback' } });
+		opciones = opcionesDe(dialogo).join(' | ');
+		expect(opciones).toContain('XYZ789');
+		expect(opciones).not.toContain('ABC123');
+
+		// 3) Volver a «Todas», elegir la placa → la categoría se autocompleta con
+		//    el tipo real del vehículo, canonizado al formato del config
+		await fireEvent.change(selects[0], { target: { value: '' } });
+		await fireEvent.focus(comboPlaca);
+		await fireEvent.input(comboPlaca, { target: { value: 'ABC' } });
+		await fireEvent.keyDown(comboPlaca, { key: 'Enter' });
+		await waitFor(() => expect((selects[0] as HTMLSelectElement).value).toBe('Automóvil'));
+		expect(
+			(
+				dialogo.querySelector(
+					'input[placeholder="Buscar placa, marca o modelo…"]'
+				) as HTMLInputElement
+			).value
+		).toContain('ABC123');
+	});
+
+	it('al editar canonicaliza la categoría guardada en mayúsculas', async () => {
+		// El backend guarda CATEGORIA_VEHICULO en MAYÚSCULAS («AUTOMÓVIL»): sin
+		// canonicalizar, el <select> no encontraba la opción y quedaba en blanco.
+		tauri.register('listar_reservas', () => [
+			reserva({ categoriaVehiculo: 'AUTOMÓVIL', placaAsignada: '' })
+		]);
+
+		render(ReservasPage);
+		await screen.findByText('Juan Perez');
+		await fireEvent.click(screen.getByLabelText('Editar reserva #1'));
+		const dialogo = await screen.findByRole('dialog');
+		const select = dialogo.querySelector('select') as HTMLSelectElement;
+		await waitFor(() => expect(select.value).toBe('Automóvil'));
+	});
+
+	it('si la carga de vehículos falla, avisa en toast en vez de dejar el combo vacío', async () => {
+		tauri.register('listar_reservas', () => []);
+		toasts.splice(0);
+		tauri.register('listar_autos', () => {
+			throw { kind: 'database', message: 'BD caída' };
+		});
+
+		render(ReservasPage);
+		await screen.findByText(/No hay reservas/i);
+
+		await waitFor(() =>
+			expect(
+				toasts.some(
+					(t) => t.type === 'error' && t.message === 'No se pudieron cargar los vehículos.'
+				)
+			).toBe(true)
 		);
 	});
 });

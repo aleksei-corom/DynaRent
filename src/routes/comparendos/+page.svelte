@@ -22,6 +22,7 @@
 	import { toast } from '#lib/stores/toast.svelte.js';
 	import { formatCOP, formatContrato, formatDate, formatLocalDateISO } from '#lib/utils/format.js';
 	import { guardSesion, haySesion } from '#lib/utils/guards.js';
+	import { crearSecuencia } from '#lib/utils/carga.js';
 	import DataTable from '#lib/components/DataTable.svelte';
 	import Modal from '#lib/components/Modal.svelte';
 	import ConfirmDialog from '#lib/components/ConfirmDialog.svelte';
@@ -235,21 +236,28 @@
 	}
 
 	// ── Carga de datos ──
+	// Descarta respuestas obsoletas (debounce de filtros con dos cargas en vuelo)
+	const secuenciaCarga = crearSecuencia();
+
 	async function cargar() {
 		if (!haySesion()) return;
+		const miCarga = secuenciaCarga.siguiente();
 		loading = true;
 		try {
-			comparendos = await comparendoApi.listar(
+			const r = await comparendoApi.listar(
 				sid(),
 				busqueda.trim() || undefined,
 				placaFiltro || undefined,
 				estadoFiltro || undefined,
 				noConfirmados || undefined
 			);
+			if (!secuenciaCarga.esActual(miCarga)) return; // obsoleta
+			comparendos = r;
 		} catch (e) {
+			if (!secuenciaCarga.esActual(miCarga)) return; // sin toast de una carga vieja
 			toast.error(e instanceof ApiError ? e.message : 'No se pudieron cargar los comparendos.');
 		} finally {
-			loading = false;
+			if (secuenciaCarga.esActual(miCarga)) loading = false;
 		}
 	}
 
@@ -264,8 +272,10 @@
 		}
 		try {
 			autos = await autoApi.listar(sid());
-		} catch {
+		} catch (e) {
 			autos = [];
+			// Antes el combo de placa quedaba vacío en silencio.
+			toast.error(e instanceof ApiError ? e.message : 'No se pudieron cargar los vehículos.');
 		}
 		await cargar();
 		cargarAgente();

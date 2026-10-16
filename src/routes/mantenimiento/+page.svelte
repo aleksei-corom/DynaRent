@@ -16,6 +16,7 @@
 	import { toast } from '#lib/stores/toast.svelte.js';
 	import { formatCOP, formatDate, formatLocalDateISO } from '#lib/utils/format.js';
 	import { guardSesion, haySesion } from '#lib/utils/guards.js';
+	import { crearSecuencia } from '#lib/utils/carga.js';
 	import DataTable from '#lib/components/DataTable.svelte';
 	import Modal from '#lib/components/Modal.svelte';
 	import ConfirmDialog from '#lib/components/ConfirmDialog.svelte';
@@ -111,19 +112,26 @@
 		}
 	}
 
+	// Descarta respuestas obsoletas (debounce de filtros con dos cargas en vuelo)
+	const secuenciaCarga = crearSecuencia();
+
 	async function cargar() {
+		const miCarga = secuenciaCarga.siguiente();
 		loading = true;
 		try {
-			registros = await mantenimientoApi.listar(
+			const r = await mantenimientoApi.listar(
 				sid(),
 				busqueda.trim() || undefined,
 				placaFiltro || undefined,
 				tipoFiltro || undefined
 			);
+			if (!secuenciaCarga.esActual(miCarga)) return; // obsoleta
+			registros = r;
 		} catch (e) {
+			if (!secuenciaCarga.esActual(miCarga)) return; // sin toast de una carga vieja
 			toast.error(e instanceof ApiError ? e.message : 'No se pudieron cargar los mantenimientos.');
 		} finally {
-			loading = false;
+			if (secuenciaCarga.esActual(miCarga)) loading = false;
 		}
 	}
 
@@ -137,7 +145,11 @@
 		try {
 			const [l, a] = await Promise.all([
 				businessApi.listas(sid()).catch(() => null),
-				autoApi.listar(sid(), undefined, undefined).catch(() => [])
+				autoApi.listar(sid(), undefined, undefined).catch((e) => {
+					// Antes el combo de placa quedaba vacío en silencio.
+					toast.error(e instanceof ApiError ? e.message : 'No se pudieron cargar los vehículos.');
+					return [];
+				})
 			]);
 			lists = l;
 			autos = a;

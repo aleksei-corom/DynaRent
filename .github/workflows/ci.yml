@@ -207,6 +207,100 @@ jobs:
           # con exit 1 aunque ambos casos hayan validado.
           exit 0
 
+  # ── Smoke E2E de la app compilada (Tauri + WebView2) vía CDP ──
+  # Compila la app de producción y la controla por CDP (Chrome DevTools
+  # Protocol sobre el WebView2 real) para recorrer el flujo de negocio
+  # completo (login → rentas → pago → orden → contrato) y capturar los PDFs
+  # con Page.printToPDF — el mismo pipeline que usa el diálogo de impresión,
+  # dentro del runtime WebView2 real de la app. El runner trae el WebView2
+  # runtime (Edge) y puede ejecutar apps GUI.
+  #
+  # Corre DESPUÉS de `validate`: no gastar ~15 min de build + GUI si lint o
+  # tests ya fallaron.
+  smoke-e2e:
+    name: Smoke E2E (app compilada vía CDP)
+    needs: validate
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # Node ejecuta el script del smoke (usa fetch y WebSocket nativos)
+      - name: Setup Node 24
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install dependencies (bun)
+        run: bun install --frozen-lockfile
+
+      # tauri.conf.json embebe `../build` en el binario (tauri-build corre en
+      # build.rs), así que el frontend debe estar compilado ANTES de cargo.
+      - name: Build frontend (vite)
+        run: bun run build
+
+      - name: Build app Tauri (release)
+        working-directory: src-tauri
+        run: cargo build --release --bin dynarent
+
+      # Lanza la app con depuración remota de WebView2 y ejecuta el smoke.
+      # Con el APPDATA de la app limpio, la primera ejecución crea
+      # config.ini + dynarent_v3.fdb, aplica las migraciones embebidas y
+      # siembra `admin`/`admin123` con cambio de contraseña forzado (el
+      # script lo maneja y lo deja en 'Admin123!x' — por eso se limpia el
+      # directorio: hace el run determinista aunque el runner reutilice
+      # perfil).
+      - name: Smoke E2E vía CDP (login → rentas → PDFs)
+        shell: pwsh
+        run: |
+          $data = Join-Path $env:APPDATA 'com.corjar.dynarent'
+          if (Test-Path $data) {
+            Remove-Item -Recurse -Force $data
+            Write-Host "APPDATA de la app limpiado: $data"
+          }
+
+          $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = '--remote-debugging-port=9222'
+          $app = Start-Process -FilePath 'src-tauri\target\release\dynarent.exe' -PassThru
+          Write-Host "App lanzada (PID $($app.Id)) con CDP en el puerto 9222"
+
+          $smokeExit = 0
+          try {
+            # El script espera el target CDP hasta 60 s (arranque + migraciones)
+            node scripts/smoke-test-app.mjs --pwd admin123
+            $smokeExit = $LASTEXITCODE
+          } finally {
+            # Por nombre: mata SOLO el proceso de la app, no este shell
+            Stop-Process -Name dynarent -Force -ErrorAction SilentlyContinue
+          }
+          if ($smokeExit -ne 0) { throw "El smoke E2E salio con exit $smokeExit" }
+
+      # Los PDFs reales y las capturas del flujo quedan como artifact para
+      # auditar lo que la app imprimió (y diagnosticar fallos sin reproducir
+      # el run). `if: always()` para subirlos también cuando el smoke falla.
+      - name: Subir PDFs y capturas del smoke
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-e2e-print
+          path: .tmp-print/
+          if-no-files-found: warn
+
   # ── Security audit: CVEs conocidos en dependencias Cargo ──
   # cargo-audit consulta la base de datos RustSec (RUSTSEC-*) y falla si
   # alguna dependencia (directa o transitiva) tiene un advisory sin mitigar.

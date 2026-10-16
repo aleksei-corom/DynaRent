@@ -14,6 +14,7 @@
 	import { toast } from '#lib/stores/toast.svelte.js';
 	import { formatDate, formatLocalDateISO } from '#lib/utils/format.js';
 	import { guardSesion, haySesion } from '#lib/utils/guards.js';
+	import { crearSecuencia } from '#lib/utils/carga.js';
 	import DataTable from '#lib/components/DataTable.svelte';
 	import Modal from '#lib/components/Modal.svelte';
 	import ConfirmDialog from '#lib/components/ConfirmDialog.svelte';
@@ -94,15 +95,27 @@
 		};
 	}
 
+	// Descarta respuestas obsoletas: dos cargas en vuelo (debounce de filtros)
+	// pueden llegar desordenadas y pisar la tabla con datos de un filtro viejo.
+	const secuenciaCarga = crearSecuencia();
+
 	async function cargar() {
 		if (!haySesion()) return;
+		const miCarga = secuenciaCarga.siguiente();
 		loading = true;
 		try {
-			autos = await autoApi.listar(sid(), busqueda.trim() || undefined, estadoFiltro || undefined);
+			const r = await autoApi.listar(
+				sid(),
+				busqueda.trim() || undefined,
+				estadoFiltro || undefined
+			);
+			if (!secuenciaCarga.esActual(miCarga)) return; // obsoleta
+			autos = r;
 		} catch (e) {
+			if (!secuenciaCarga.esActual(miCarga)) return; // sin toast de una carga vieja
 			toast.error(e instanceof ApiError ? e.message : 'No se pudieron cargar los vehículos.');
 		} finally {
-			loading = false;
+			if (secuenciaCarga.esActual(miCarga)) loading = false;
 		}
 	}
 

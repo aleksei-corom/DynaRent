@@ -5,6 +5,7 @@
 	import { toast } from '#lib/stores/toast.svelte.js';
 	import { formatDateTime } from '#lib/utils/format.js';
 	import { guardRole, guardSesion, haySesion, tieneRol } from '#lib/utils/guards.js';
+	import { crearSecuencia } from '#lib/utils/carga.js';
 	import DataTable from '#lib/components/DataTable.svelte';
 
 	const sid = () => session.token ?? '';
@@ -25,12 +26,16 @@
 	let acciones = $state<string[]>([]);
 	let searchTimer: ReturnType<typeof setTimeout> | undefined;
 
+	// Descarta respuestas obsoletas (filtros/paginación con dos cargas en vuelo)
+	const secuenciaCarga = crearSecuencia();
+
 	async function cargar(paginaDestino = 1) {
 		// Guard de sesión + rol: nunca consultar sin sesión ni si el usuario
 		// no es administrador (cubre también el debounce durante una redirección).
 		if (!haySesion()) return;
 		if (!tieneRol(['Administrador'])) return;
 		pagina = paginaDestino;
+		const miCarga = secuenciaCarga.siguiente();
 		loading = true;
 		try {
 			const r = await auditoriaApi.listar(
@@ -45,12 +50,14 @@
 				paginaDestino,
 				POR_PAGINA
 			);
+			if (!secuenciaCarga.esActual(miCarga)) return; // obsoleta
 			eventos = r.eventos;
 			total = r.total;
 		} catch (e) {
+			if (!secuenciaCarga.esActual(miCarga)) return; // sin toast de una carga vieja
 			toast.error(e instanceof ApiError ? e.message : 'No se pudo consultar la auditoría.');
 		} finally {
-			loading = false;
+			if (secuenciaCarga.esActual(miCarga)) loading = false;
 		}
 	}
 

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Modal from '#lib/components/Modal.svelte';
 	import FormField from '#lib/components/FormField.svelte';
+	import { textoIgual } from '#lib/utils/texto.js';
 	import type { Auto } from '#lib/api.js';
 
 	interface Props {
@@ -24,6 +25,13 @@
 		onConfirmar,
 		onClose
 	}: Props = $props();
+
+	// Etiqueta en una línea: si se escribe dentro del <option>, Prettier puede
+	// partir el texto con un salto de línea y los tests de texto exacto fallan.
+	function labelAuto(a: Auto): string {
+		const sufijo = textoIgual(a.estado, 'Disponible') ? '' : ' (actual)';
+		return `${a.placa} · ${a.marca} ${a.modelo}${sufijo}`;
+	}
 </script>
 
 <Modal
@@ -50,9 +58,7 @@
 		<select class="input" bind:value={placaSeleccionada}>
 			<option value="">— Seleccionar —</option>
 			{#each autosParaCambio as a (a.placa)}
-				<option value={a.placa}
-					>{a.placa} · {a.marca} {a.modelo}{a.estado === 'Disponible' ? '' : ' (actual)'}</option
-				>
+				<option value={a.placa}>{labelAuto(a)}</option>
 			{/each}
 		</select>
 	</FormField>

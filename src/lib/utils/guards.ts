@@ -40,6 +40,21 @@ export async function validarSesion(): Promise<boolean> {
 }
 
 /**
+ * Handler global de `session_expired`: el backend purga las sesiones
+ * expiradas (hilo de limpieza), así que sin este manejo el usuario quedaba
+ * en la página viendo un toast en cada acción, sin forma de volver a login.
+ * Limpia la sesión local y reemplaza el historial por /login.
+ *
+ * Lo registra el layout vía `onSessionExpired` (base.ts). Es idempotente:
+ * si varias llamadas en vuelo expiran a la vez, solo la primera navega.
+ */
+export function alExpirarSesion(): void {
+	if (!session.token) return; // ya limpiada por un fallo anterior
+	session.clear();
+	void goto('/login', { replace: true });
+}
+
+/**
  * ¿Hay una sesión activa (token + usuario)?
  * Síncrono y seguro para usarlo en funciones de carga de datos.
  */

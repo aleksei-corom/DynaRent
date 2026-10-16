@@ -242,7 +242,9 @@ impl ReservaRepository {
         Ok(rows.into_iter().map(from_row).collect())
     }
 
-    /// Próximas reservas (recogida hoy o en el futuro, no canceladas)
+    /// Próximas reservas (recogida hoy o en el futuro, no canceladas ni
+    /// eliminadas — antes una reserva con soft-delete seguía apareciendo en
+    /// el panel «Próximas entregas» de /reservas)
     pub fn obtener_proximas(
         conn: &mut PooledConnection,
         limit: i64,
@@ -250,7 +252,8 @@ impl ReservaRepository {
         let rows: Vec<ReservaRow> = conn.query(
             &format!(
                 "SELECT {SELECT_COLS} FROM reservas \
-                 WHERE estado <> 'Cancelada' AND fecha_recogida >= CURRENT_DATE \
+                 WHERE estado <> 'Cancelada' AND deleted_at IS NULL \
+                   AND fecha_recogida >= CURRENT_DATE \
                  ORDER BY fecha_recogida, hora_recogida \
                  ROWS {limit}"
             ),

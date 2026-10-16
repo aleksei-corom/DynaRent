@@ -16,8 +16,10 @@
 	import { businessLists } from '#lib/stores/business.svelte.js';
 	import { toast } from '#lib/stores/toast.svelte.js';
 	import { formatCOP, formatDate, formatLocalDateISO } from '#lib/utils/format.js';
+	import { normalizarTexto, textoIgual } from '#lib/utils/texto.js';
 	import { calcularDiasHoras } from '#lib/utils/calcularDiasHoras.js';
 	import { guardSesion, haySesion } from '#lib/utils/guards.js';
+	import { crearSecuencia } from '#lib/utils/carga.js';
 	import DataTable from '#lib/components/DataTable.svelte';
 	import Modal from '#lib/components/Modal.svelte';
 	import ConfirmDialog from '#lib/components/ConfirmDialog.svelte';
@@ -86,7 +88,9 @@
 			idCliente: null,
 			nombreCliente: '',
 			nacionalidad: '',
-			categoriaVehiculo: 'Automóvil',
+			// '' = «— Todas las categorías —»: al abrir el modal se listan todas
+			// las placas registradas; el filtro por categoría es opcional.
+			categoriaVehiculo: '',
 			placaAsignada: '',
 			fechaRecogida: iso(hoy),
 			horaRecogida: '',
@@ -134,6 +138,23 @@
 		form.nacionalidad = c?.cliente.nacionalidad ?? '';
 	}
 
+	// Cambiar la categoría reafina el combo de placas; si la placa elegida no
+	// pertenece a la nueva categoría, se desasigna para no guardar datos incoherentes.
+	function onCategoriaChange(v: string) {
+		form.categoriaVehiculo = v;
+		if (v && form.placaAsignada) {
+			const auto = autos.find((x) => x.placa === form.placaAsignada);
+			if (auto && !textoIgual(auto.tipo, v)) form.placaAsignada = '';
+		}
+	}
+
+	// Al elegir una placa, la categoría se autocompleta con el tipo real del vehículo.
+	function onPlacaChange(v: string) {
+		form.placaAsignada = v;
+		const auto = autos.find((x) => x.placa === v);
+		if (auto?.tipo) form.categoriaVehiculo = canonCategoria(auto.tipo);
+	}
+
 	// Opciones para el combo de cliente (filtra por nombre y número de documento).
 	const opcionesClientes = $derived<SearchSelectOpcion[]>(
 		clientes.map((c) => ({
@@ -158,33 +179,73 @@
 		}
 	}
 
+	// ── Categorías de vehículo ──
+	// El config.ini aporta la lista base y la flota aporta sus tipos reales: el
+	// backend guarda TIPO en MAYÚSCULAS («AUTOMÓVIL») y los vehículos importados
+	// traen tipos fuera del config («Sedán», «Hatchback»). Sin esta unión y sin
+	// comparar normalizando mayúsculas/acentos, el combo de placas filtraba
+	// contra categorías inexistentes y quedaba vacío con la BD llena.
+	const CATEGORIAS_FALLBACK = ['Automóvil', 'Camioneta', 'Van', 'Lujo', 'Moto'];
+
+	const categorias = $derived.by(() => {
+		const base = lists?.tiposAuto?.length ? lists.tiposAuto : CATEGORIAS_FALLBACK;
+		const extras: string[] = [];
+		const yaVista = (k: string) =>
+			base.some((c) => normalizarTexto(c) === k) || extras.some((e) => normalizarTexto(e) === k);
+		for (const origen of [...autos.map((a) => a.tipo), form.categoriaVehiculo]) {
+			const v = (origen ?? '').trim();
+			const k = normalizarTexto(v);
+			if (v && !yaVista(k)) extras.push(v);
+		}
+		return [...base, ...extras];
+	});
+
+	/** Equivalencia canónica de una categoría guardada («AUTOMÓVIL» → «Automóvil»). */
+	function canonCategoria(valor: string | null | undefined): string {
+		const v = (valor ?? '').trim();
+		if (!v) return '';
+		return categorias.find((c) => textoIgual(c, v)) ?? v;
+	}
+
 	const autosCategoria = $derived(
-		form.categoriaVehiculo ? autos.filter((a) => a.tipo === form.categoriaVehiculo) : autos
+		form.categoriaVehiculo ? autos.filter((a) => textoIgual(a.tipo, form.categoriaVehiculo)) : autos
 	);
 
 	// Opciones para el combo de vehículo (filtra por placa, marca, modelo, tipo o color).
-	const opcionesAutos = $derived<SearchSelectOpcion[]>(
-		autosCategoria.map((a) => ({
+	// La placa ya elegida se mantiene visible aunque la categoría no la incluya.
+	const opcionesAutos = $derived.by(() => {
+		const placa = form.placaAsignada ?? '';
+		const lista =
+			placa && !autosCategoria.some((a) => a.placa === placa)
+				? [...autosCategoria, ...autos.filter((a) => a.placa === placa)]
+				: autosCategoria;
+		return lista.map<SearchSelectOpcion>((a) => ({
 			value: a.placa,
 			label: `${a.placa} · ${a.marca} ${a.modelo}`,
 			sub: [a.tipo ?? '', a.color ?? ''].filter(Boolean).join(' ').trim()
-		}))
-	);
+		}));
+	}); // ── Carga de datos ──
+	// Descarta respuestas obsoletas: dos cargas en vuelo (debounce de filtros)
+	// pueden llegar desordenadas y pisar la tabla con datos de un filtro viejo.
+	const secuenciaCarga = crearSecuencia();
 
-	// ── Carga de datos ──
 	async function cargar() {
 		if (!haySesion()) return;
+		const miCarga = secuenciaCarga.siguiente();
 		loading = true;
 		try {
-			reservas = await reservaApi.listar(
+			const r = await reservaApi.listar(
 				sid(),
 				busqueda.trim() || undefined,
 				estadoFiltro || undefined
 			);
+			if (!secuenciaCarga.esActual(miCarga)) return; // obsoleta
+			reservas = r;
 		} catch (e) {
+			if (!secuenciaCarga.esActual(miCarga)) return; // sin toast de una carga vieja
 			toast.error(e instanceof ApiError ? e.message : 'No se pudieron cargar las reservas.');
 		} finally {
-			loading = false;
+			if (secuenciaCarga.esActual(miCarga)) loading = false;
 		}
 	}
 
@@ -205,12 +266,18 @@
 		sincronizandoWeb = true;
 		try {
 			const res = await syncWebApi.sincronizarReservas(sid());
-			if (res.importadas > 0) {
+			// Los errores van PRIMERO: si algo falló (p. ej. la confirmación a
+			// la web), el toast de éxito no debe ocultarlo.
+			if (res.errores.length > 0) {
+				toast.error(`Hubo problemas al sincronizar: ${res.errores.join(', ')}`);
+			} else if (res.importadas > 0) {
 				toast.success(
 					`¡Sincronización exitosa! ${res.importadas} reserva(s) web importada(s) (${res.clientesReutilizados} clientes vinculados, ${res.clientesNuevos} nuevos).`
 				);
-			} else if (res.errores.length > 0) {
-				toast.error(`Hubo problemas al sincronizar: ${res.errores.join(', ')}`);
+			} else if (res.omitidas > 0) {
+				toast.info(
+					`No hay reservas web nuevas: ${res.omitidas} ya estaban importadas en mostrador.`
+				);
 			} else {
 				toast.info('No hay reservas web pendientes por importar.');
 			}
@@ -245,11 +312,18 @@
 			clienteApi
 				.listar(sid())
 				.then((c) => (clientes = c))
-				.catch(() => (clientes = [])),
+				.catch(() => {
+					clientes = [];
+					toast.error('No se pudieron cargar los clientes.');
+				}),
 			autoApi
 				.listar(sid())
 				.then((a) => (autos = a))
-				.catch(() => (autos = [])),
+				.catch(() => {
+					autos = [];
+					// Antes el error se tragaba y el combo salía vacío sin aviso.
+					toast.error('No se pudieron cargar los vehículos.');
+				}),
 			cargarProximas(),
 			verificarPendientesWeb().catch(() => null)
 		]);
@@ -284,7 +358,9 @@
 			idCliente: r.idCliente,
 			nombreCliente: r.nombreCliente,
 			nacionalidad: r.nacionalidad ?? '',
-			categoriaVehiculo: r.categoriaVehiculo ?? 'Automóvil',
+			// El backend guarda la categoría en MAYÚSCULAS («AUTOMÓVIL»): se
+			// canonicaliza para que el <select> muestre una opción existente.
+			categoriaVehiculo: canonCategoria(r.categoriaVehiculo),
 			placaAsignada: r.placaAsignada ?? '',
 			fechaRecogida: r.fechaRecogida,
 			horaRecogida: r.horaRecogida ?? '',
@@ -838,8 +914,13 @@
 			</div>
 			<div class="grid grid-cols-2 gap-x-3 mb-3">
 				<FormField label="Categoría" dense>
-					<select class="input" bind:value={form.categoriaVehiculo}>
-						{#each lists?.tiposAuto ?? ['Automóvil', 'Camioneta', 'Van', 'Lujo', 'Moto'] as t (t)}
+					<select
+						class="input"
+						value={form.categoriaVehiculo}
+						onchange={(e) => onCategoriaChange(e.currentTarget.value)}
+					>
+						<option value="">— Todas las categorías —</option>
+						{#each categorias as t (t)}
 							<option value={t}>{t}</option>
 						{/each}
 					</select>
@@ -849,7 +930,7 @@
 					dense
 					value={form.placaAsignada ?? ''}
 					opciones={opcionesAutos}
-					onchange={(v) => (form.placaAsignada = v)}
+					onchange={onPlacaChange}
 					placeholder="Buscar placa, marca o modelo…"
 					vacioLabel="— Sin asignar —"
 				/>

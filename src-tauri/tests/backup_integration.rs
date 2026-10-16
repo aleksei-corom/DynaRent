@@ -16,8 +16,8 @@ use std::sync::Arc;
 use dynarent_lib::core::config::AppConfig;
 use dynarent_lib::core::db::create_pool;
 use dynarent_lib::services::backup::{
-    crear_backup, descifrar_archivo, listar_backups, preparar_staging, reintentar_io,
-    restaurar_fdb_desde_fbk,
+    crear_backup, crear_snapshot_pre_migracion, descifrar_archivo, listar_backups,
+    preparar_staging, reintentar_io, restaurar_fdb_desde_fbk,
 };
 use rsfbclient::Queryable;
 use serial_test::serial;
@@ -255,4 +255,72 @@ fn restauracion_de_backup_cifrado_con_gbak_real() {
         "BD restaurada desde backup cifrado: {tablas} tablas"
     );
     assert!(tmp.join("Backups").exists());
+}
+
+/// El snapshot pre-migración del arranque usa el prefijo propio
+/// (`Backup_PreMigracion_`) y pasa por `listar_backups`: el usuario puede
+/// restaurarlo desde el panel de Backups y la rotación lo cuenta como
+/// cualquier otro backup (no acumula archivos huérfanos).
+#[test]
+#[serial]
+fn snapshot_pre_migracion_prefijo_propio_y_listable() {
+    let (cfg, _tmp, _guard) = config_con_backup_en_temp();
+
+    let creado = crear_snapshot_pre_migracion(&cfg).expect("crear snapshot pre-migración");
+    assert!(creado.exists(), "el snapshot existe: {}", creado.display());
+
+    let nombre = creado.file_name().unwrap().to_string_lossy().into_owned();
+    assert!(
+        nombre.starts_with("Backup_PreMigracion_"),
+        "el nombre propio identifica POR QUÉ existe la copia: {nombre}"
+    );
+    assert!(nombre.ends_with(".fbk"), "extensión .fbk: {nombre}");
+
+    // El panel de restauración y la rotación usan este mismo filtro
+    let listados = listar_backups(&cfg);
+    assert!(
+        listados.contains(&creado),
+        "el snapshot aparece en listar_backups: {listados:?}"
+    );
+}
+
+/// Con cifrado activo el snapshot también sale cifrado (magic DRENC-01):
+/// un pre-migración nunca deja un `.fbk` en claro junto a los backups
+/// normales. Se fuerza el fallback de copia (sin gbak) para que el test sea
+/// determinista en cualquier máquina/CI.
+#[test]
+#[serial]
+fn snapshot_pre_migracion_respeta_el_cifrado() {
+    let (mut cfg, tmp, _guard) = config_con_backup_en_temp();
+    let cfg = Arc::make_mut(&mut cfg);
+    cfg.backup_encryption_enabled = true;
+    cfg.backup_encryption_password = "clave-integracion".into();
+    cfg.resource_dir = tmp.join("sin-firebird");
+
+    let creado = crear_snapshot_pre_migracion(cfg).expect("snapshot cifrado");
+    let enc = std::fs::read(&creado).unwrap();
+    assert!(
+        enc.starts_with(b"DRENC-01"),
+        "el snapshot debe estar cifrado: {}",
+        creado.display()
+    );
+}
+
+/// Un directorio de backups imposible (un ARCHIVO ocupando la ruta) falla
+/// con Err — el arranque lo loguea como error y CONTINÚA con las migraciones
+/// (no panic, no arranque bloqueado por un problema de backup).
+#[test]
+#[serial]
+fn snapshot_pre_migracion_falla_ruidoso_si_el_dir_es_imposible() {
+    let (mut cfg, tmp, _guard) = config_con_backup_en_temp();
+    let cfg = Arc::make_mut(&mut cfg);
+    let bloqueo = tmp.join("no-es-dir");
+    std::fs::write(&bloqueo, b"archivo, no carpeta").unwrap();
+    cfg.backup_directory = bloqueo.join("Backups");
+
+    let r = crear_snapshot_pre_migracion(cfg);
+    assert!(
+        r.is_err(),
+        "create_dir_all bajo un archivo falla con Err (no panic)"
+    );
 }
