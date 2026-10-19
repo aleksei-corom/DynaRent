@@ -296,7 +296,14 @@ jobs:
         shell: pwsh
         run: |
           # NO se limpia el APPDATA aquí: la BD viene sembrada por seed_ci
-          $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = '--remote-debugging-port=9222'
+          $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = '--remote-debugging-port=9222 --remote-allow-origins=*'
+          # En Windows elevado (el runner de GitHub) WebView2 IGNORA la variable
+          # de entorno y el puerto CDP 9222 nunca se abría (proceso vivo sin
+          # target → «no se encontró el target de la app en el puerto 9222»).
+          # La directiva oficial HKLM fuerza los argumentos del browser process
+          # sin runas ni tokens degradados — misma clave que usa smoke-dev.mjs.
+          reg add 'HKLM\SOFTWARE\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments' /v '*' /t REG_SZ /d '--remote-debugging-port=9222 --remote-allow-origins=*' /f
+          if ($LASTEXITCODE -ne 0) { Write-Host 'AVISO: no se pudo instalar la política HKLM de WebView2 (se probará igualmente con la env var)' }
           $app = Start-Process -FilePath 'src-tauri\target\release\dynarent.exe' -PassThru `
             -RedirectStandardOutput app-out.log -RedirectStandardError app-err.log
           Write-Host "App lanzada (PID $($app.Id)) con CDP en el puerto 9222"
@@ -316,6 +323,8 @@ jobs:
             }
             # Por nombre: mata SOLO el proceso de la app, no este shell
             Stop-Process -Name dynarent -Force -ErrorAction SilentlyContinue
+            # Retira la política HKLM (el runner es efímero, limpieza higiénica)
+            reg delete 'HKLM\SOFTWARE\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments' /v '*' /f 2>$null
             Write-Host '--- DIAG stdout de la app ---'
             Get-Content app-out.log -Tail 80 -ErrorAction SilentlyContinue
             Write-Host '--- DIAG stderr de la app ---'
