@@ -79,6 +79,8 @@ class CDP {
 		this.ws = ws;
 		this.id = 0;
 		this.pend = new Map();
+		/** Eventos CDP (sin id): excepciones JS, errores de consola, etc. */
+		this.ev = [];
 	}
 	static async connect(url) {
 		const ws = new WebSocket(url);
@@ -92,9 +94,30 @@ class CDP {
 			if (m.id && c.pend.has(m.id)) {
 				c.pend.get(m.id)(m);
 				c.pend.delete(m.id);
+			} else if (m.method) {
+				c.ev.push(m);
+				if (c.ev.length > 200) c.ev.shift();
 			}
 		};
 		return c;
+	}
+
+	/** Vuelca excepciones JS y errores de consola capturados desde la conexión. */
+	errores() {
+		return this.ev
+			.filter(
+				(m) =>
+					m.method === 'Runtime.exceptionThrown' ||
+					(m.method === 'Log.entryAdded' && m.params?.entry?.level === 'error')
+			)
+			.map((m) =>
+				m.method === 'Runtime.exceptionThrown'
+					? `Excepción: ${
+							m.params.exceptionDetails.exception?.description ?? m.params.exceptionDetails.text
+						}`
+					: `Console.error: ${m.params.entry.text}`
+			)
+			.slice(-8);
 	}
 	send(method, params = {}) {
 		const id = ++this.id;
@@ -411,7 +434,21 @@ async function main(opts) {
 	// 5) ORDEN
 	console.log('— abriendo modal de orden…');
 	await c.eval(`document.querySelector('button[title="Imprimir orden de renta"]')?.click()`);
-	await esperar(c, `!!document.querySelector('.print-area.orden-carta')`, 10000, 'modal orden');
+	try {
+		await esperar(c, `!!document.querySelector('.print-area.orden-carta')`, 20000, 'modal orden');
+	} catch (e) {
+		const diag = await c.eval(`JSON.stringify({
+      botonOrden: !!document.querySelector('button[title="Imprimir orden de renta"]'),
+      dialogs: [...document.querySelectorAll('[role="dialog"]')].map((d) =>
+        (d.className || '').toString().slice(0, 60)
+      ),
+      pathname: location.pathname,
+      body: document.body.innerText.replace(/\s+/g, ' ').slice(0, 260)
+    })`);
+		console.log('DIAG modal orden:', diag);
+		console.log('DIAG errores JS:', JSON.stringify(c.errores()));
+		throw e;
+	}
 	const aviso = await c.eval(`document.body.innerText.includes('Encabezados y pies de página')`);
 	if (!aviso)
 		throw new Error('el modal de orden no muestra el aviso «Encabezados y pies de página»');
