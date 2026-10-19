@@ -317,14 +317,19 @@ describe('syncWebApi.sincronizarReservas', () => {
 
 	it('el índice de ya importadas tolera listar resolviendo null (rama ?? [])', async () => {
 		vi.stubGlobal('fetch', fetchMock);
-		respondFetch({ ok: true, reservations: [] });
+		// Debe haber UN pendiente real: con la web vacía la sincronización
+		// retorna antes de construir el índice y la rama `?? []` nunca se
+		// ejecutaba (el test pasaba pero no cubría nada).
+		respondFetch({ ok: true, reservations: [webRes({ code: 'WEB-NULL' })] }, httpOk({ ok: true }));
 		listarReservas.mockResolvedValue(null as never);
+		listar.mockResolvedValue([{ cliente: { id: 44, noDoc: '1001234567' } } as never]);
+		crearReserva.mockResolvedValue({ id: 91 } as never);
 
 		const r = await syncWebApi.sincronizarReservas('sid');
 
 		expect(r.ok).toBe(true);
-		expect(r.totalPendientes).toBe(0);
-		expect(r.importadas).toBe(0);
+		expect(r.totalPendientes).toBe(1);
+		expect(r.importadas).toBe(1);
 	});
 
 	// ── Idempotencia: dedupe por código web + confirmación verificada ──

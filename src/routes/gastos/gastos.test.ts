@@ -600,4 +600,67 @@ describe('guard de respuestas obsoletas (carrera del debounce)', () => {
 		expect(toasts.some((t) => t.message.includes('No se pudieron cargar los gastos'))).toBe(false);
 		expect(screen.getByText('GASTO DEL FILTRO NUEVO')).toBeInTheDocument();
 	});
+
+	it('una respuesta vieja que llega tarde no pisa los datos de la carga nueva', async () => {
+		let llamadas = 0;
+		tauri.register('listar_gastos', () => {
+			llamadas += 1;
+			if (llamadas === 1) {
+				// Primera carga: RESUELVE tarde, ya estando obsoleta
+				return new Promise<Gasto[]>((resolve) =>
+					setTimeout(() => resolve([gasto({ id: 3, descripcion: 'VIEJO OK' })]), 300)
+				);
+			}
+			return [gasto({ id: 2, descripcion: 'NUEVO OK' })];
+		});
+
+		render(GastosPage);
+		await waitFor(() => expect(llamadas).toBe(1));
+
+		const select = screen.getByLabelText('Filtrar por placa');
+		await fireEvent.change(select, { target: { value: 'XYZ987' } });
+		expect(await screen.findByText('NUEVO OK')).toBeInTheDocument();
+
+		// La resolución vieja llega después: el guard la descarta sin pisar la tabla
+		await new Promise((resolve) => setTimeout(resolve, 400));
+		expect(screen.queryByText('VIEJO OK')).not.toBeInTheDocument();
+		expect(screen.getByText('NUEVO OK')).toBeInTheDocument();
+	});
+
+	it('si los totales fallan, la tabla se sigue mostrando (los totales no bloquean)', async () => {
+		tauri.register('listar_gastos', () => [gasto()]);
+		toasts.splice(0);
+		tauri.register('totales_gastos', () => {
+			throw { kind: 'database', message: 'BD caída' };
+		});
+
+		render(GastosPage);
+		await screen.findByText('Tanqueo vehículo');
+
+		// Sin toast de error: la carga de totales es opcional por diseño.
+		await waitFor(() => expect(toasts.filter((t) => t.type === 'error')).toHaveLength(0));
+	});
+
+	it('si la carga de vehículos falla con ApiError, el toast muestra el mensaje del backend', async () => {
+		toasts.splice(0);
+		// Payload del backend (JSON por IPC): normalizarError construye el
+		// ApiError y el toast usa `e.message` en vez del genérico.
+		tauri.register('listar_autos', () => {
+			throw { kind: 'database', message: 'BD caída', detail: 'firebird apagado' };
+		});
+
+		render(GastosPage);
+		await screen.findByText(/No hay gastos/i);
+
+		await waitFor(() =>
+			expect(
+				toasts.some(
+					(t) =>
+						t.type === 'error' &&
+						t.message.startsWith('BD caída') &&
+						t.message.includes('firebird apagado')
+				)
+			).toBe(true)
+		);
+	});
 });
