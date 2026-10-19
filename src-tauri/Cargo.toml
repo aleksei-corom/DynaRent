@@ -84,7 +84,17 @@ tauri-plugin-log = "2"
 # - tauri-plugin-updater: chequea la release de GitHub y descarga/instala el
 #   bundle firmado (ver tauri.conf.json → plugins.updater y RELEASE_CHECKLIST.md).
 # - tauri-plugin-process: `relaunch()` del frontend tras instalar.
-tauri-plugin-updater = "2"
+#
+# default-features = false SIN la feature `zip`: RUSTSEC-2026-0367/0368/0369
+# (path traversal/symlinks/SUID al extraer zips; crítico 9.1) no tienen
+# parche en zip 4.x y tauri-plugin-updater fija `zip ^4` en TODAS sus
+# versiones (2.10 → 2.14; sólo v3 alpha lo sube). Nuestro updater sirve MSI
+# (RELEASE_CHECKLIST: bundle windows-x86_64 = MSI; no se publican assets
+# .zip) y sin la feature `extract()` usa extract_exe → el auto-update sigue
+# exactamente igual. Si algún día se publicara un bundle .zip, el updater
+# falla ruidoso con UnsupportedFormat. Reavivar `zip` cuando tauri exija
+# zip >=9.
+tauri-plugin-updater = { version = "2", default-features = false, features = ["rustls-tls"] }
 tauri-plugin-process = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
