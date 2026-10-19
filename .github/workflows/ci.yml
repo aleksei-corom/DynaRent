@@ -257,14 +257,18 @@ jobs:
       - name: Install dependencies (bun)
         run: bun install --frozen-lockfile
 
-      # tauri.conf.json embebe `../build` en el binario (tauri-build corre en
-      # build.rs), así que el frontend debe estar compilado ANTES de cargo.
-      - name: Build frontend (vite)
-        run: bun run build
-
-      - name: Build app Tauri (release)
-        working-directory: src-tauri
-        run: cargo build --release --bin dynarent
+      # Build VÍA EL CLI de Tauri (no `cargo build` puro): el CLI corre
+      # beforeBuildCommand (npm run build → ../build) y —clave— marca la
+      # config como producción (dev:false). Un `cargo build` directo deja el
+      # binario en MODO DEV: la app navega a devUrl (http://localhost:5173)
+      # y en el runner, sin vite dev, la webview se queda en
+      # ERR_CONNECTION_REFUSED — causa raíz verificada de los runs en rojo
+      # del smoke (el «montada ✓» era la página de error de Chromium).
+      # `--no-bundle` salta instaladores: el smoke solo necesita el exe.
+      # Verificado localmente: CLI → target release sirve
+      # http://tauri.localhost/login; cargo puro → http://localhost:5173/.
+      - name: Build app Tauri (release, vía CLI)
+        run: bunx tauri build --no-bundle
 
       # El arranque EN LIMPIO de la app se cuelga en el runner dentro de
       # `create_pool` (DIAG ejecución 38946485420: proceso vivo, sin panic,
