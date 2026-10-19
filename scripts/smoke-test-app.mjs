@@ -205,14 +205,26 @@ async function main(opts) {
 	console.log('   app montada ✓');
 
 	// 2) Login (o sesión activa)
+	// Los dos indicadores cuentan: el form de login O el enlace de navegación
+	// del sidebar (presencia real de sesión). En el runner frío el form puede
+	// tardar >3 s en montar y el fallo se manifestaba después como «click en
+	// /rentas sin sesión» (timeout de ruta sin enlace en el DOM).
 	console.log('— comprobando sesión…');
 	let yaLogueado = false;
 	try {
-		await esperar(c, `!!document.querySelector('#username')`, 3000, 'login');
+		await esperar(
+			c,
+			`!!document.querySelector('#username') || !!document.querySelector('a[href="/rentas"]')`,
+			8000,
+			'login'
+		);
 	} catch {
-		yaLogueado = true;
+		/* ninguno de los dos: se intenta login más abajo */
 	}
 	let ruta = await c.eval(`location.pathname`);
+	// Solo hay sesión si NO está el form de login (evita el falso positivo
+	// de «no vi el form en 3 s» cuando el form simplemente tardó).
+	yaLogueado = !(await c.eval(`!!document.querySelector('#username')`));
 	console.log('ruta actual:', ruta, '| ya logueado:', yaLogueado);
 	if (!yaLogueado) {
 		console.log('— página de login: autenticando…');
@@ -246,8 +258,28 @@ async function main(opts) {
 
 	// 3) Rentas
 	console.log('— navegando a /rentas…');
+	const verRuta = async (etiqueta) => {
+		const diag = await c.eval(`JSON.stringify({
+      pathname: location.pathname,
+      loginForm: !!document.querySelector('#username'),
+      linkRentas: !!document.querySelector('a[href="/rentas"]'),
+      links: [...document.querySelectorAll('a')].map((a) => a.getAttribute('href')).slice(0, 30),
+      body: document.body.innerText.replace(/\s+/g, ' ').slice(0, 300)
+    })`);
+		console.log(`DIAG ${etiqueta}:`, diag);
+	};
+	const hayLink = await c.eval(`!!document.querySelector('a[href="/rentas"]')`);
+	if (!hayLink) {
+		console.log('   ⚠ no hay enlace a /rentas en el DOM (sidebar no montado o sin sesión)');
+		await verRuta('sin enlace /rentas');
+	}
 	await c.eval(`document.querySelector('a[href="/rentas"]')?.click()`);
-	await esperar(c, `location.pathname === '/rentas'`, 10000, 'ruta rentas');
+	try {
+		await esperar(c, `location.pathname === '/rentas'`, 10000, 'ruta rentas');
+	} catch (e) {
+		await verRuta('ruta rentas no alcanzada');
+		throw e;
+	}
 	await esperar(
 		c,
 		`document.querySelectorAll('main table tbody tr').length > 0 || document.body.innerText.includes('No hay rentas')`,
