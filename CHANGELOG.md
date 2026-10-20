@@ -6,6 +6,46 @@ Las versiones se publican como [releases en GitHub](https://github.com/CORJAR-Co
 
 ---
 
+## [v1.2.7] — 2026-10-20
+
+### Corregido
+- **Cierre de renta (crítico)**: el recálculo de totales omitía `valor_gasolina` de los
+  extras — el total/saldo/valor_neto del contrato cerrado quedaba por debajo de lo
+  pactado y divergía de crear/extender/editar-cerrada. Se extrajo el helper único
+  `extras_de()` (`services/renta.rs`) para que las rutas de recálculo financiero no
+  vuelvan a divergir.
+- **Pagos**: el monto se cuantiza a 2 decimales (se rechaza precisión extra) para que
+  el redondeo de rust_decimal (half-even) y el `CAST DECIMAL(12,2)` de Firebird
+  (half-up) no diverjan entre `pagos.monto` y `rentas.abono/saldo_pendiente`. Mismo
+  guard para el valor unitario de extensiones.
+- **Pagos concurrentes (TOCTOU)**: el saldo se relee y revalida DENTRO de la
+  transacción con `FOR UPDATE WITH LOCK` y el UPDATE aplica aritmética en SQL con
+  guard `saldo_pendiente >= monto` — dos pagos simultáneos ya no pueden pisarse ni
+  superar el saldo (antes se leía fuera y se escribían valores absolutos).
+- **PII sin clave configurada**: cifrar con `db_encryption_key` vacía ahora RECHAZA la
+  operación (antes cifraba con `SHA-256("")` — constante derivable públicamente — solo
+  con un warn en el log). El descifrado de emergencia de datos `v1:` preexistentes
+  sigue funcionando para no volver ilegible lo ya guardado.
+- **Cambio de contraseña obligatorio**: ahora se enforce en el backend
+  (`require_session` bloquea todos los comandos de negocio mientras esté pendiente) —
+  antes solo lo controlaba el frontend, así que `admin/admin123` podía operar el ERP
+  indefinidamente. `cambiar_password` desbloquea en caliente las sesiones del usuario
+  en memoria y la contraseña semilla ya no se escribe en `app.log`.
+- **Override por variable de entorno**: `AppConfig` lee `DYNARENT_DB_ENCRYPTION_KEY`
+  (nombre actual) y acepta `DINAMO_DB_ENCRYPTION_KEY` como alias legacy — el override
+  documentado en `SECURITY.md` ≤ v1.2.6 no tenía efecto en el código.
+
+### Rendimiento
+- **~40 comandos Tauri convertidos a `async` + `spawn_blocking`** (helper común
+  `en_blocking` en `commands/mod.rs`): las consultas Firebird bloqueantes (filtros
+  LIKE que escanean tablas, transacciones de pagos/creación, Argon2 de usuarios) ya
+  no congelan la UI mientras corren. El patrón TAREA 3.4 (que solo cubría 5 comandos)
+  se extiende a renta, clientes, autos, reservas, gastos, mantenimientos, comparendos,
+  usuarios y auditoría. Quedan sync solo los comandos rápidos o con estado no-clonable
+  (tema, desbloquear usuario, empresa por PK).
+
+---
+
 ## [v1.2.6] — 2026-10-10
 
 ### Corregido
@@ -332,6 +372,7 @@ Primera release estable. Migración completa de Python a Tauri V2 + Rust + Fireb
 
 ---
 
+[v1.2.7]: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.2.7
 [v1.2.6]: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.2.6
 [v1.0.21]: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.21
 [v1.0.20]: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.20
