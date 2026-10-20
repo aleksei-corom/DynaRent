@@ -286,15 +286,9 @@ impl RentaService {
         let desc = dec(datos.descuento.as_deref().unwrap_or(""), &actual.descuento);
 
         let bruto = vdia * Decimal::from(dias) + vhe * Decimal::from(horas);
-        let extras = sum_dec(&[
-            &actual.valor_dia_extra,
-            &actual.costo_lavado,
-            &actual.costo_silla,
-            &actual.costo_retorno,
-            &actual.costo_domicilio,
-            &actual.costo_cables,
-            &actual.costo_inversor,
-        ]);
+        // Extras vía helper único — incluye valor_gasolina (bug fix: antes se
+        // omitía y el total del cierre quedaba por debajo de lo pactado).
+        let extras = extras_de(&actual, &actual.valor_dia_extra);
         let subtotal = (bruto + extras - desc).max(Decimal::ZERO);
         // IVA según el flag guardado en la renta (checkbox del formulario)
         let imp = if actual.cobra_iva {
@@ -499,6 +493,15 @@ impl RentaService {
                 "El valor de la extensión debe ser mayor a cero.".into(),
             ));
         }
+        // Cuantizar a 2 decimales (misma razón que registrar_pago: evitar
+        // drift de redondeo entre rust_decimal y el CAST de Firebird).
+        let valor_cuantizado = valor.round_dp(2);
+        if valor_cuantizado != valor {
+            return Err(AppError::Validation(
+                "El valor de la extensión solo puede tener hasta 2 decimales.".into(),
+            ));
+        }
+        let valor = valor_cuantizado;
         // Calcular nuevo retorno
         let fecha_retorno_actual = actual.fecha_retorno.clone();
         let hora_retorno_actual = actual
@@ -560,17 +563,9 @@ impl RentaService {
         // Valor total de la extensión = cantidad × valor unitario
         let total_extension = (valor * Decimal::from(datos.cantidad)).round_dp(2);
         let nuevo_vde = (vde + total_extension).round_dp(2);
-        // Extras incluye el nuevo valor_dia_extra con la extensión
-        let extras = sum_dec(&[
-            &nuevo_vde.to_string(),
-            &actual.costo_lavado,
-            &actual.costo_silla,
-            &actual.costo_retorno,
-            &actual.costo_domicilio,
-            &actual.costo_cables,
-            &actual.costo_inversor,
-            &actual.valor_gasolina,
-        ]);
+        // Extras incluye el nuevo valor_dia_extra con la extensión (helper
+        // único compartido con `cerrar`; incluye valor_gasolina).
+        let extras = extras_de(&actual, &nuevo_vde.to_string());
         let desc = dec_str(&actual.descuento);
         let subtotal = (vdia * Decimal::from(dias_base) + vhe * Decimal::from(horas_base) + extras
             - desc)
@@ -876,6 +871,17 @@ impl RentaService {
                 "El monto del pago debe ser mayor a cero.".into(),
             ));
         }
+        // Cuantizar a 2 decimales: rechazar precisión extra para que el
+        // redondeo de rust_decimal (half-even) y el CAST DECIMAL(12,2) de
+        // Firebird (half-up) no diverjan entre `pagos.monto` y
+        // `rentas.abono`/`saldo_pendiente` (drift de centavos).
+        let monto_cuantizado = monto.round_dp(2);
+        if monto_cuantizado != monto {
+            return Err(AppError::Validation(
+                "El monto del pago solo puede tener hasta 2 decimales.".into(),
+            ));
+        }
+        let monto = monto_cuantizado;
         if pago.metodo_pago.is_empty() {
             return Err(AppError::Validation(
                 "El método de pago es obligatorio.".into(),
@@ -906,8 +912,32 @@ impl RentaService {
         // TRANSACCIÓN: INSERT pago + UPDATE rentas (abono/saldo) + INSERT auditoría.
         // Atómico: si cualquiera falla, se hace rollback y no queda pago huérfano
         // ni abono desincronizado. Patrón: conn.with_transaction(|tx| -> Result<T, FbError>).
+        //
+        // Anti-TOCTOU (fix de la revisión de seguridad): el saldo se RELEE y
+        // REVALIDA dentro de la transacción con `FOR UPDATE WITH LOCK`, y el
+        // UPDATE aplica aritmética en SQL con guard `saldo_pendiente >= monto`
+        // (antes el saldo se leía fuera y se escribían valores absolutos
+        // precalculados: dos pagos concurrentes podían pisarse). El chequeo
+        // anterior sobre el snapshot sigue como fast-path de UX.
         let id = conn
             .with_transaction(|tx| -> Result<i64, rsfbclient::FbError> {
+                // 1. Releer el saldo BLOQUEANDO la fila hasta el commit
+                let fila: Option<(String,)> = tx.query_first(
+                    "SELECT CAST(saldo_pendiente AS VARCHAR(12)) FROM rentas \
+                     WHERE id = ? FOR UPDATE WITH LOCK",
+                    (id_renta,),
+                )?;
+                let Some((saldo_str,)) = fila else {
+                    // La renta desapareció bajo nosotros (eliminada en paralelo)
+                    return Ok(-1i64);
+                };
+                let saldo_en_tx = dec_str(&saldo_str);
+                if monto > saldo_en_tx {
+                    // Marcador: el saldo cambió bajo nosotros (o el snapshot
+                    // estaba desactualizado). Se convierte en error fuera.
+                    return Ok(-1i64);
+                }
+                // 2. Registrar el pago
                 let (id,): (i64,) = tx.execute_returnable(
                     "INSERT INTO pagos (id_renta, monto, metodo_pago, concepto, observaciones, usuario) \
                      VALUES (?, CAST(? AS DECIMAL(12,2)), ?, ?, ?, ?) RETURNING id",
@@ -920,15 +950,23 @@ impl RentaService {
                         usuario.to_string(),
                     ],
                 )?;
-                tx.execute(
-                    "UPDATE rentas SET abono = CAST(? AS DECIMAL(12,2)), \
-                     saldo_pendiente = CAST(? AS DECIMAL(12,2)) WHERE id = ?",
-                    (
-                        abono_nuevo.to_string(),
-                        saldo_nuevo.to_string(),
+                // 3. Aritmética en SQL con guard: solo descuenta si el saldo
+                //    actual aún cubre el monto (0 filas → carrera, se reporta)
+                let filas = tx.execute(
+                    "UPDATE rentas SET \
+                      abono = CAST(abono AS DECIMAL(12,2)) + CAST(? AS DECIMAL(12,2)), \
+                      saldo_pendiente = saldo_pendiente - CAST(? AS DECIMAL(12,2)) \
+                     WHERE id = ? AND saldo_pendiente >= CAST(? AS DECIMAL(12,2))",
+                    params![
+                        pago.monto.to_string(),
+                        pago.monto.to_string(),
                         id_renta,
-                    ),
+                        pago.monto.to_string(),
+                    ],
                 )?;
+                if filas == 0 {
+                    return Ok(-1i64);
+                }
                 tx.execute(
                     "INSERT INTO auditoria (usuario, accion, mensaje, ip, fecha) \
                      VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)",
@@ -945,6 +983,17 @@ impl RentaService {
                 tracing::error!(error = %e, "Transacción de pago falló");
                 AppError::Database(e.to_string())
             })?;
+        if id < 0 {
+            tracing::warn!(
+                renta_id = id_renta,
+                monto = %pago.monto,
+                "Pago rechazado dentro de la transacción: saldo insuficiente/modificado"
+            );
+            return Err(AppError::Business(format!(
+                "El pago ({}) supera el saldo pendiente de la renta (otro pago pudo haberlo modificado). Refresque y reintente.",
+                monto.round_dp(2)
+            )));
+        }
         tracing::info!(
             pago_id = id,
             monto = %pago.monto,
@@ -1163,6 +1212,8 @@ fn calcular_totales(d: &mut RentaDatos, cfg: &Arc<AppConfig>) {
     let vdia = dec(&d.valor_dia, "");
     let vhe = dec(&d.valor_hora_extra, "");
     let vde = dec(&d.valor_dia_extra, "");
+    // NOTA: lista de extras gemela de `extras_de()` (usada por cerrar/extender).
+    // Si se añade un cargo nuevo, añadirlo aquí Y en extras_de.
     let extras = sum_dec(&[
         &vde.to_string(),
         &d.costo_lavado,
@@ -1273,6 +1324,31 @@ fn dec_str(v: &str) -> Decimal {
 fn sum_dec(vals: &[&str]) -> Decimal {
     vals.iter()
         .fold(Decimal::ZERO, |acc, v| acc + dec(v, "0.00"))
+}
+
+/// Suma los cargos «extras» de una renta existente (todo lo que no es
+/// valor_dia × días ni valor_hora_extra × horas, y tampoco el descuento).
+///
+/// ÚNICA fuente de verdad de la lista de extras para `cerrar` y `extender`
+/// (ambas operan sobre `&Renta`). `valor_dia_extra` se pasa explícito porque
+/// `extender` suma la extensión pendiente antes de recalcular.
+///
+/// DEBE incluir `valor_gasolina`: bug histórico — `cerrar` lo omitía y el
+/// total del contrato cerrado quedaba por debajo de lo pactado, divergiendo
+/// de `crear`/`editar_cerrada` (que usan `calcular_totales`). Si se añade un
+/// campo de cargo nuevo a la tabla `rentas`, añadirlo AQUÍ y en
+/// `calcular_totales` (ver nota en esa función).
+fn extras_de(r: &Renta, valor_dia_extra: &str) -> Decimal {
+    sum_dec(&[
+        valor_dia_extra,
+        &r.costo_lavado,
+        &r.costo_silla,
+        &r.costo_retorno,
+        &r.costo_domicilio,
+        &r.costo_cables,
+        &r.costo_inversor,
+        &r.valor_gasolina,
+    ])
 }
 
 /// Valida los datos de la renta

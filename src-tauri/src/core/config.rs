@@ -352,6 +352,14 @@ impl AppConfig {
             db_encryption_key: std::env::var("DYNARENT_DB_ENCRYPTION_KEY")
                 .ok()
                 .filter(|s| !s.trim().is_empty())
+                // Alias legacy (SECURITY.md ≤ v1.2.6 y .env.example lo
+                // documentaban como DINAMO_*, pero el código solo leía
+                // DYNARENT_*: el override documentado no tenía efecto).
+                .or_else(|| {
+                    std::env::var("DINAMO_DB_ENCRYPTION_KEY")
+                        .ok()
+                        .filter(|s| !s.trim().is_empty())
+                })
                 .unwrap_or_else(|| get_str(&map, "security", "db_encryption_key", "")),
             simit_enabled: get_bool(&map, "simit", "enabled", true),
             simit_interval_hours: get_u64(&map, "simit", "interval_hours", 2),

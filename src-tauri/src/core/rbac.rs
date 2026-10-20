@@ -88,6 +88,21 @@ impl SessionStore {
         }
     }
 
+    /// Marca el cambio obligatorio de contraseña como hecho para TODAS las
+    /// sesiones activas del usuario (se llama tras `cambiar_password`).
+    ///
+    /// Sin esto, el enforcement de `debe_cambiar_password` en
+    /// `require_session` dejaría bloqueada la sesión en curso aunque la
+    /// contraseña ya se hubiera cambiado (el frontend conserva el mismo
+    /// session_id después del cambio).
+    pub fn marcar_cambio_password_hecho(&mut self, username: &str) {
+        for session in self.sessions.values_mut() {
+            if session.username == username {
+                session.debe_cambiar_password = false;
+            }
+        }
+    }
+
     pub fn destroy(&mut self, token: &str) {
         self.sessions.remove(token);
     }
@@ -167,6 +182,23 @@ mod tests {
         let token = s.create(1, "x", "Operador", "X", false);
         s.destroy(&token);
         assert!(s.validate(&token).is_err());
+    }
+
+    #[test]
+    fn marcar_cambio_password_hecho() {
+        let mut s = store();
+        // Dos sesiones preexistentes del mismo usuario (dos ventanas) + otro
+        // usuario con el mismo flag, que no debe verse afectado
+        let token = s.create(1, "nuevo", "Operador", "Nuevo", true);
+        let duplicado = s.create(3, "nuevo", "Operador", "Nuevo", true);
+        let otro = s.create(2, "admin", "Administrador", "Admin", true);
+        assert!(s.validate(&token).unwrap().debe_cambiar_password);
+        s.marcar_cambio_password_hecho("nuevo");
+        // Todas las sesiones preexistentes del usuario quedan desbloqueadas
+        assert!(!s.validate(&token).unwrap().debe_cambiar_password);
+        assert!(!s.validate(&duplicado).unwrap().debe_cambiar_password);
+        // El otro usuario sigue con el cambio pendiente
+        assert!(s.validate(&otro).unwrap().debe_cambiar_password);
     }
 
     #[test]

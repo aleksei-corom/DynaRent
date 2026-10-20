@@ -474,7 +474,12 @@ pub fn seed_admin(pool: &crate::core::db::Pool) -> Result<(), Box<dyn std::error
             "Administrador",
             true,
         )?;
-        log::info!("Usuario 'admin' creado por defecto (password: admin123, debe cambiar)");
+        // Sin la contraseña en el log: app.log persiste en producción y el
+        // default es público; solo se registra que la cuenta quedó pendiente
+        // de cambio (debe_cambiar_password=true, enforce en require_session).
+        log::info!(
+            "Usuario 'admin' creado por defecto (debe cambiar la contraseña en el primer login)"
+        );
     }
     Ok(())
 }

@@ -359,6 +359,15 @@ impl AuthService {
 
         let new_hash = security::hash_password(new_password)?;
         UsuarioRepository::actualizar_password(&mut conn, username, &new_hash)?;
+        // Reflejar el cambio en caliente en las sesiones en memoria del
+        // usuario: el frontend conserva el mismo session_id tras cambiar la
+        // contraseña, y `require_session` bloquea los comandos de negocio
+        // mientras `debe_cambiar_password` siga activo.
+        state
+            .sessions
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .marcar_cambio_password_hecho(username);
         crate::core::audit::log_audit(
             &mut conn,
             username,

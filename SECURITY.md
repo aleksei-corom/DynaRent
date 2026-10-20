@@ -38,7 +38,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 Por orden de preferencia:
 
 1. **OS Keyring** (recomendado para producción): Windows Credential Manager, macOS Keychain, Linux Secret Service. La aplicación la lee en runtime y nunca toca disco.
-2. **Variable de entorno** `DINAMO_DB_ENCRYPTION_KEY` inyectada por el launcher del sistema operativo (Systemd, supervisor, o el instalador NSIS mediante `[Environment]::SetEnvironmentVariable`).
+2. **Variable de entorno** `DYNARENT_DB_ENCRYPTION_KEY` (alias legacy: `DINAMO_DB_ENCRYPTION_KEY`, aceptado por compatibilidad hasta v1.2.6) inyectada por el launcher del sistema operativo (Systemd, supervisor, o el instalador NSIS mediante `[Environment]::SetEnvironmentVariable`).
 3. **`data/config.ini` local** (solo para desarrollo): con permisos `0600`, propiedad del usuario que ejecuta la app, fuera del control de versiones.
 
 ❌ **NUNCA** en código fuente, archivos commiteados, logs, capturas de pantalla, ni issues/PRs.
@@ -47,8 +47,8 @@ Por orden de preferencia:
 
 El backend Rust permite override del `config.ini` mediante variables de entorno (ver `.env.example`):
 
-- `DINAMO_DB_ENCRYPTION_KEY` — reemplaza `security.db_encryption_key`.
-- `DINAMO_FB_USER` / `DINAMO_FB_PASSWORD` — reemplazan `database.user` / `database.password`.
+- `DYNARENT_DB_ENCRYPTION_KEY` — reemplaza `security.db_encryption_key`. (Alias legacy aceptado: `DINAMO_DB_ENCRYPTION_KEY`).
+- `DINAMO_FB_USER` / `DINAMO_FB_PASSWORD` — **ya no se leen** (solo existían en la doc); use `data/config.ini`.
 
 Esto facilita despliegues en CI o servidores donde no se desea escribir `config.ini`.
 

@@ -182,14 +182,20 @@ impl PiiCipher {
 
     /// Cifra un valor PII (AES-256-GCM). Vacío pasa tal cual.
     ///
-    /// Si `db_encryption_key` está vacía, la clave se deriva de un valor fijo:
-    /// se advierte en el log porque cambiar la clave después haría ilegibles
-    /// los datos cifrados con la clave derivada.
+    /// Si `db_encryption_key` está vacía, RECHAZA cifrar (Err) en lugar de
+    /// usar la clave derivada por defecto: cifrar con `SHA-256("")` — una
+    /// constante pública — daría falsa seguridad (los datos «cifrados» serían
+    /// legibles por cualquiera con el instalador). El descifrado de emergencia
+    /// de datos `v1:` existentes sigue funcionando con la clave derivada para
+    /// no volver ilegible lo ya guardado en instalaciones sin clave.
     pub fn encrypt(&self, plaintext: &str) -> Result<String, AppError> {
         if self.fernet_key.is_none() && !plaintext.trim().is_empty() {
-            log::warn!(
-                "Cifrando PII con clave derivada por defecto: configura db_encryption_key en config.ini para evitar pérdida de datos al cambiarla."
-            );
+            return Err(AppError::Crypto(
+                "No se puede cifrar PII: falta db_encryption_key en config.ini \
+                 (o la variable de entorno DYNARENT_DB_ENCRYPTION_KEY). Configure \
+                 una clave base64 de 32 bytes antes de guardar datos de clientes."
+                    .into(),
+            ));
         }
         encrypt(&self.aes_key, plaintext)
     }
@@ -296,6 +302,19 @@ mod tests {
         let cipher = PiiCipher::new("");
         let token = "gAAAAABqdgoctcLf9K9H-r2OLdNCk65oVGpCNvwzy1OCK_CwkJfMlOs9kfKy-JWxaio5ZOzClYSwyzUeuX0S8HQl2otr-9O-og==";
         assert!(cipher.decrypt(token).is_err());
+    }
+
+    #[test]
+    fn pii_cipher_sin_clave_rechaza_cifrado() {
+        // Seguridad: sin clave configurada NO se cifra (antes cifraba con
+        // SHA-256("") — constante pública — solo con un warn en el log).
+        let cipher = PiiCipher::new("");
+        assert!(cipher.encrypt("3101234567").is_err());
+        // El descifrado de emergencia de datos v1: preexistentes (cifrados con
+        // la clave derivada por defecto en versiones anteriores) sigue
+        // funcionando para no volver ilegible lo ya guardado.
+        let ct = encrypt(&derive_key(""), "3101234567").unwrap();
+        assert_eq!(cipher.decrypt(&ct).unwrap(), "3101234567");
     }
 
     #[test]
