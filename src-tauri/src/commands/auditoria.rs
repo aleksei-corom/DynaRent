@@ -2,14 +2,13 @@
 //!
 //! Acceso restringido a roles de administración de usuarios (roles_con_usuarios).
 
-use crate::commands::conn;
 use crate::core::error::{AppError, ErrorPayload};
 use crate::repositories::auditoria::AuditoriaFiltros;
 use crate::services::auditoria::{AuditoriaResultado, AuditoriaService};
 use crate::services::AppState;
 use tauri::State;
 
-use super::require_usuario_admin;
+use super::{en_blocking, require_usuario_admin};
 
 type Cmd<T> = Result<T, ErrorPayload>;
 
@@ -53,16 +52,20 @@ pub async fn listar_auditoria(
 
 /// Acciones distintas disponibles para el filtro (solo admin)
 #[tauri::command]
-pub fn acciones_auditoria(state: State<'_, AppState>, session_id: String) -> Cmd<Vec<String>> {
+pub async fn acciones_auditoria(
+    state: State<'_, AppState>,
+    session_id: String,
+) -> Cmd<Vec<String>> {
     require_usuario_admin(&state, &session_id)?;
-    let mut c = conn(&state)?;
-    AuditoriaService::acciones(&mut c).map_err(|e| e.to_payload())
+    en_blocking(&state, "acciones_auditoria", AuditoriaService::acciones).await
 }
 
 /// Usuarios distintos disponibles para el filtro (solo admin)
 #[tauri::command]
-pub fn usuarios_auditoria(state: State<'_, AppState>, session_id: String) -> Cmd<Vec<String>> {
+pub async fn usuarios_auditoria(
+    state: State<'_, AppState>,
+    session_id: String,
+) -> Cmd<Vec<String>> {
     require_usuario_admin(&state, &session_id)?;
-    let mut c = conn(&state)?;
-    AuditoriaService::usuarios(&mut c).map_err(|e| e.to_payload())
+    en_blocking(&state, "usuarios_auditoria", AuditoriaService::usuarios).await
 }

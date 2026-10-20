@@ -6,68 +6,94 @@ use crate::services::auto::{AlertaVencimiento, AutoService};
 use crate::services::AppState;
 use tauri::State;
 
-use super::{conn, require_eliminacion, require_session};
+use super::{en_blocking, require_eliminacion, require_session};
 
 type Cmd<T> = Result<T, ErrorPayload>;
 
-/// Lista vehículos con filtros opcionales (búsqueda o estado)
+/// Lista vehículos con filtros opcionales (búsqueda o estado).
+///
+/// `async` + `en_blocking` (TAREA 3.4): el filtro de búsqueda hace `LIKE`
+/// sobre placa/marca/modelo que puede escanear la tabla completa.
 #[tauri::command]
-pub fn listar_autos(
+pub async fn listar_autos(
     state: State<'_, AppState>,
     session_id: String,
     busqueda: Option<String>,
     estado: Option<String>,
 ) -> Cmd<Vec<Auto>> {
     require_session(&state, &session_id)?;
-    let mut c = conn(&state)?;
-    AutoService::listar(&mut c, busqueda.as_deref(), estado.as_deref()).map_err(|e| e.to_payload())
+    en_blocking(&state, "listar_autos", move |c| {
+        AutoService::listar(c, busqueda.as_deref(), estado.as_deref())
+    })
+    .await
 }
 
 /// Obtiene un vehículo por placa
 #[tauri::command]
-pub fn obtener_auto(state: State<'_, AppState>, session_id: String, placa: String) -> Cmd<Auto> {
+pub async fn obtener_auto(
+    state: State<'_, AppState>,
+    session_id: String,
+    placa: String,
+) -> Cmd<Auto> {
     require_session(&state, &session_id)?;
-    let mut c = conn(&state)?;
-    AutoService::obtener(&mut c, &placa).map_err(|e| e.to_payload())
+    en_blocking(&state, "obtener_auto", move |c| AutoService::obtener(c, &placa)).await
 }
 
 /// Crea un vehículo
 #[tauri::command]
-pub fn crear_auto(state: State<'_, AppState>, session_id: String, datos: AutoDatos) -> Cmd<Auto> {
+pub async fn crear_auto(
+    state: State<'_, AppState>,
+    session_id: String,
+    datos: AutoDatos,
+) -> Cmd<Auto> {
     let session = require_session(&state, &session_id)?;
-    let mut c = conn(&state)?;
-    AutoService::crear(&mut c, &state.config, &session.username, datos).map_err(|e| e.to_payload())
+    let config = state.config.clone();
+    let username = session.username;
+    en_blocking(&state, "crear_auto", move |c| {
+        AutoService::crear(c, &config, &username, datos)
+    })
+    .await
 }
 
 /// Actualiza un vehículo por placa
 #[tauri::command]
-pub fn actualizar_auto(
+pub async fn actualizar_auto(
     state: State<'_, AppState>,
     session_id: String,
     placa: String,
     datos: AutoDatos,
 ) -> Cmd<Auto> {
     let session = require_session(&state, &session_id)?;
-    let mut c = conn(&state)?;
-    AutoService::actualizar(&mut c, &state.config, &session.username, &placa, datos)
-        .map_err(|e| e.to_payload())
+    let config = state.config.clone();
+    let username = session.username;
+    en_blocking(&state, "actualizar_auto", move |c| {
+        AutoService::actualizar(c, &config, &username, &placa, datos)
+    })
+    .await
 }
 
 /// Elimina un vehículo por placa
 #[tauri::command]
-pub fn eliminar_auto(state: State<'_, AppState>, session_id: String, placa: String) -> Cmd<()> {
+pub async fn eliminar_auto(
+    state: State<'_, AppState>,
+    session_id: String,
+    placa: String,
+) -> Cmd<()> {
     let session = require_eliminacion(&state, &session_id)?;
-    let mut c = conn(&state)?;
-    AutoService::eliminar(&mut c, &session.username, &placa).map_err(|e| e.to_payload())
+    let username = session.username;
+    en_blocking(&state, "eliminar_auto", move |c| {
+        AutoService::eliminar(c, &username, &placa).map(|_| ())
+    })
+    .await
 }
 
 /// Alertas de vencimientos (SOAT, técnico, extintor, batería, aceite)
 #[tauri::command]
-pub fn alertas_autos(
-    state: State<'_, AppState>,
-    session_id: String,
-) -> Cmd<Vec<AlertaVencimiento>> {
+pub async fn alertas_autos(state: State<'_, AppState>, session_id: String) -> Cmd<Vec<AlertaVencimiento>> {
     require_session(&state, &session_id)?;
-    let mut c = conn(&state)?;
-    AutoService::alertas_vencimiento(&mut c, &state.config).map_err(|e| e.to_payload())
+    let config = state.config.clone();
+    en_blocking(&state, "alertas_autos", move |c| {
+        AutoService::alertas_vencimiento(c, &config)
+    })
+    .await
 }
