@@ -2,87 +2,76 @@
 
 Mensaje listo para pegar en un canal del equipo al publicar una versión nueva.
 Las secciones «Versión larga» y «Versión corta» están **completadas con los
-datos reales de la v1.0.21** (enlaces, sha256, conteos de tests) — copiar el
+datos reales de la v1.2.7** (enlaces, sha256, verificaciones) — copiar el
 bloque elegido tal cual. Para una versión futura, actualizar los valores de
-la «Referencia rápida» (versión, URLs de assets, sha256 y conteos de tests)
-y reemplazarlos en el texto de las dos secciones.
+la «Referencia rápida» (versión, URLs de assets, sha256) y reemplazarlos en
+el texto de las dos secciones.
+
+---
+
+## Referencia rápida (actualizar en cada release)
+
+| Dato | Valor v1.2.7 |
+|---|---|
+| Tag / release | `v1.2.7` — <https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.2.7> |
+| NSIS | `Dynarent_1.2.7_x64-setup.exe` — 22.793.189 B |
+| sha256 NSIS | `D37B3796158F3E6C1453D185BE4F0AA8B4A4120DCF8D2CDB06E9C1D0DCA630B4` |
+| MSI | `Dynarent_1.2.7_x64_en-US.msi` — 34.129.615 B |
+| sha256 MSI | `18B100A2520486F6A02BAB3F478E8EF2B1ED7C784F2C0B757E7054703C4D9F78` |
+| Auto-update E2E | ✅ detecta v1.2.7 desde v1.2.6; firma minisign OK; bytes ídem |
+| Tests | 785 frontend (63 archivos) · 107 lib + 21 suites de integración · CI verde |
 
 ---
 
 ## Versión larga (una pantalla)
 
 ```text
-🚀 Dynarent ERP — v1.0.21 publicada (performance + accesibilidad + code quality)
+🚀 Dynarent ERP — v1.2.7 publicada (correcciones financieras + seguridad + UI sin bloqueos)
 
-La versión v1.0.21 ya está publicada en GitHub, construida y firmada
-por CI (auto-update activo desde la v1.0.14).
+La versión v1.2.7 ya está publicada en GitHub, construida y firmada por CI
+(auto-update plenamente funcional desde la v1.2.5).
 
-📦 Descarga: release v1.0.21 → https://github.com/CORJAR-Computers/dynarent/releases/download/v1.0.21/Dynarent_1.0.21_x64-setup.exe
-(~22 MB, NSIS) o el .msi (~34 MB): https://github.com/CORJAR-Computers/dynarent/releases/download/v1.0.21/Dynarent_1.0.21_x64_en-US.msi
-sha256 NSIS: d8d602315c7eb8a4d8a08db6fe3d76cc30604ad8beb1eac68cb8dc9bf177f224
-sha256 MSI:  6aefb6d9d278ec451607ea65bcf30eccc3f4126fe6fd5d2de733a64a7cbfb8bb
-Credenciales iniciales: admin / admin123 (cambio forzado al primer ingreso).
+📦 Descarga: https://github.com/CORJAR-Computers/dynarent/releases/download/v1.2.7/Dynarent_1.2.7_x64-setup.exe
+(~22 MB, NSIS) o el .msi (~33 MB): https://github.com/CORJAR-Computers/dynarent/releases/download/v1.2.7/Dynarent_1.2.7_x64_en-US.msi
+sha256 NSIS: D37B3796158F3E6C1453D185BE4F0AA8B4A4120DCF8D2CDB06E9C1D0DCA630B4
+sha256 MSI:  18B100A2520486F6A02BAB3F478E8EF2B1ED7C784F2C0B757E7054703C4D9F78
+Credenciales iniciales: admin / admin123 (cambio forzado al primer ingreso,
+ahora también bloqueado en el backend hasta cambiarla).
 ⚠️ No instalar versiones anteriores descontinuadas.
+ℹ️ Las instalaciones v1.0.14–v1.2.4 necesitan una reinstalación manual (bug de
+pubkey saldado en v1.2.5); de v1.2.5+ en adelante todo llega solo.
 
-🔧 Qué incluye esta versión:
-  ⚡ INFORMES OPTIMIZADOS: el informe mensual pasó de 13 a 5 round-trips
-     con queries UNION ALL (totales_rango + movimientos_por_placa)
-  📦 STORE GLOBAL BusinessLists: cachea las listas de config con TTL 5 min,
-     evita 1 round-trip por cada navegación a rentas/autos/clientes/reservas
-  🔄 ASYNC SPAWN_BLOCKING: listar_rentas e informe_mensual ahora corren en
-     threads separados, sin bloquear el event loop de Tauri
-  🏗️ REPOSITORY DRY: core::repository centraliza helpers duplicados
-     (map_fb_error, opt_str, parse_fecha/hora, params!) en 3 repositorios
-  🔒 AUDITORÍA INMUTABLE (migración 0025): triggers append-only en la tabla
-     auditoria — no se puede UPDATE ni DELETE (no-repudio, Ley 1581)
-  📊 TRACING ESTRUCTURADO: spans de tracing en login, cerrar_renta y
-     registrar_pago (coexistencia con tauri-plugin-log, RUST_LOG configurable)
-  ♿ ACCESIBILIDAD WCAG 2.1: Modal con focus trap + autofocus + restore,
-     FormField con ARIA (label for, aria-describedby, aria-invalid),
-     skip-link de accesibilidad, página de error global (404/5xx)
-  📝 ts-rs: genera contratos TypeScript (Renta, Pago, Inspeccion, RentaDatos)
-     automáticamente desde structs Rust con cargo test
-  🤖 Dependabot: actualizaciones automáticas semanales de npm/cargo/CI
+🔧 Qué corrige esta versión (resultado del informe de revisión del 20-10):
+  💰 CIERRE DE RENTA (crítico): el total del contrato cerrado ya incluye el
+     cargo de gasolina — antes quedaba por debajo de lo pactado y divergía
+     de crear/extender/editar. Helper único extras_de() para las 3 rutas.
+  🛡️ PAGOS ANTI-TOCTOU: el saldo se revalida dentro de la transacción con
+     FOR UPDATE WITH LOCK y el UPDATE aplica aritmética SQL con guard —
+     dos pagos simultáneos ya no pueden pisarse ni superar el saldo.
+  🪙 MONTOS A 2 DECIMALES: se rechaza precisión extra; fin del drift de
+     redondeo entre rust_decimal y el CAST DECIMAL de Firebird.
+  🔒 PII: cifrar sin db_encryption_key configurada ahora RECHAZA (antes
+     cifraba con una clave derivada de cadena vacía, públicamente
+     calculable). El descifrado de emergencia de datos previos sigue OK.
+  🔑 admin/admin123: el cambio de contraseña obligatorio ahora se enforce
+     en el backend y la contraseña semilla ya no se escribe en app.log.
+  ⚡ UI SIN BLOQUEOS: ~40 comandos Tauri migrados a spawn_blocking — los
+     listados con búsqueda y las transacciones dejan de congelar la ventana.
+  📚 DOCS: INSTALACION_OPERACIONES con el historial completo de las 42
+     releases y las rutas de actualización por versión instalada.
 
-🔄 Auto-update: las instalaciones v1.0.14+ detectan esta versión automáticamente.
-   Para v1.0.13 y anteriores: actualiza una vez a mano.
-
-🟢 CI verde en main: lint · vitest · svelte-check · cargo (69 lib + integración
-   completa con BD sembrada por seed_ci) · paginación · verificador -DryRun.
-
-📄 Guías: INSTALACION_OPERACIONES.md (instalación) ·
-DEPLOYMENT_CLIENTES.md (despliegue y rollback) ·
-RESUMEN_EJECUTIVO.md (estado completo).
-
-Resumen completo:
-https://github.com/CORJAR-Computers/dynarent/blob/main/RESUMEN_EJECUTIVO.md
+✅ Verificado: cargo test (107 lib + 21 suites de integración), vitest 785,
+   clippy 0 warnings, E2E del updater contra la release publicada.
 ```
 
-## Versión corta (anuncio rápido, 2-3 líneas)
+---
+
+## Versión corta (tres líneas)
 
 ```text
-🚀 Dynarent ERP v1.0.21 publicada y firmada por CI. Novedades: informes
-optimizados (13→5 queries), store global BusinessLists (TTL 5 min), tracing
-estructurado, auditoría inmutable (triggers append-only), accesibilidad
-WCAG 2.1 (Modal focus trap, ARIA, skip-link), ts-rs para contratos
-TypeScript y dependabot para dependencias. Auto-update desde v1.0.14.
-Descarga: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.21
+🚀 Dynarent ERP v1.2.7 publicada: fix crítico del total en el cierre de renta (gasolina),
+   pagos concurrentes seguros (anti-TOCTOU, 2 decimales), PII/sesiones endurecidas y
+   UI sin bloqueos (~40 comandos async). Instaladores firmados y E2E del updater OK.
+📦 https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.2.7 · sha256 en el anuncio largo / DEPLOYMENT_CLIENTES.md §5
+⚠️ De v1.0.14 a v1.2.4: reinstalación manual una vez (bug de pubkey); de v1.2.5+ llega sola.
 ```
-
-## Referencia rápida para rellenar
-
-- **Producto:** Dynarent ERP
-- **Repo:** https://github.com/CORJAR-Computers/dynarent
-- **Assets de la v1.0.21:** `Dynarent_1.0.21_x64-setup.exe` (NSIS, ~22 MB, sha256 `d8d602315c7eb8a4d8a08db6fe3d76cc30604ad8beb1eac68cb8dc9bf177f224`) y `Dynarent_1.0.21_x64_en-US.msi` (~34 MB, sha256 `6aefb6d9d278ec451607ea65bcf30eccc3f4126fe6fd5d2de733a64a7cbfb8bb`)
-- **Credenciales iniciales:** `admin` / `admin123` (cambio forzado)
-- **URLs directas de assets v1.0.21:**
-  - NSIS: https://github.com/CORJAR-Computers/dynarent/releases/download/v1.0.21/Dynarent_1.0.21_x64-setup.exe
-  - MSI: https://github.com/CORJAR-Computers/dynarent/releases/download/v1.0.21/Dynarent_1.0.21_x64_en-US.msi
-  - Release (con changelog automático de commits): https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.21
-  - Firmas del updater: `Dynarent_1.0.21_x64-setup.exe.sig` / `Dynarent_1.0.21_x64_en-US.msi.sig`
-  - Endpoint del auto-update (latest.json): https://github.com/CORJAR-Computers/dynarent/releases/latest/download/latest.json
-- **Conteos de tests** (actualizarlos si cambian): vitest · svelte-check · cargo 69 lib + integración completa (seed_ci) · importador · paginación
-- **Pasos al publicar:** crear tag `vX.Y.Z` → `release.yml` (CI) construye y publica → calcular sha256 de los instaladores y completar aquí → pegar el anuncio.
-- **Changelog automático:** `release.yml` genera el body de la release con los commits entre el tag anterior y el nuevo.
-- **Auto-actualización (v1.0.14+):** la app chequea GitHub Releases al arrancar (`latest.json`), verifica firma minisign. Las instalaciones **≤v1.0.13 se actualizan UNA vez a mano**.
-- **Assets de la v1.0.21 (al publicar):** los 2 instaladores, sus firmas del updater y `latest.json`. El sha256 se calcula al publicar y se pega en esta sección.

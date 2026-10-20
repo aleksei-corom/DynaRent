@@ -3,17 +3,14 @@
 > Procedimiento operativo para publicar una versión nueva en
 > `github.com/CORJAR-Computers/dynarent`: el bump de versión, el tag que
 > dispara el CI, la verificación de los assets y el anuncio. Complementa a
-> `INSTALACION_OPERACIONES.md` (instalación), `DEPLOYMENT_CLIENTES.md`
-> (despliegue a clientes) y `ANUNCIO_RELEASE_TEMPLATE.md` (mensajes de anuncio).
+> `INSTALACION_OPERACIONES.md` (instalación + historial de versiones),
+> `DEPLOYMENT_CLIENTES.md` (despliegue a clientes) y `ANUNCIO_RELEASE_TEMPLATE.md` (mensajes de anuncio).
 >
-> **📋 Objetivo actual: v1.0.21 (preparando).**
-> Incluye todas las features de v1.0.17 más: **tracing estructurado** (tracing
-> + tracing-subscriber), **informes optimizados** (UNION ALL 13→5 round-trips),
-> **store global BusinessLists** (TTL 5 min, invalidable), **repository DRY**
-> (core::repository centraliza helpers), **migración 0025 audit_inmutable**
-> (triggers append-only para no-repudio), **accesibilidad WCAG 2.1** (Modal
-> focus trap, FormField ARIA, skip-link, página de error 404/5xx), **ts-rs**
-> para contratos TypeScript, **dependabot** para dependencias npm/cargo/CI.
+> **📋 Objetivo actual: v1.2.7 — PUBLICADA (2026-10-20).**
+> Correcciones financieras y de seguridad del informe de revisión (cierre de
+> renta con valor_gasolina, pagos anti-TOCTOU, PII sin clave vacía, cambio de
+> contraseña obligatorio en backend) + ~40 comandos Tauri async (UI sin
+> bloqueos). E2E del updater validada sin máquina; 5 assets firmados.
 
 ---
 

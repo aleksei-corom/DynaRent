@@ -1,6 +1,6 @@
 # Handsoff — Dynarent ERP (Tauri + SvelteKit + Firebird)
 
-> Última actualización: **2026-08-19** · Estado: **todos los módulos operativos, validación verde · release v1.0.18 en preparación · Bloques 1-4 aplicados (tracing, informes optimizados, repository DRY, accesibilidad WCAG 2.1, dependabot, ts-rs) · edición de rentas cerradas · extensiones acumulables · mayúsculas automáticas · backups de la BD (Fase 8) · auto-update activo · CI en Node 24**
+> Última actualización: **2026-10-20** · Estado: **release v1.2.7 publicada y verificada** (fix crítico del cierre de renta — valor_gasolina, pagos anti-TOCTOU cuantizados a 2 decimales, PII rechaza clave vacía, cambio de contraseña obligatorio en backend, ~40 comandos Tauri async con spawn_blocking, E2E del updater validada) · informes de revisión aplicados con agentes ECC · auto-update plenamente funcional desde v1.2.5 · CI en Node 24
 
 > **Instalación limpia validada de punta a punta (11-08, noche):** se cerró el hueco del
 > release v1.0.0 en equipos nuevos (la app se colgaba esperando una BD inexistente).
