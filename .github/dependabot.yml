@@ -52,6 +52,18 @@ updates:
       - backend
     commit-message:
       prefix: chore(deps)
+    # rsfbclient 0.28+ NO es fusionable hoy: r2d2_firebird 0.27.0 (la última
+    # publicada, sin versión superior) exige rsfbclient ^0.27.0, así que el
+    # bump deja el árbol con DOS rsfbclient (0.27 vía el pool + 0.29 directo)
+    # y los tipos PooledConnection/connection son incompatibles → falla la
+    # compilación (ver PR #1, CI del 26-10: error en "Rust unit tests").
+    # Se ignoran minors y majors; los patches 0.27.x siguen llegando.
+    # Quitar este bloque cuando r2d2_firebird publique soporte para 0.28+.
+    ignore:
+      - dependency-name: 'rsfbclient'
+        update-types:
+          - 'version-update:semver-minor'
+          - 'version-update:semver-major'
     groups:
       firebird:
         patterns:
