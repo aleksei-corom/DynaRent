@@ -66,12 +66,14 @@ fn get_pii_status_deniega_operador() {
 
     // Operador con sesión válida → permission (antes de tocar la BD)
     let sid = sesion_rol(st.inner(), 1, "operador", "Operador");
-    let err = get_pii_status(st.clone(), sid).expect_err("Operador no ve el estado PII");
+    let err = tauri::async_runtime::block_on(get_pii_status(st.clone(), sid))
+        .expect_err("Operador no ve el estado PII");
     assert_eq!(err.kind, "permission");
 
     // Sin sesión → session_expired
-    let err = get_pii_status(st.clone(), "token-inexistente".into())
-        .expect_err("sin sesión no se consulta el estado PII");
+    let err =
+        tauri::async_runtime::block_on(get_pii_status(st.clone(), "token-inexistente".into()))
+            .expect_err("sin sesión no se consulta el estado PII");
     assert_eq!(err.kind, "session_expired");
 }
 

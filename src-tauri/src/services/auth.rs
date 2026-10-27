@@ -311,8 +311,14 @@ impl AuthService {
     }
 
     /// Cambio de contraseña (obligatorio tras primer login o por solicitud)
+    ///
+    /// Toma la conexión y el almacén de sesiones por parámetro para que el
+    /// comando pueda correrla en `spawn_blocking` (H-3): la verificación y
+    /// el re-hash Argon2id son deliberadamente costosos (~100-500 ms) y no
+    /// deben congelar la ventana mientras corren.
     pub fn cambiar_password(
-        state: &AppState,
+        conn: &mut crate::core::PooledConnection,
+        sessions: &Arc<Mutex<SessionStore>>,
         username: &str,
         current_password: &str,
         new_password: &str,
@@ -333,8 +339,7 @@ impl AuthService {
             return Err(AppError::Validation(errors.join("; ")));
         }
 
-        let mut conn = state.pool.get()?;
-        let usuario = UsuarioRepository::obtener_para_autenticacion(&mut conn, username)?;
+        let usuario = UsuarioRepository::obtener_para_autenticacion(conn, username)?;
         let Some(usuario) = usuario else {
             return Err(AppError::InvalidCredentials);
         };
@@ -346,7 +351,7 @@ impl AuthService {
         ) {
             log::warn!("Cambio de contraseña con actual incorrecta: {username}");
             crate::core::audit::log_audit(
-                &mut conn,
+                conn,
                 username,
                 "CAMBIO CONTRASEÑA FALLIDO",
                 "contraseña actual incorrecta",
@@ -358,18 +363,17 @@ impl AuthService {
         }
 
         let new_hash = security::hash_password(new_password)?;
-        UsuarioRepository::actualizar_password(&mut conn, username, &new_hash)?;
+        UsuarioRepository::actualizar_password(conn, username, &new_hash)?;
         // Reflejar el cambio en caliente en las sesiones en memoria del
         // usuario: el frontend conserva el mismo session_id tras cambiar la
         // contraseña, y `require_session` bloquea los comandos de negocio
         // mientras `debe_cambiar_password` siga activo.
-        state
-            .sessions
+        sessions
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .marcar_cambio_password_hecho(username);
         crate::core::audit::log_audit(
-            &mut conn,
+            conn,
             username,
             "CAMBIO CONTRASEÑA",
             "contraseña actualizada",

@@ -154,47 +154,38 @@ fn analizar(conn: &mut PooledConnection, clave: &str) -> Result<PiiAnalisis, App
 pub struct PiiService;
 
 impl PiiService {
-    /// Estado actual con la clave efectiva (config.ini o override de la UI)
-    pub fn estado(state: &AppState) -> Result<PiiAnalisis, AppError> {
-        let mut conn = state.pool.get()?;
-        let clave = state.pii_key();
-        analizar(&mut conn, &clave)
+    /// Estado actual con la clave efectiva (config.ini o override de la UI).
+    ///
+    /// Toma la conexión por parámetro para que el comando la corra en
+    /// `spawn_blocking` (H-3): `analizar` hace un escaneo completo de la
+    /// tabla clientes + descifrado por cada registro legacy — la lectura
+    /// más pesada de la app, no puede ir en el main thread.
+    pub fn estado(conn: &mut PooledConnection, clave: &str) -> Result<PiiAnalisis, AppError> {
+        analizar(conn, clave)
     }
 
     /// Prueba una clave candidata SIN guardarla (el frontend la muestra antes)
-    pub fn probar_clave(state: &AppState, clave: &str) -> Result<PiiAnalisis, AppError> {
-        let mut conn = state.pool.get()?;
-        analizar(&mut conn, clave)
+    pub fn probar_clave(conn: &mut PooledConnection, clave: &str) -> Result<PiiAnalisis, AppError> {
+        analizar(conn, clave)
     }
 
-    /// Persiste la clave en config.ini, actualiza el estado en caliente y
-    /// devuelve el análisis resultante.
-    ///
-    /// Valida el formato antes de persistir: debe ser base64 de 32 bytes
-    /// (ver SECURITY.md §1.2). `probar_clave` sigue aceptando cualquier
-    /// clave para diagnóstico, pero solo se persisten claves bien formadas.
-    pub fn guardar_clave(state: &AppState, clave: &str) -> Result<ClaveGuardada, AppError> {
+    /// Persiste la clave en config.ini y la aplica en caliente (sin tocar la
+    /// BD: escritura pequeña de config.ini + mutex). Valida el formato antes
+    /// de persistir: debe ser base64 de 32 bytes (ver SECURITY.md §1.2).
+    /// `probar_clave` sigue aceptando cualquier clave para diagnóstico, pero
+    /// solo se persisten claves bien formadas.
+    pub fn aplicar_clave(state: &AppState, clave: &str) -> Result<(), AppError> {
         validar_clave_pii(clave)?;
         state.config.persist_db_encryption_key(clave)?;
         *state.pii_key.lock().unwrap_or_else(|p| p.into_inner()) = clave.trim().to_string();
-        let mut conn = state.pool.get()?;
-        let analisis = analizar(&mut conn, clave)?;
-        Ok(ClaveGuardada {
-            clave_configurada: true,
-            analisis,
-        })
+        Ok(())
     }
 
     /// Quita la clave (config.ini + estado en caliente). Los datos Fernet
     /// vuelven a quedar ocultos hasta que se configure una clave válida.
-    pub fn eliminar_clave(state: &AppState) -> Result<ClaveGuardada, AppError> {
+    pub fn quitar_clave(state: &AppState) -> Result<(), AppError> {
         state.config.persist_db_encryption_key("")?;
         *state.pii_key.lock().unwrap_or_else(|p| p.into_inner()) = String::new();
-        let mut conn = state.pool.get()?;
-        let analisis = analizar(&mut conn, "")?;
-        Ok(ClaveGuardada {
-            clave_configurada: false,
-            analisis,
-        })
+        Ok(())
     }
 }

@@ -5,6 +5,8 @@ use crate::services::auth::{AuthService, LoginResult, LoginStatus};
 use crate::services::AppState;
 use tauri::State;
 
+use super::en_blocking;
+
 type Cmd<T> = Result<T, ErrorPayload>;
 
 /// Login — no requiere sesión previa
@@ -20,16 +22,22 @@ pub fn logout(state: State<'_, AppState>, session_id: String) {
     AuthService::logout(&state, &session_id);
 }
 
-/// Cambia la contraseña del usuario (autenticado o cambio obligatorio)
+/// Cambia la contraseña del usuario (autenticado o cambio obligatorio).
+///
+/// `async` + `en_blocking` (H-3): la verificación y el re-hash Argon2id
+/// son deliberadamente costosos (~100-500 ms) y no deben congelar la UI.
 #[tauri::command]
-pub fn change_password(
+pub async fn change_password(
     state: State<'_, AppState>,
     username: String,
     current_password: String,
     new_password: String,
 ) -> Cmd<()> {
-    AuthService::cambiar_password(&state, &username, &current_password, &new_password)
-        .map_err(|e| e.to_payload())
+    let sessions = state.sessions.clone();
+    en_blocking(&state, "change_password", move |c| {
+        AuthService::cambiar_password(c, &sessions, &username, &current_password, &new_password)
+    })
+    .await
 }
 
 /// Estado de login de un usuario (intentos restantes, bloqueo) — pre-login
