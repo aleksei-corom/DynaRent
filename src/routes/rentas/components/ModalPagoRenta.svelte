@@ -2,6 +2,7 @@
 	import Modal from '#lib/components/Modal.svelte';
 	import FormField from '#lib/components/FormField.svelte';
 	import type { PagoDatos } from '#lib/api.js';
+	import Spinner from '#lib/components/Spinner.svelte';
 
 	interface Props {
 		open: boolean;
@@ -69,18 +70,7 @@
 		<button class="btn-ghost" onclick={onClose} disabled={guardandoPago}>Cancelar</button>
 		<button class="btn-primary" onclick={onConfirmar} disabled={guardandoPago}>
 			{#if guardandoPago}
-				<svg
-					class="animate-spin h-4 w-4"
-					xmlns="http://www.w3.org/2000/svg"
-					fill="none"
-					viewBox="0 0 24 24"
-					><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
-					></circle><path
-						class="opacity-75"
-						fill="currentColor"
-						d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-					></path></svg
-				>
+				<Spinner class="h-4 w-4" />
 				Guardando…
 			{:else}
 				Registrar pago

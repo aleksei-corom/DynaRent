@@ -17,7 +17,7 @@
 		type EventoProgresoSimit,
 		type EventoLogSimit
 	} from '#lib/api.js';
-	import { session } from '#lib/stores/session.svelte.js';
+	import { session, sid } from '#lib/stores/session.svelte.js';
 	import { empresa } from '#lib/stores/empresa.svelte.js';
 	import { toast } from '#lib/stores/toast.svelte.js';
 	import { formatCOP, formatContrato, formatDate, formatLocalDateISO } from '#lib/utils/format.js';
@@ -32,8 +32,7 @@
 	import AvisoImpresion from '#lib/components/AvisoImpresion.svelte';
 	import Icon from '#lib/components/Icon.svelte';
 	import { imprimirDocumento } from '#lib/utils/imprimir.js';
-
-	const sid = () => session.token ?? '';
+	import Spinner from '#lib/components/Spinner.svelte';
 
 	// Agente SIMIT vacío (para parchear el estado en la UI sin backend): con
 	// startDelayMinutes 0 el subtítulo cae a «aún sin sincronizar» en vez de
@@ -590,24 +589,7 @@
 					{#if agente.ejecutando || sincronizando}
 						<div class="flex flex-col gap-2">
 							<span class="inline-flex items-center gap-2 text-xs font-semibold text-primary">
-								<svg
-									class="animate-spin h-4 w-4"
-									xmlns="http://www.w3.org/2000/svg"
-									fill="none"
-									viewBox="0 0 24 24"
-									><circle
-										class="opacity-25"
-										cx="12"
-										cy="12"
-										r="10"
-										stroke="currentColor"
-										stroke-width="4"
-									></circle><path
-										class="opacity-75"
-										fill="currentColor"
-										d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-									></path></svg
-								>
+								<Spinner class="h-4 w-4" />
 								{#if progreso}
 									Consultando SIMIT… {progreso.indicePlaca}/{progreso.totalPlacas}
 								{:else}
@@ -662,24 +644,7 @@
 							disabled={sincronizando || agente.ejecutando}
 						>
 							{#if sincronizando || agente.ejecutando}
-								<svg
-									class="animate-spin h-4 w-4"
-									xmlns="http://www.w3.org/2000/svg"
-									fill="none"
-									viewBox="0 0 24 24"
-									><circle
-										class="opacity-25"
-										cx="12"
-										cy="12"
-										r="10"
-										stroke="currentColor"
-										stroke-width="4"
-									></circle><path
-										class="opacity-75"
-										fill="currentColor"
-										d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-									></path></svg
-								>
+								<Spinner class="h-4 w-4" />
 								Sincronizando…
 							{:else}
 								<svg
@@ -928,18 +893,7 @@
 	{#if loading}
 		<div class="card flex items-center justify-center py-16">
 			<div class="flex flex-col items-center gap-3">
-				<svg
-					class="animate-spin h-8 w-8 text-primary"
-					xmlns="http://www.w3.org/2000/svg"
-					fill="none"
-					viewBox="0 0 24 24"
-					><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
-					></circle><path
-						class="opacity-75"
-						fill="currentColor"
-						d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-					></path></svg
-				>
+				<Spinner class="h-8 w-8 text-primary" />
 				<p class="text-sm text-text-secondary">Cargando comparendos…</p>
 			</div>
 		</div>
@@ -1125,18 +1079,7 @@
 		>
 		<button class="btn-primary" onclick={guardar} disabled={guardando}>
 			{#if guardando}
-				<svg
-					class="animate-spin h-4 w-4"
-					xmlns="http://www.w3.org/2000/svg"
-					fill="none"
-					viewBox="0 0 24 24"
-					><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
-					></circle><path
-						class="opacity-75"
-						fill="currentColor"
-						d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-					></path></svg
-				>
+				<Spinner class="h-4 w-4" />
 				Guardando…
 			{:else}
 				{editando ? 'Guardar cambios' : 'Registrar comparendo'}
