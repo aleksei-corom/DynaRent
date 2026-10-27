@@ -13,7 +13,13 @@
 	} from '#lib/api.js';
 	import { session } from '#lib/stores/session.svelte.js';
 	import { toast } from '#lib/stores/toast.svelte.js';
-	import { formatCOP, formatDate, formatLocalDateISO, normalizarMonto, parseMontoLocal } from '#lib/utils/format.js';
+	import {
+		formatCOP,
+		formatDate,
+		formatLocalDateISO,
+		normalizarMonto,
+		parseMontoLocal
+	} from '#lib/utils/format.js';
 	import { guardSesion, haySesion } from '#lib/utils/guards.js';
 	import { crearSecuencia } from '#lib/utils/carga.js';
 	import DataTable from '#lib/components/DataTable.svelte';

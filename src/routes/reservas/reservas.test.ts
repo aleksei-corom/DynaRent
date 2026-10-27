@@ -235,7 +235,11 @@ describe('ramas de error y cálculo de la página de Reservas', () => {
 	it('badge de pendientes Web y sincronización sin reservas web (rama info)', async () => {
 		tauri.register('listar_reservas', () => [reserva()]);
 		let get = 0;
-		const pendienteLargo = deferido<{ ok: boolean; status: number; json: () => Promise<unknown> }>();
+		const pendienteLargo = deferido<{
+			ok: boolean;
+			status: number;
+			json: () => Promise<unknown>;
+		}>();
 		const fetchMock = vi.fn((url: string, init?: { method?: string }) => {
 			if (init?.method === 'POST') {
 				// Confirmación a la web: respuesta HTTP real (ok/status)
@@ -409,7 +413,11 @@ describe('ramas de error y cálculo de la página de Reservas', () => {
 				Promise.resolve(
 					init?.method === 'POST'
 						? { ok: true, status: 200, json: async () => ({ ok: true }) }
-						: { ok: true, status: 200, json: async () => ({ ok: true, count: 1, reservations: [webReserva] }) }
+						: {
+								ok: true,
+								status: 200,
+								json: async () => ({ ok: true, count: 1, reservations: [webReserva] })
+							}
 				)
 			)
 		);

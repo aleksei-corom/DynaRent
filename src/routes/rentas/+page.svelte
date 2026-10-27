@@ -22,7 +22,14 @@
 	import { sid, session } from '#lib/stores/session.svelte.js';
 	import { businessLists } from '#lib/stores/business.svelte.js';
 	import { toast } from '#lib/stores/toast.svelte.js';
-	import { formatCOP, formatContrato, formatDate, formatLocalDateISO, normalizarMonto, parseMontoLocal } from '#lib/utils/format.js';
+	import {
+		formatCOP,
+		formatContrato,
+		formatDate,
+		formatLocalDateISO,
+		normalizarMonto,
+		parseMontoLocal
+	} from '#lib/utils/format.js';
 	import { textoIgual } from '#lib/utils/texto.js';
 	import { calcularDiasHoras } from '#lib/utils/calcularDiasHoras.js';
 	import { guardSesion, haySesion } from '#lib/utils/guards.js';
