@@ -78,8 +78,14 @@
 	// `exceljs`. La serialización es async y descarga vía Blob (en Tauri desktop el
 	// guardado directo de archivos requiere el plugin fs/dialog; aquí seguimos usando
 	// el flujo de descarga del navegador embebido, que WebView2 cumple bien).
+	// Evita la doble exportación con doble clic (logs/+page.svelte ya usa
+	// el mismo patrón): el buffer de Excel tarda y dos clics descargaban
+	// el archivo dos veces.
+	let exportando = $state(false);
+
 	async function exportarExcel() {
-		if (!informe) return;
+		if (!informe || exportando) return;
+		exportando = true;
 		try {
 			const wb = construirLibroInforme(informe, rangoTexto, empresa.nombreMostrar);
 			const buffer = await wb.xlsx.writeBuffer();
@@ -97,6 +103,8 @@
 			toast.success('Informe exportado a Excel.');
 		} catch {
 			toast.error('No se pudo exportar el informe a Excel.');
+		} finally {
+			exportando = false;
 		}
 	}
 
@@ -176,7 +184,7 @@
 			>
 			Imprimir / PDF
 		</button>
-		<button class="btn-ghost" onclick={exportarExcel} disabled={!informe}>
+		<button class="btn-ghost" onclick={exportarExcel} disabled={!informe || exportando}>
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="w-4 h-4"

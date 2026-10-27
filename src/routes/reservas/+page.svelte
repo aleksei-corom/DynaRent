@@ -82,6 +82,7 @@
 	// Sincronización con la plataforma Web (Neon PostgreSQL)
 	let sincronizandoWeb = $state(false);
 	let pendientesWebCount = $state(0);
+	let pendientesWebError = $state(false);
 
 	function defaultForm(): ReservaDatos {
 		const hoy = new Date();
@@ -262,9 +263,14 @@
 			const res = await syncWebApi.consultarPendientes();
 			if (res.ok) {
 				pendientesWebCount = res.count;
+				pendientesWebError = false;
 			}
 		} catch {
-			pendientesWebCount = 0;
+			// Ya no se aplana a «0 pendientes» (el fallo real quedaba
+			// invisible): se marca el error para el badge y se conserva el
+			// último conteo conocido. El botón de sincronizar sí muestra el
+			// fallo real al pulsarlo.
+			pendientesWebError = true;
 		}
 	}
 
@@ -555,7 +561,14 @@
 						/>
 					</svg>
 					<span>Sincronizar Web</span>
-					{#if pendientesWebCount > 0}
+					{#if pendientesWebError}
+						<span
+							class="inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-black rounded-full bg-alerta text-white"
+							title="No se pudo consultar el servidor web de reservas."
+						>
+							!
+						</span>
+					{:else if pendientesWebCount > 0}
 						<span
 							class="inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-black rounded-full bg-primary text-white animate-pulse"
 						>
