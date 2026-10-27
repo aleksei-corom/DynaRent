@@ -937,21 +937,13 @@ impl RentaService {
                     // estaba desactualizado). Se convierte en error fuera.
                     return Ok(-1i64);
                 }
-                // 2. Registrar el pago
-                let (id,): (i64,) = tx.execute_returnable(
-                    "INSERT INTO pagos (id_renta, monto, metodo_pago, concepto, observaciones, usuario) \
-                     VALUES (?, CAST(? AS DECIMAL(12,2)), ?, ?, ?, ?) RETURNING id",
-                    params![
-                        id_renta,
-                        pago.monto.to_string(),
-                        pago.metodo_pago.to_string(),
-                        pago.concepto.to_string(),
-                        opt_str(&pago.observaciones),
-                        usuario.to_string(),
-                    ],
-                )?;
-                // 3. Aritmética en SQL con guard: solo descuenta si el saldo
-                //    actual aún cubre el monto (0 filas → carrera, se reporta)
+                // 2. Aritmética en SQL con guard: solo descuenta si el saldo
+                //    actual aún cubre el monto. SE EJECUTA ANTES DEL INSERT:
+                //    si el guard da 0 filas aún no se ha escrito nada y el
+                //    commit de un marcador Ok(-1) no puede dejar un pago
+                //    huérfano sin descuento (endurecimiento H-2 — con el
+                //    orden inverso, un guard fallido tras el INSERT habría
+                //    comiteado el pago sin descontarlo).
                 let filas = tx.execute(
                     "UPDATE rentas SET \
                       abono = CAST(abono AS DECIMAL(12,2)) + CAST(? AS DECIMAL(12,2)), \
@@ -967,6 +959,19 @@ impl RentaService {
                 if filas == 0 {
                     return Ok(-1i64);
                 }
+                // 3. Registrar el pago
+                let (id,): (i64,) = tx.execute_returnable(
+                    "INSERT INTO pagos (id_renta, monto, metodo_pago, concepto, observaciones, usuario) \
+                     VALUES (?, CAST(? AS DECIMAL(12,2)), ?, ?, ?, ?) RETURNING id",
+                    params![
+                        id_renta,
+                        pago.monto.to_string(),
+                        pago.metodo_pago.to_string(),
+                        pago.concepto.to_string(),
+                        opt_str(&pago.observaciones),
+                        usuario.to_string(),
+                    ],
+                )?;
                 tx.execute(
                     "INSERT INTO auditoria (usuario, accion, mensaje, ip, fecha) \
                      VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)",
