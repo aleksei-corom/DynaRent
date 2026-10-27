@@ -58,7 +58,10 @@ pub async fn obtener_reserva(
     id: i64,
 ) -> Cmd<Reserva> {
     require_session(&state, &session_id)?;
-    en_blocking(&state, "obtener_reserva", move |c| ReservaService::obtener(c, id)).await
+    en_blocking(&state, "obtener_reserva", move |c| {
+        ReservaService::obtener(c, id)
+    })
+    .await
 }
 
 /// Crea una reserva
@@ -102,16 +105,15 @@ pub async fn cancelar_reserva(
     id: i64,
 ) -> Cmd<ReservaCancelada> {
     require_session(&state, &session_id)?;
-    en_blocking(&state, "cancelar_reserva", move |c| ReservaService::cancelar(c, id)).await
+    en_blocking(&state, "cancelar_reserva", move |c| {
+        ReservaService::cancelar(c, id)
+    })
+    .await
 }
 
 /// Elimina una reserva
 #[tauri::command]
-pub async fn eliminar_reserva(
-    state: State<'_, AppState>,
-    session_id: String,
-    id: i64,
-) -> Cmd<()> {
+pub async fn eliminar_reserva(state: State<'_, AppState>, session_id: String, id: i64) -> Cmd<()> {
     let session = require_eliminacion(&state, &session_id)?;
     let username = session.username;
     en_blocking(&state, "eliminar_reserva", move |c| {

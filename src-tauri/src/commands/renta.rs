@@ -50,7 +50,10 @@ pub async fn listar_rentas(
 #[tauri::command]
 pub async fn obtener_renta(state: State<'_, AppState>, session_id: String, id: i64) -> Cmd<Renta> {
     require_session(&state, &session_id)?;
-    en_blocking(&state, "obtener_renta", move |c| RentaService::obtener(c, id)).await
+    en_blocking(&state, "obtener_renta", move |c| {
+        RentaService::obtener(c, id)
+    })
+    .await
 }
 
 /// Crea una renta
@@ -182,11 +185,7 @@ pub async fn editar_renta_cerrada(
 
 /// Elimina una renta (pagos e inspecciones en cascada)
 #[tauri::command]
-pub async fn eliminar_renta(
-    state: State<'_, AppState>,
-    session_id: String,
-    id: i64,
-) -> Cmd<()> {
+pub async fn eliminar_renta(state: State<'_, AppState>, session_id: String, id: i64) -> Cmd<()> {
     let sesion = require_eliminacion(&state, &session_id)?;
     let username = sesion.username;
     en_blocking(&state, "eliminar_renta", move |c| {

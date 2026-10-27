@@ -36,7 +36,10 @@ pub async fn obtener_auto(
     placa: String,
 ) -> Cmd<Auto> {
     require_session(&state, &session_id)?;
-    en_blocking(&state, "obtener_auto", move |c| AutoService::obtener(c, &placa)).await
+    en_blocking(&state, "obtener_auto", move |c| {
+        AutoService::obtener(c, &placa)
+    })
+    .await
 }
 
 /// Crea un vehículo
@@ -89,7 +92,10 @@ pub async fn eliminar_auto(
 
 /// Alertas de vencimientos (SOAT, técnico, extintor, batería, aceite)
 #[tauri::command]
-pub async fn alertas_autos(state: State<'_, AppState>, session_id: String) -> Cmd<Vec<AlertaVencimiento>> {
+pub async fn alertas_autos(
+    state: State<'_, AppState>,
+    session_id: String,
+) -> Cmd<Vec<AlertaVencimiento>> {
     require_session(&state, &session_id)?;
     let config = state.config.clone();
     en_blocking(&state, "alertas_autos", move |c| {

@@ -86,11 +86,7 @@ pub async fn actualizar_cliente(
 
 /// Elimina un cliente por id
 #[tauri::command]
-pub async fn eliminar_cliente(
-    state: State<'_, AppState>,
-    session_id: String,
-    id: i64,
-) -> Cmd<()> {
+pub async fn eliminar_cliente(state: State<'_, AppState>, session_id: String, id: i64) -> Cmd<()> {
     let session = require_eliminacion(&state, &session_id)?;
     let username = session.username;
     en_blocking(&state, "eliminar_cliente", move |c| {

@@ -67,11 +67,7 @@ pub async fn actualizar_usuario(
 
 /// Elimina un usuario (protege la propia cuenta y al último administrador)
 #[tauri::command]
-pub async fn eliminar_usuario(
-    state: State<'_, AppState>,
-    session_id: String,
-    id: i64,
-) -> Cmd<()> {
+pub async fn eliminar_usuario(state: State<'_, AppState>, session_id: String, id: i64) -> Cmd<()> {
     let session = require_usuario_admin(&state, &session_id)?;
     let username = session.username;
     en_blocking(&state, "eliminar_usuario", move |c| {

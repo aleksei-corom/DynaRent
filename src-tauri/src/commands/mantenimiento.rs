@@ -24,12 +24,7 @@ pub async fn listar_mantenimientos(
 ) -> Cmd<Vec<Mantenimiento>> {
     require_session(&state, &session_id)?;
     en_blocking(&state, "listar_mantenimientos", move |c| {
-        MantenimientoService::listar(
-            c,
-            busqueda.as_deref(),
-            placa.as_deref(),
-            tipo.as_deref(),
-        )
+        MantenimientoService::listar(c, busqueda.as_deref(), placa.as_deref(), tipo.as_deref())
     })
     .await
 }

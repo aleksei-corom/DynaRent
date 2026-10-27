@@ -50,13 +50,12 @@ pub async fn gastos_recientes(
 
 /// Obtiene un gasto por id
 #[tauri::command]
-pub async fn obtener_gasto(
-    state: State<'_, AppState>,
-    session_id: String,
-    id: i64,
-) -> Cmd<Gasto> {
+pub async fn obtener_gasto(state: State<'_, AppState>, session_id: String, id: i64) -> Cmd<Gasto> {
     require_session(&state, &session_id)?;
-    en_blocking(&state, "obtener_gasto", move |c| GastoService::obtener(c, id)).await
+    en_blocking(&state, "obtener_gasto", move |c| {
+        GastoService::obtener(c, id)
+    })
+    .await
 }
 
 /// Crea un gasto (registra al usuario de la sesión como autor)
