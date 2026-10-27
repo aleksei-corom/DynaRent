@@ -8,9 +8,8 @@
 > PII sin congelar la UI, y 4 vulnerabilidades RUSTSEC del stack TLS parcheadas.
 > Construida y validada por CI.
 >
-> ⚠️ Los enlaces de la v1.2.8 se activan al publicar el tag `v1.2.8`
-> (`RELEASE_CHECKLIST.md` §5); hasta entonces, la última **publicada** es la
-> [v1.2.7](https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.2.7).
+> Los enlaces de esta guía corresponden a la release v1.2.8, publicada el
+> 2026-10-27 (<https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.2.8>).
 
 ---
 

@@ -6,11 +6,12 @@
 > `INSTALACION_OPERACIONES.md` (instalación + historial de versiones),
 > `DEPLOYMENT_CLIENTES.md` (despliegue a clientes) y `ANUNCIO_RELEASE_TEMPLATE.md` (mensajes de anuncio).
 >
-> **📋 Objetivo actual: v1.2.7 — PUBLICADA (2026-10-20).**
-> Correcciones financieras y de seguridad del informe de revisión (cierre de
-> renta con valor_gasolina, pagos anti-TOCTOU, PII sin clave vacía, cambio de
-> contraseña obligatorio en backend) + ~40 comandos Tauri async (UI sin
-> bloqueos). E2E del updater validada sin máquina; 5 assets firmados.
+> **📋 Objetivo actual: v1.2.8 — PUBLICADA (2026-10-27).**
+> Bypass del cambio obligatorio de contraseña cerrado en los gates de rol (H-1),
+> montos con coma decimal seguros, pagos con guard estructural, sync web
+> endurecido, change_password/PII en spawn_blocking, calendario O(1) y 4
+> RUSTSEC del stack TLS parcheadas. E2E del updater validada sin máquina;
+> 5 assets firmados.
 
 ---
 
