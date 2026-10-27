@@ -38,6 +38,7 @@
 	import { imprimirDocumento } from '#lib/utils/imprimir.js';
 	import { goto } from '$app/navigation';
 	import Spinner from '#lib/components/Spinner.svelte';
+	import { useDebouncedEffect } from '#lib/utils/debounce.svelte.js';
 
 	let reservas = $state<Reserva[]>([]);
 	let proximas = $state<Reserva[]>([]);
@@ -56,7 +57,6 @@
 	// Filtros
 	let busqueda = $state('');
 	let estadoFiltro = $state('');
-	let searchTimer: ReturnType<typeof setTimeout> | undefined;
 
 	// Modal crear/editar
 	let modalOpen = $state(false);
@@ -337,18 +337,16 @@
 		// La carga inicial de reservas la dispara el $effect de filtros (una sola vez)
 	});
 
-	let primerCiclo = true;
+	// Carga inicial + filtros (debounce solo al escribir; el primer ciclo
+	// dispara la carga inicial — helper centralizado con recarga inmediata
+	// al vaciar la búsqueda).
+	const scheduleReload = useDebouncedEffect(cargar, {
+		immediateIf: () => !busqueda.trim()
+	});
 	$effect(() => {
-		const term = busqueda;
+		const _ = busqueda; // suscripción
 		const _est = estadoFiltro;
-		if (primerCiclo) {
-			primerCiclo = false;
-			cargar();
-			return;
-		}
-		clearTimeout(searchTimer);
-		searchTimer = setTimeout(() => cargar(), term.trim() ? 350 : 0);
-		return () => clearTimeout(searchTimer);
+		scheduleReload();
 	});
 
 	// ── CRUD ──

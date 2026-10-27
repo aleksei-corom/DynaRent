@@ -63,13 +63,15 @@ describe('useDebouncedEffect', () => {
 		expect(screen.getByTestId('contador')).toHaveTextContent('1');
 	});
 
-	it('immediateIf ejecuta fn de inmediato y cancela el timer pendiente', async () => {
+	it('immediateIf ejecuta fn sin esperar el delay y cancela el timer pendiente', async () => {
 		render(Harness, { delay: 100 });
 		await flush();
 
 		await fireEvent.click(screen.getByTestId('inm'));
-		await flush();
-		// sin avanzar el reloj: la ejecución fue síncrona
+		// Macrotarea de 0 ms: se ejecuta en el siguiente tick del reloj, sin
+		// esperar el delay de debounce (100 ms). El diferimiento conserva la
+		// agrupación de cambios del mismo tick (ver auditoría: desde+hasta).
+		await vi.advanceTimersByTimeAsync(0);
 		expect(screen.getByTestId('contador')).toHaveTextContent('1');
 
 		// el timer anterior quedó cancelado: avanzar no suma más

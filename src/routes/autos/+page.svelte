@@ -23,6 +23,7 @@
 	import CopiarExistente from '#lib/components/CopiarExistente.svelte';
 	import SeccionFormulario from '#lib/components/SeccionFormulario.svelte';
 	import Spinner from '#lib/components/Spinner.svelte';
+	import { useDebouncedEffect } from '#lib/utils/debounce.svelte.js';
 
 	// sid() viene del store (reemplaza `const sid = () => session.token ?? ''`). Ver TAREA E3.
 
@@ -42,7 +43,6 @@
 	// Filtros
 	let busqueda = $state('');
 	let estadoFiltro = $state('');
-	let searchTimer: ReturnType<typeof setTimeout> | undefined;
 
 	// Modal
 	let modalOpen = $state(false);
@@ -143,19 +143,16 @@
 		await Promise.all([businessLists.ensure(sid()).catch(() => null), cargarAlertas()]);
 	});
 
-	// Carga inicial + filtros (debounce solo al escribir)
-	let primerCiclo = true;
+	// Carga inicial + filtros (debounce solo al escribir; el primer ciclo
+	// dispara la carga inicial — helper centralizado con recarga inmediata
+	// al vaciar la búsqueda).
+	const scheduleReload = useDebouncedEffect(cargar, {
+		immediateIf: () => !busqueda.trim()
+	});
 	$effect(() => {
-		const term = busqueda;
+		const _ = busqueda; // suscripción
 		const _est = estadoFiltro;
-		if (primerCiclo) {
-			primerCiclo = false;
-			cargar();
-			return;
-		}
-		clearTimeout(searchTimer);
-		searchTimer = setTimeout(() => cargar(), term.trim() ? 350 : 0);
-		return () => clearTimeout(searchTimer);
+		scheduleReload();
 	});
 
 	function desdeAuto(a: Auto): AutoDatos {

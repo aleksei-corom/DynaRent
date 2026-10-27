@@ -19,6 +19,7 @@
 	import ConfirmDialog from '#lib/components/ConfirmDialog.svelte';
 	import FormField from '#lib/components/FormField.svelte';
 	import Spinner from '#lib/components/Spinner.svelte';
+	import { useDebouncedEffect } from '#lib/utils/debounce.svelte.js';
 	/** Máximo de intentos fallidos que bloquea una cuenta (default core/security.rs, se puede ajustar con max_login_attempts en config.ini) */
 	let maxIntentos = $state(5);
 
@@ -28,7 +29,6 @@
 
 	// Búsqueda
 	let busqueda = $state('');
-	let searchTimer: ReturnType<typeof setTimeout> | undefined;
 
 	// Modal crear/editar
 	let modalOpen = $state(false);
@@ -99,18 +99,15 @@
 		// La carga inicial la dispara el $effect de filtros (una sola vez)
 	});
 
-	// Carga inicial + búsqueda con debounce
-	let primerCiclo = true;
+	// Carga inicial + búsqueda con debounce (helper centralizado: recarga
+	// inmediata al vaciar la búsqueda, 350 ms al escribir; el primer ciclo
+	// dispara la carga inicial porque la búsqueda arranca vacía).
+	const scheduleReload = useDebouncedEffect(cargar, {
+		immediateIf: () => !busqueda.trim()
+	});
 	$effect(() => {
-		const term = busqueda;
-		if (primerCiclo) {
-			primerCiclo = false;
-			cargar();
-			return;
-		}
-		clearTimeout(searchTimer);
-		searchTimer = setTimeout(() => cargar(), term.trim() ? 350 : 0);
-		return () => clearTimeout(searchTimer);
+		const _ = busqueda; // suscripción
+		scheduleReload();
 	});
 
 	function abrirNuevo() {

@@ -8,6 +8,7 @@
 	import { crearSecuencia } from '#lib/utils/carga.js';
 	import DataTable from '#lib/components/DataTable.svelte';
 	import Spinner from '#lib/components/Spinner.svelte';
+	import { useDebouncedEffect } from '#lib/utils/debounce.svelte.js';
 	const POR_PAGINA = 50;
 
 	let eventos = $state<AuditoriaEvento[]>([]);
@@ -23,7 +24,6 @@
 	let fechaHasta = $state('');
 	let usuarios = $state<string[]>([]);
 	let acciones = $state<string[]>([]);
-	let searchTimer: ReturnType<typeof setTimeout> | undefined;
 
 	// Descarta respuestas obsoletas (filtros/paginación con dos cargas en vuelo)
 	const secuenciaCarga = crearSecuencia();
@@ -79,22 +79,20 @@
 		cargar(1);
 	});
 
-	// Filtros → recarga (debounce solo para la búsqueda libre). El onMount ya
-	// dispara la carga inicial, así que este efecto solo actúa ante cambios.
-	let primerEfecto = true;
+	// Filtros → recarga (debounce solo para la búsqueda libre; helper
+	// centralizado con recarga inmediata al vaciar y `skipFirst` porque el
+	// onMount ya dispara la carga inicial).
+	const scheduleReload = useDebouncedEffect(() => cargar(1), {
+		skipFirst: true,
+		immediateIf: () => !busqueda.trim()
+	});
 	$effect(() => {
-		const term = busqueda;
+		const _ = busqueda; // suscripción
 		const _u = usuarioFiltro;
 		const _a = accionFiltro;
 		const _d = fechaDesde;
 		const _h = fechaHasta;
-		if (primerEfecto) {
-			primerEfecto = false;
-			return;
-		}
-		clearTimeout(searchTimer);
-		searchTimer = setTimeout(() => cargar(1), term.trim() ? 350 : 0);
-		return () => clearTimeout(searchTimer);
+		scheduleReload();
 	});
 
 	function limpiarFiltros() {

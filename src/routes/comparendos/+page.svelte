@@ -33,6 +33,7 @@
 	import Icon from '#lib/components/Icon.svelte';
 	import { imprimirDocumento } from '#lib/utils/imprimir.js';
 	import Spinner from '#lib/components/Spinner.svelte';
+	import { useDebouncedEffect } from '#lib/utils/debounce.svelte.js';
 
 	// Agente SIMIT vacío (para parchear el estado en la UI sin backend): con
 	// startDelayMinutes 0 el subtítulo cae a «aún sin sincronizar» en vez de
@@ -71,7 +72,6 @@
 	// Solo los que el Agente SIMIT insertó en la última sincronización
 	// (persistido en la BD — sobrevive al reinicio de la app).
 	let soloNuevos = $state(false);
-	let searchTimer: ReturnType<typeof setTimeout> | undefined;
 
 	// Modal crear/editar
 	let modalOpen = $state(false);
@@ -362,19 +362,19 @@
 		};
 	});
 
-	let primerCiclo = true;
+	// Filtros → recarga con debounce (helper centralizado: recarga inmediata
+	// al vaciar la búsqueda, 350 ms al escribir; `skipFirst` porque la carga
+	// inicial la hace onMount).
+	const scheduleReload = useDebouncedEffect(cargar, {
+		skipFirst: true,
+		immediateIf: () => !busqueda.trim()
+	});
 	$effect(() => {
-		const term = busqueda;
+		const _ = busqueda; // suscripción
 		const _est = estadoFiltro;
 		const _plac = placaFiltro;
 		const _sinConf = noConfirmados;
-		if (primerCiclo) {
-			primerCiclo = false;
-			return;
-		}
-		clearTimeout(searchTimer);
-		searchTimer = setTimeout(() => cargar(), term.trim() ? 350 : 0);
-		return () => clearTimeout(searchTimer);
+		scheduleReload();
 	});
 
 	// ── CRUD ──

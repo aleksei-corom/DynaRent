@@ -101,7 +101,13 @@ export function useDebouncedEffect(
 		}
 		if (timer) clearTimeout(timer);
 		if (immediateIf?.()) {
-			fn();
+			// Macrotarea (setTimeout 0), NO síncrono: conserva la agrupación
+			// de Svelte cuando varios filtros cambian en el mismo tick (p. ej.
+			// «desde»+«hasta» en auditoría deben recargar UNA sola vez con
+			// ambos valores) y replica el `term.trim() ? 350 : 0` del patrón
+			// manual que este helper reemplaza. El timer queda registrado
+			// para que la siguiente llamada o el onDestroy lo cancelen.
+			timer = setTimeout(fn, 0);
 			return;
 		}
 		timer = setTimeout(fn, delay);

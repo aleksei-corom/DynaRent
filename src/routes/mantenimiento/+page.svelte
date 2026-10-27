@@ -30,6 +30,7 @@
 	import SearchSelect, { type SearchSelectOpcion } from '#lib/components/SearchSelect.svelte';
 	import Icon from '#lib/components/Icon.svelte';
 	import Spinner from '#lib/components/Spinner.svelte';
+	import { useDebouncedEffect } from '#lib/utils/debounce.svelte.js';
 
 	let registros = $state<Mantenimiento[]>([]);
 	let totales = $state<TotalesMantenimiento | null>(null);
@@ -56,7 +57,6 @@
 	let busqueda = $state('');
 	let placaFiltro = $state('');
 	let tipoFiltro = $state('');
-	let searchTimer: ReturnType<typeof setTimeout> | undefined;
 
 	// Modal
 	let modalOpen = $state(false);
@@ -161,22 +161,23 @@
 		} catch {
 			/* opcional */
 		}
+		// La carga inicial (lista + totales) la dispara onMount
+		cargarTodo();
 	});
 
-	// Carga inicial + filtros (debounce solo al escribir)
-	let primerCiclo = true;
+	// Filtros → recarga con debounce (helper centralizado: recarga inmediata
+	// al vaciar la búsqueda, 350 ms al escribir; `skipFirst` porque onMount
+	// ya hizo la carga inicial. Los filtros solo recargan la lista, no los
+	// totales — mismo comportamiento que el patrón manual previo).
+	const scheduleReload = useDebouncedEffect(cargar, {
+		skipFirst: true,
+		immediateIf: () => !busqueda.trim()
+	});
 	$effect(() => {
-		const term = busqueda;
+		const _ = busqueda; // suscripción
 		const _plac = placaFiltro;
 		const _tip = tipoFiltro;
-		if (primerCiclo) {
-			primerCiclo = false;
-			cargarTodo();
-			return;
-		}
-		clearTimeout(searchTimer);
-		searchTimer = setTimeout(() => cargar(), term.trim() ? 350 : 0);
-		return () => clearTimeout(searchTimer);
+		scheduleReload();
 	});
 
 	// Al cambiar de placa en el formulario, autocompletar el km próximo de aceite
