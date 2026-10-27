@@ -7,18 +7,18 @@
 
 ## ⬇️ Descarga e instalación (usuarios finales)
 
-> **Última versión estable: [v1.2.7](https://github.com/aleksei-corom/DynaRent/releases/tag/v1.2.7)** — con auto-update activo (firma validada contra la clave de producción), correcciones financieras (cierre de renta, pagos concurrentes), endurecimiento de seguridad PII/sesiones y UI sin bloqueos (consultas Firebird fuera del hilo principal).
+> **Última versión estable: [v1.2.8](https://github.com/aleksei-corom/DynaRent/releases/tag/v1.2.8)** — con auto-update activo (firma validada contra la clave de producción), bypass de cambio de contraseña cerrado en los gates de rol, montos con coma decimal seguros (financiero), sync web endurecido, UI sin bloqueos ampliada (cambio de contraseña, PII) y 4 vulnerabilidades RUSTSEC parcheadas.
 
 ### 1. Descargar el instalador
 
-Ve a la página de [releases de GitHub](https://github.com/aleksei-corom/DynaRent/releases) y descarga la **v1.2.7**:
+Ve a la página de [releases de GitHub](https://github.com/aleksei-corom/DynaRent/releases) y descarga la **v1.2.8**:
 
 | Instalador | Cuándo usarlo |
 |---|---|
-| `DynaRent_1.2.7_x64-setup.exe` (NSIS, ~22 MB) | **Recomendado** — instalación asistida con selección de modo (per-user / per-machine) |
-| `DynaRent_1.2.7_x64_en-US.msi` (MSI, ~32 MB) | Despliegue empresarial / GPO (instalación silenciosa con `msiexec`) |
+| `DynaRent_1.2.8_x64-setup.exe` (NSIS, ~22 MB) | **Recomendado** — instalación asistida con selección de modo (per-user / per-machine) |
+| `DynaRent_1.2.8_x64_en-US.msi` (MSI, ~32 MB) | Despliegue empresarial / GPO (instalación silenciosa con `msiexec`) |
 
-> ⚠️ **No uses la v1.0.0** (descontinuada): en equipos nuevos sin BD previa se colgaba antes de llegar al Login. Si ya la tienes instalada **con datos**, no necesitas desinstalar — la v1.2.7 abre tu BD actual tal cual.
+> ⚠️ **No uses la v1.0.0** (descontinuada): en equipos nuevos sin BD previa se colgaba antes de llegar al Login. Si ya la tienes instalada **con datos**, no necesitas desinstalar — la v1.2.8 abre tu BD actual tal cual.
 
 ### 2. Instalar
 
@@ -132,7 +132,7 @@ DynaRent/
 |-----------|-----------|
 | **[PLAN_IMPLEMENTACION_TAURI.md](PLAN_IMPLEMENTACION_TAURI.md)** | 📋 Plan completo de arquitectura y migración técnica desde Python a Tauri |
 | **[Handsoff.md](Handsoff.md)** | 🤖 Registro de decisiones, automatizaciones y guías de desarrollo |
-| **[INSTALACION_OPERACIONES.md](INSTALACION_OPERACIONES.md)** | 🚀 Guía de instalación de la v1.2.7 para operaciones: enlaces a los assets, credenciales iniciales y verificación |
+| **[INSTALACION_OPERACIONES.md](INSTALACION_OPERACIONES.md)** | 🚀 Guía de instalación de la v1.2.8 para operaciones: enlaces a los assets, credenciales iniciales y verificación |
 | **[DEPLOYMENT_CLIENTES.md](DEPLOYMENT_CLIENTES.md)** | 🖥️ Plan de despliegue en equipos de clientes: instalación silenciosa, verificación post-instalación y rollback |
 | **[RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)** | 🚢 Checklist para publicar una release: bump de versión, tag, verificación de assets y anuncio |
 | **[SECURITY.md](SECURITY.md)** | 🔐 Manejo de secretos, rotación de clave PII y reporte de vulnerabilidades |
@@ -155,7 +155,7 @@ DynaRent/
 
 ---
 
-**Versión estable**: 1.2.7 (construida y validada por CI — ver [releases](https://github.com/aleksei-corom/DynaRent/releases)). La versión legacy de la migración Tauri V2 era 4.0.0-beta; desde la **v1.0.0** el versionado sigue el semver del proyecto (1.0.x).
+**Versión estable**: 1.2.8 (construida y validada por CI — ver [releases](https://github.com/aleksei-corom/DynaRent/releases)). La versión legacy de la migración Tauri V2 era 4.0.0-beta; desde la **v1.0.0** el versionado sigue el semver del proyecto (1.0.x).
 
 ---
 

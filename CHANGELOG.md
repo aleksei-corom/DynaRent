@@ -6,6 +6,49 @@ Las versiones se publican como [releases en GitHub](https://github.com/CORJAR-Co
 
 ---
 
+## [v1.2.8] — 2026-10-27
+
+### Corregido
+- **Bypass del cambio de contraseña obligatorio**: los gates de rol
+  (`require_usuario_admin` / `require_informes` / `require_eliminacion`) validan vía
+  `validate_role`, que no chequeaba `debe_cambiar_password` — un `admin/admin123` con el
+  cambio pendiente podía alcanzar por IPC ~20 comandos administrativos (eliminar_*,
+  backups, claves PII, empresa, informes, SIMIT) sin pasar por `require_session`. El
+  chequeo vive ahora en `validate_role` (hallazgo H-1 de la revisión del 26-10).
+- **Pagos**: el UPDATE con guard precede al INSERT del pago dentro de la transacción —
+  si el guard de saldo fallara, ya no se habría escrito nada (endurecimiento H-2; antes
+  un guard fallido tras el INSERT habría comiteado un pago huérfano sin descuento).
+- **Montos con coma decimal (crítico financiero)**: los inputs de dinero son texto con
+  `inputmode="decimal"` y la coma es entrada válida en es-CO, pero rust_decimal no la
+  acepta y el backend la convertía en **0**. Nuevos helpers `parseMontoLocal` /
+  `normalizarMonto`: las calculadoras en vivo de rentas y reservas muestran el total
+  correcto con coma, y gastos/mantenimiento/rentas/reservas normalizan antes del IPC
+  (lo validado = lo transmitido; los strings ya válidos como "150000.00" se preservan).
+- **Sync web**: `consultarPendientes` rechaza con el código HTTP real si el servidor
+  web responde `!ok` (antes `res.json()` sin chequear: un 500 no-JSON reventaba con
+  SyntaxError y uno con JSON se aplanaba a «0 pendientes» escondiendo el fallo); y
+  `valorDia` sin `Math.round` — `valorDia × días` vuelve a cuadrar con `totalAmount`.
+- **Vulnerabilidades RUSTSEC-2026-0381/0382/0383/0385** del stack TLS/cripto:
+  `rustls-webpki` 0.103.16, `webpki-roots`/`webpki-root-certs` 1.0.11, `ctutils`
+  0.4.6 — afectaban la cadena del updater (rustls-tls), el agente SIMIT (ureq) y el
+  stack RustCrypto. Solo cambia `Cargo.lock`.
+
+### Rendimiento
+- **`change_password` y comandos PII en `spawn_blocking`** (H-3): la verificación y el
+  re-hash Argon2id (~100-500 ms) y el análisis PII (escaneo completo de clientes +
+  descifrado por registro) ya no congelan la ventana.
+- **Calendario O(1) por celda**: índice por día computado una vez por cambio de datos
+  (antes se recorrían todas las rentas y reservas por cada una de las 42 celdas en
+  cada render).
+
+### Mantenimiento
+- Dependabot: ignorados los minors/majors de `rsfbclient` hasta que `r2d2_firebird`
+  publique soporte para 0.28+ (el PR #1 rompía la compilación con tipos duplicados).
+- Cobertura de ramas al 82.05 % (795 tests, 63 archivos) con la tanda que cubre las
+  ramas nuevas de montos, calendario y syncWeb.
+
+---
+
 ## [v1.2.7] — 2026-10-20
 
 ### Corregido
@@ -372,6 +415,7 @@ Primera release estable. Migración completa de Python a Tauri V2 + Rust + Fireb
 
 ---
 
+[v1.2.8]: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.2.8
 [v1.2.7]: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.2.7
 [v1.2.6]: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.2.6
 [v1.0.21]: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.21

@@ -106,12 +106,12 @@ if ($DryRun) {
 }
 if ($exe) {
     if ($DryRun) {
-        $ver = if ($SimularFallo) { '1.0.15.0' } else { '1.2.7.0' }
+        $ver = if ($SimularFallo) { '1.0.15.0' } else { '1.2.8.0' }
     } else {
         $ver = (Get-Item $exe).VersionInfo.ProductVersion
     }
     Check "Ejecutable instalado" $true $exe
-    Check "Version 1.2.7" ($ver -like '1.2.7*') "ProductVersion=$ver"
+    Check "Version 1.2.8" ($ver -like '1.2.8*') "ProductVersion=$ver"
 } else {
     Check "Ejecutable instalado" $false 'no se encontro dynarent.exe'
 }
