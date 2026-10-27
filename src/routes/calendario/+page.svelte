@@ -125,15 +125,42 @@
 
 	const tituloMes = $derived(nombreMes(mesActual.getFullYear(), mesActual.getMonth()));
 
+	// Índice por día (fix de rendimiento: antes totalDia + itemsDelDia
+	// recorrían TODAS las rentas y reservas por cada una de las 42 celdas
+	// en cada render — O(celdas×n×2), con parseo de fechas incluido). Se
+	// computa UNA vez por cambio de datos/mes y la consulta es O(1).
+	// (Objeto plano en vez de Map: solo se construye/lee, y el lint exige
+	// SvelteMap para instancias mutables de Map.)
+	type ItemsDia = { rentas: Renta[]; reservas: Reserva[] };
+	const SIN_ITEMS: ItemsDia = { rentas: [], reservas: [] };
+	const itemsPorDia = $derived.by(() => {
+		const indice: Record<string, ItemsDia> = {};
+		const dias: string[] = [];
+		for (const semana of semanas) {
+			for (const celda of semana) dias.push(celda.dia);
+		}
+		for (const x of rentas) {
+			if (x.estado === 'Cancelada') continue;
+			for (const dia of dias) {
+				if (rangoCubreDia(x.fechaRecogida, x.fechaRetorno, dia)) {
+					(indice[dia] ??= { rentas: [], reservas: [] }).rentas.push(x);
+				}
+			}
+		}
+		for (const x of reservas) {
+			if (x.estado === 'Cancelada') continue;
+			for (const dia of dias) {
+				if (rangoCubreDia(x.fechaRecogida, x.fechaRetorno, dia)) {
+					(indice[dia] ??= { rentas: [], reservas: [] }).reservas.push(x);
+				}
+			}
+		}
+		return indice;
+	});
+
 	// Items de un día: rentas (activas y cerradas en rango) + reservas (no canceladas)
-	function itemsDelDia(dia: string): { rentas: Renta[]; reservas: Reserva[] } {
-		const r = rentas.filter(
-			(x) => rangoCubreDia(x.fechaRecogida, x.fechaRetorno, dia) && x.estado !== 'Cancelada'
-		);
-		const rs = reservas.filter(
-			(x) => rangoCubreDia(x.fechaRecogida, x.fechaRetorno, dia) && x.estado !== 'Cancelada'
-		);
-		return { rentas: r, reservas: rs };
+	function itemsDelDia(dia: string): ItemsDia {
+		return itemsPorDia[dia] ?? SIN_ITEMS;
 	}
 
 	function totalDia(dia: string): number {

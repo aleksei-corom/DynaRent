@@ -235,7 +235,7 @@ describe('ramas de error y cálculo de la página de Reservas', () => {
 	it('badge de pendientes Web y sincronización sin reservas web (rama info)', async () => {
 		tauri.register('listar_reservas', () => [reserva()]);
 		let get = 0;
-		const pendienteLargo = deferido<{ json: () => Promise<unknown> }>();
+		const pendienteLargo = deferido<{ ok: boolean; status: number; json: () => Promise<unknown> }>();
 		const fetchMock = vi.fn((url: string, init?: { method?: string }) => {
 			if (init?.method === 'POST') {
 				// Confirmación a la web: respuesta HTTP real (ok/status)
@@ -245,6 +245,8 @@ describe('ramas de error y cálculo de la página de Reservas', () => {
 			if (get === 1 || get >= 3) {
 				// Verificación de pendientes: hay 3 reservas web esperando
 				return Promise.resolve({
+					ok: true,
+					status: 200,
 					json: async () => ({ ok: true, count: 3, reservations: [] })
 				});
 			}
@@ -264,6 +266,8 @@ describe('ramas de error y cálculo de la página de Reservas', () => {
 		expect(boton.closest('button')).toBeDisabled();
 
 		pendienteLargo.resolve({
+			ok: true,
+			status: 200,
 			json: async () => ({ ok: false, count: 0, reservations: [] })
 		});
 		// Vuelve al estado normal (rama else de importadas/errores → toast.info)
@@ -310,17 +314,23 @@ describe('ramas de error y cálculo de la página de Reservas', () => {
 			if (get === 1) {
 				// Verificación inicial: sin pendientes visibles
 				return Promise.resolve({
+					ok: true,
+					status: 200,
 					json: async () => ({ ok: false, count: 0, reservations: [] })
 				});
 			}
 			if (get === 2 || get === 4) {
 				// Consulta de sincronización: SIEMPRE hay una web pendiente
 				return Promise.resolve({
+					ok: true,
+					status: 200,
 					json: async () => ({ ok: true, count: 1, reservations: [webReserva] })
 				});
 			}
 			// Verificaciones posteriores: sin pendientes
 			return Promise.resolve({
+				ok: true,
+				status: 200,
 				json: async () => ({ ok: true, count: 0, reservations: [] })
 			});
 		});
@@ -399,7 +409,7 @@ describe('ramas de error y cálculo de la página de Reservas', () => {
 				Promise.resolve(
 					init?.method === 'POST'
 						? { ok: true, status: 200, json: async () => ({ ok: true }) }
-						: { json: async () => ({ ok: true, count: 1, reservations: [webReserva] }) }
+						: { ok: true, status: 200, json: async () => ({ ok: true, count: 1, reservations: [webReserva] }) }
 				)
 			)
 		);

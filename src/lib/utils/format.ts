@@ -73,6 +73,38 @@ export function formatCOP(value: number | string | null | undefined, decimals = 
 	return formatMoney(value, decimals);
 }
 
+/**
+ * Parsea un monto escrito por el usuario en un input de texto con
+ * `inputmode="decimal"` (los formularios de dinero NO usan type="number"
+ * para permitir pegar valores): acepta coma decimal (es-CO) o punto.
+ * "85000,50" → 85000.5. Vacío/inválido → 0.
+ *
+ * Usar en TODAS las calculadoras en vivo: `parseFloat` a secas trunca la
+ * coma y el total mostrado diverge del que calcula el backend.
+ */
+export function parseMontoLocal(value: string | number | null | undefined): number {
+	if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+	if (!value) return 0;
+	return parseFloat(value.trim().replace(',', '.')) || 0;
+}
+
+/**
+ * Normaliza el string de un monto a punto decimal para ENVIARLO por IPC:
+ * el backend parsea los campos con rust_decimal, que NO acepta coma — un
+ * "85000,50" crudo llega como 0 en el recálculo de totales (dec() cae al
+ * fallback ZERO).
+ *
+ * Preserva el string original cuando ya es válido con punto (o vacío):
+ * "150000.00" se envía tal cual, no recortado a "150000". Solo reescribe
+ * comas decimales (y basura, que sale como "0" en vez de rechazarse con
+ * un error genérico de BD en el backend).
+ */
+export function normalizarMonto(value: string | number | null | undefined): string {
+	const v = String(value ?? '').trim();
+	if (v === '' || /^-?\d+(\.\d+)?$/.test(v)) return v;
+	return String(parseMontoLocal(v));
+}
+
 // ── Fechas ──
 
 const dateFormatter = new Intl.DateTimeFormat('es-CO', {

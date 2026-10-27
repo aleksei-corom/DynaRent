@@ -144,6 +144,12 @@ export const syncWebApi = {
 		// distinguir «servidor web respondió 0 pendientes» de «no pude
 		// contactar el servidor web» y mostrar el fallo real al usuario.
 		const res = await fetch(`${syncUrl}?pending=true`);
+		if (!res.ok) {
+			// Antes se llamaba res.json() sin chequear: un 500 con cuerpo
+			// no-JSON reventaba con SyntaxError y uno con JSON se aplanaba
+			// a {ok:false} escondiendo el fallo real del servidor.
+			throw new Error(`Servidor web respondió HTTP ${res.status} consultando pendientes`);
+		}
 		const data = await res.json();
 		if (data?.ok) {
 			return {
@@ -256,7 +262,10 @@ export const syncWebApi = {
 					placaAsignada: webR.vehicle.plate || undefined,
 					diasCalculados: webR.days,
 					horasExtras: 0,
-					valorDia: String(Math.round(webR.totalAmount / (webR.days || 1))),
+					// Sin Math.round: redondear aquí puede hacer que
+					// valorDia × días ≠ totalAmount (el backend recibe el
+					// total exacto y recalcularía otro valor).
+					valorDia: String(webR.totalAmount / (webR.days || 1)),
 					valorHoraAdic: '0',
 					costoLavado: '0',
 					abono: String(webR.totalAmount),

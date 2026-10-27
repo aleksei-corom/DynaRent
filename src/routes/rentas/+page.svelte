@@ -22,7 +22,7 @@
 	import { sid, session } from '#lib/stores/session.svelte.js';
 	import { businessLists } from '#lib/stores/business.svelte.js';
 	import { toast } from '#lib/stores/toast.svelte.js';
-	import { formatCOP, formatContrato, formatDate, formatLocalDateISO } from '#lib/utils/format.js';
+	import { formatCOP, formatContrato, formatDate, formatLocalDateISO, normalizarMonto, parseMontoLocal } from '#lib/utils/format.js';
 	import { textoIgual } from '#lib/utils/texto.js';
 	import { calcularDiasHoras } from '#lib/utils/calcularDiasHoras.js';
 	import { guardSesion, haySesion } from '#lib/utils/guards.js';
@@ -255,9 +255,11 @@
 
 	// ── Calculadora en vivo (espejo del cálculo del backend) ──
 	// El IVA solo se aplica si el checkbox «cobrar IVA» está activo.
+	// parseMontoLocal acepta coma decimal: parseFloat a secas trunca
+	// "85000,50" a 85000 y el total mostrado diverge del backend.
 	const brutoCalc = $derived(
-		(parseFloat(form.valorDia) || 0) * form.diasCalculados +
-			(parseFloat(form.valorHoraExtra) || 0) * form.horasExtras
+		parseMontoLocal(form.valorDia) * form.diasCalculados +
+			parseMontoLocal(form.valorHoraExtra) * form.horasExtras
 	);
 	const extrasCalc = $derived(
 		[
@@ -269,10 +271,10 @@
 			'costoCables',
 			'costoInversor',
 			'valorGasolina'
-		].reduce((acc, k) => acc + (parseFloat(form[k as keyof RentaDatos] as string) || 0), 0)
+		].reduce((acc, k) => acc + parseMontoLocal(form[k as keyof RentaDatos] as string), 0)
 	);
 	const subtotalCalc = $derived(
-		Math.max(0, brutoCalc + extrasCalc - (parseFloat(form.descuento) || 0))
+		Math.max(0, brutoCalc + extrasCalc - parseMontoLocal(form.descuento))
 	);
 	const tasaIva = $derived(lists?.impuestoPorcentaje ?? 19);
 	const ivaCalc = $derived(
@@ -281,10 +283,10 @@
 	const totalCalc = $derived(subtotalCalc + ivaCalc);
 	// Comisión: solo aplica si el checkbox está activo; neto = total − comisión
 	const comisionCalc = $derived(
-		form.tieneComision ? Math.max(0, parseFloat(form.comision) || 0) : 0
+		form.tieneComision ? Math.max(0, parseMontoLocal(form.comision)) : 0
 	);
 	const netoCalc = $derived(Math.max(0, totalCalc - comisionCalc));
-	const saldoCalc = $derived(Math.max(0, totalCalc - (parseFloat(form.abono) || 0)));
+	const saldoCalc = $derived(Math.max(0, totalCalc - parseMontoLocal(form.abono)));
 
 	function recalcularDias() {
 		// Regla unificada (espejo del cierre): cada 24 h = 1 día; excedente ≤ 3 h
@@ -532,8 +534,27 @@
 			return;
 		}
 		// Si se agregaron horas extras y valor por hora extra, asegurar cobrarHorasExtra = true
-		if (Number(form.horasExtras) > 0 && (parseFloat(form.valorHoraExtra) || 0) > 0) {
+		if (Number(form.horasExtras) > 0 && parseMontoLocal(form.valorHoraExtra) > 0) {
 			form.cobrarHorasExtra = true;
+		}
+		// Normalizar los montos a punto decimal antes del IPC: rust_decimal
+		// NO acepta coma y un "85000,50" crudo se vuelve 0 en el backend.
+		for (const campo of [
+			'valorDia',
+			'valorHoraExtra',
+			'valorDiaExtra',
+			'costoLavado',
+			'costoSilla',
+			'costoRetorno',
+			'costoDomicilio',
+			'costoCables',
+			'costoInversor',
+			'valorGasolina',
+			'descuento',
+			'abono',
+			'comision'
+		] as const) {
+			form[campo] = normalizarMonto(form[campo]);
 		}
 		guardando = true;
 		try {
@@ -640,7 +661,7 @@
 
 	async function confirmarExtender() {
 		if (extenderId === null) return;
-		if (!extension.valor || parseFloat(extension.valor) <= 0) {
+		if (!extension.valor || parseMontoLocal(extension.valor) <= 0) {
 			extenderError = 'El valor de la extensión es obligatorio y debe ser mayor a cero.';
 			return;
 		}

@@ -121,6 +121,13 @@ describe('syncWebApi.consultarPendientes', () => {
 		expect(fetchMock).toHaveBeenCalledWith(`${DEFAULT_WEB_SYNC_URL}?pending=true`);
 	});
 
+	it('un HTTP 500 RECHAZA (antes se aplana a ok:false y escondía el fallo)', async () => {
+		vi.stubGlobal('fetch', fetchMock);
+		respondFetch(httpOk({ ok: false }, 500));
+
+		await expect(syncWebApi.consultarPendientes()).rejects.toThrow('HTTP 500');
+	});
+
 	it('usa defaults cuando faltan count y reservations', async () => {
 		vi.stubGlobal('fetch', fetchMock);
 		respondFetch({ ok: true });

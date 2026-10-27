@@ -14,7 +14,7 @@
 	} from '#lib/api.js';
 	import { session } from '#lib/stores/session.svelte.js';
 	import { toast } from '#lib/stores/toast.svelte.js';
-	import { formatCOP, formatDate, formatLocalDateISO } from '#lib/utils/format.js';
+	import { formatCOP, formatDate, formatLocalDateISO, normalizarMonto, parseMontoLocal } from '#lib/utils/format.js';
 	import { guardSesion, haySesion } from '#lib/utils/guards.js';
 	import { crearSecuencia } from '#lib/utils/carga.js';
 	import DataTable from '#lib/components/DataTable.svelte';
@@ -221,11 +221,15 @@
 			formError = 'La fecha es obligatoria.';
 			return;
 		}
-		const costo = parseFloat(form.costo.replace(',', '.'));
-		if (Number.isNaN(costo) || costo <= 0) {
+		// Normalizar ANTES de validar y enviar: el valor validado debe ser
+		// exactamente el transmitido (la coma es válida en es-CO pero el
+		// backend la rechaza).
+		const costo = parseMontoLocal(form.costo);
+		if (costo <= 0) {
 			formError = 'El costo debe ser un número mayor que cero.';
 			return;
 		}
+		form.costo = normalizarMonto(form.costo);
 		guardando = true;
 		try {
 			if (editando && editandoId !== null) {

@@ -13,7 +13,7 @@
 	} from '#lib/api.js';
 	import { session } from '#lib/stores/session.svelte.js';
 	import { toast } from '#lib/stores/toast.svelte.js';
-	import { formatCOP, formatDate, formatLocalDateISO } from '#lib/utils/format.js';
+	import { formatCOP, formatDate, formatLocalDateISO, normalizarMonto, parseMontoLocal } from '#lib/utils/format.js';
 	import { guardSesion, haySesion } from '#lib/utils/guards.js';
 	import { crearSecuencia } from '#lib/utils/carga.js';
 	import DataTable from '#lib/components/DataTable.svelte';
@@ -201,11 +201,16 @@
 			formError = 'La descripción es obligatoria.';
 			return;
 		}
-		const monto = parseFloat(form.monto.replace(',', '.'));
-		if (Number.isNaN(monto) || monto <= 0) {
+		// Normalizar ANTES de validar y enviar: el valor validado debe ser
+		// exactamente el transmitido (la coma es válida en es-CO pero el
+		// backend la rechaza). parseMontoLocal devuelve 0 para inválidos,
+		// que cae en el mensaje de error de abajo.
+		const monto = parseMontoLocal(form.monto);
+		if (monto <= 0) {
 			formError = 'El monto debe ser un número mayor que cero.';
 			return;
 		}
+		form.monto = normalizarMonto(form.monto);
 		guardando = true;
 		try {
 			if (editando && editandoId !== null) {

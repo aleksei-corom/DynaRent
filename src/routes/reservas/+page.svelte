@@ -15,7 +15,7 @@
 	import { session } from '#lib/stores/session.svelte.js';
 	import { businessLists } from '#lib/stores/business.svelte.js';
 	import { toast } from '#lib/stores/toast.svelte.js';
-	import { formatCOP, formatDate, formatLocalDateISO } from '#lib/utils/format.js';
+	import { formatCOP, formatDate, formatLocalDateISO, normalizarMonto, parseMontoLocal } from '#lib/utils/format.js';
 	import { normalizarTexto, textoIgual } from '#lib/utils/texto.js';
 	import { calcularDiasHoras } from '#lib/utils/calcularDiasHoras.js';
 	import { guardSesion, haySesion } from '#lib/utils/guards.js';
@@ -111,12 +111,14 @@
 	}
 
 	// ── Calculadora en vivo ──
+	// parseMontoLocal acepta coma decimal: parseFloat a secas trunca
+	// "85000,50" a 85000 y el total diverge del backend.
 	const totalCalc = $derived(
-		(parseFloat(form.valorDia) || 0) * form.diasCalculados +
-			(parseFloat(form.valorHoraAdic) || 0) * form.horasExtras +
-			(parseFloat(form.costoLavado) || 0)
+		parseMontoLocal(form.valorDia) * form.diasCalculados +
+			parseMontoLocal(form.valorHoraAdic) * form.horasExtras +
+			parseMontoLocal(form.costoLavado)
 	);
-	const saldoCalc = $derived(Math.max(0, totalCalc - (parseFloat(form.abono) || 0)));
+	const saldoCalc = $derived(Math.max(0, totalCalc - parseMontoLocal(form.abono)));
 
 	function recalcularDias() {
 		// Regla unificada (espejo del cierre de renta): cada 24 h = 1 día;
@@ -398,7 +400,13 @@
 			formError = 'La fecha de retorno no puede ser anterior a la recogida.';
 			return;
 		}
-		// El backend recalcula el total, pero se envía coherente con la calculadora
+		// El backend recalcula el total, pero se envía coherente con la
+		// calculadora. Los montos se normalizan a punto decimal: rust_decimal
+		// no acepta coma y un "85000,50" crudo se vuelve 0 en el backend.
+		form.valorDia = normalizarMonto(form.valorDia);
+		form.valorHoraAdic = normalizarMonto(form.valorHoraAdic);
+		form.costoLavado = normalizarMonto(form.costoLavado);
+		form.abono = normalizarMonto(form.abono);
 		form.total = totalCalc.toFixed(2);
 		guardando = true;
 		try {
