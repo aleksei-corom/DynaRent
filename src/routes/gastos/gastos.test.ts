@@ -191,6 +191,37 @@ describe('página de Gastos', () => {
 		await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 	});
 
+	it('crea un gasto con MONTO EN COMA decimal: valida, normaliza y envía el mismo valor', async () => {
+		tauri.register('listar_gastos', () => []);
+		const crear = vi.fn((_args: { sessionId: string; datos: GastoDatos }) => gasto({ id: 10 }));
+		tauri.register('crear_gasto', crear);
+
+		render(GastosPage);
+		await screen.findByText('No hay gastos');
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Registrar Gasto' }));
+		const dialogo = await screen.findByRole('dialog');
+
+		await fireEvent.change(within(dialogo).getByDisplayValue('Selecciona…'), {
+			target: { value: 'COMBUSTIBLE' }
+		});
+		await fireEvent.input(screen.getByPlaceholderText('Ej: Cambio de aceite 15W-40'), {
+			target: { value: 'Tanqueo con coma' }
+		});
+		// El input es texto con inputmode="decimal": la coma es entrada válida
+		// en es-CO y DEBE normalizarse antes del IPC (rust_decimal no la acepta)
+		await fireEvent.input(screen.getByPlaceholderText('Ej: 120000'), {
+			target: { value: '120000,50' }
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Registrar gasto' }));
+
+		await waitFor(() => expect(crear).toHaveBeenCalledTimes(1));
+		const args = crear.mock.calls[0][0] as { sessionId: string; datos: GastoDatos };
+		// Lo validado = lo transmitido: el monto llega normalizado a punto
+		expect(args.datos.monto).toBe('120000.5');
+	});
+
 	it('deshabilita la X y bloquea Esc mientras guarda (no pierde el progreso)', async () => {
 		tauri.register('listar_gastos', () => []);
 		// Promesa que nunca resuelve: el modal queda en estado «guardando».

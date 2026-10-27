@@ -8,6 +8,8 @@ import {
 	formatMoney,
 	getCurrencyCode,
 	getLocale,
+	normalizarMonto,
+	parseMontoLocal,
 	setCurrency,
 	truncate
 } from './format';
@@ -183,5 +185,48 @@ describe('setCurrency y formatMoney', () => {
 	it('fecha imposible en formatDate y formatDateTime → em dash', () => {
 		expect(formatDate('2026-02-30')).toBe('—');
 		expect(formatDateTime('2026-02-30')).toBe('—');
+	});
+});
+
+describe('parseMontoLocal / normalizarMonto (montos con coma decimal es-CO)', () => {
+	it('parseMontoLocal acepta coma y punto decimal', () => {
+		expect(parseMontoLocal('85000,50')).toBe(85000.5);
+		expect(parseMontoLocal('85000.50')).toBe(85000.5);
+		expect(parseMontoLocal(' 120000 ')).toBe(120000);
+	});
+
+	it('parseMontoLocal devuelve 0 para vacío, nulo, basura o número no finito', () => {
+		expect(parseMontoLocal('')).toBe(0);
+		expect(parseMontoLocal(null)).toBe(0);
+		expect(parseMontoLocal(undefined)).toBe(0);
+		expect(parseMontoLocal('abc')).toBe(0);
+		expect(parseMontoLocal(Number.NaN)).toBe(0);
+		expect(parseMontoLocal(Number.POSITIVE_INFINITY)).toBe(0);
+	});
+
+	it('parseMontoLocal pasa los números válidos tal cual', () => {
+		expect(parseMontoLocal(85000.5)).toBe(85000.5);
+		expect(parseMontoLocal(0)).toBe(0);
+	});
+
+	it('normalizarMonto PRESERVA strings ya válidos con punto (no recorta "150000.00")', () => {
+		expect(normalizarMonto('150000.00')).toBe('150000.00');
+		expect(normalizarMonto('-42.5')).toBe('-42.5');
+	});
+
+	it('normalizarMonto preserva el vacío (los campos opcionales no se llenan con "0")', () => {
+		expect(normalizarMonto('')).toBe('');
+		expect(normalizarMonto('  ')).toBe('');
+		expect(normalizarMonto(null)).toBe('');
+		expect(normalizarMonto(undefined)).toBe('');
+	});
+
+	it('normalizarMonto convierte la coma a punto', () => {
+		expect(normalizarMonto('85000,50')).toBe('85000.5');
+		expect(normalizarMonto('1200,99')).toBe('1200.99');
+	});
+
+	it('normalizarMonto convierte la basura en "0" (el backend la rechazaría con error genérico)', () => {
+		expect(normalizarMonto('abc')).toBe('0');
 	});
 });

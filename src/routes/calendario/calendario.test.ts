@@ -130,10 +130,33 @@ describe('página de Calendario', () => {
 
 		// Sin solapamientos
 		expect(screen.getByText(/0 conflictos de fechas detectados/)).toBeInTheDocument();
-		// La renta aparece en el día 1 del mes (chip R1) — esperar la carga async
+		// La renta aparece en el día 1 del mes (chip R1) - esperar la carga async
 		expect((await screen.findAllByText(/R1 · Cliente/)).length).toBeGreaterThan(0);
 		// La reserva aparece (chip Rv5)
 		expect((await screen.findAllByText(/Rv5 · Reserva/)).length).toBeGreaterThan(0);
+	});
+
+	it('omite rentas y reservas CANCELADAS del índice por día', async () => {
+		tauri.register('listar_rentas', () => [
+			renta(),
+			// Mismo rango que la renta activa pero cancelada: NO debe pintar chip
+			renta({ id: 2, estado: 'Cancelada', placa: 'ZZZ999' })
+		]);
+		tauri.register('listar_reservas', () => [
+			reserva(),
+			reserva({ id: 6, estado: 'Cancelada', placaAsignada: 'ZZZ999' })
+		]);
+
+		render(CalendarioPage);
+
+		// Los chips de los CANCELADOS jamás aparecen (los continue del índice)
+		await waitFor(() => {
+			expect(screen.getByText(/0 conflictos de fechas detectados/)).toBeInTheDocument();
+		});
+		// Dar tiempo a pintar antes de negar
+		expect((await screen.findAllByText(/R1 · Cliente/)).length).toBeGreaterThan(0);
+		expect(screen.queryByText(/R2 ·/)).not.toBeInTheDocument();
+		expect(screen.queryByText(/Rv6 ·/)).not.toBeInTheDocument();
 	});
 
 	it('detecta solapamiento de fechas del mismo vehículo', async () => {
