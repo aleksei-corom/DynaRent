@@ -14,7 +14,7 @@
 	import CopiarExistente from './CopiarExistente.svelte';
 	import SeccionFormulario from './SeccionFormulario.svelte';
 	import { geografia } from '#lib/utils/geografia.js';
-import Spinner from '#lib/components/Spinner.svelte';
+	import Spinner from '#lib/components/Spinner.svelte';
 
 	interface Props {
 		open: boolean;

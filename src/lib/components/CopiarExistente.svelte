@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Icon from './Icon.svelte';
-import Spinner from '#lib/components/Spinner.svelte';
+	import Spinner from '#lib/components/Spinner.svelte';
 
 	/** Resultado formateado para la lista del panel. */
 	export interface ResultadoCopiar {

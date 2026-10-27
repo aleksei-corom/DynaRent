@@ -6,7 +6,7 @@
 	import { toast } from '#lib/stores/toast.svelte.js';
 	import Modal from './Modal.svelte';
 	import Icon from './Icon.svelte';
-import Spinner from '#lib/components/Spinner.svelte';
+	import Spinner from '#lib/components/Spinner.svelte';
 
 	let {
 		open,

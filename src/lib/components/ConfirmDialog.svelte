@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Modal from './Modal.svelte';
-import Spinner from '#lib/components/Spinner.svelte';
+	import Spinner from '#lib/components/Spinner.svelte';
 
 	interface Props {
 		open: boolean;
