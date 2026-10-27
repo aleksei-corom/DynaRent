@@ -75,6 +75,15 @@ impl SessionStore {
     }
 
     /// Valida sesión y rol requerido
+    ///
+    /// Enforce del cambio obligatorio de contraseña también en los gates de
+    /// rol: `require_usuario_admin` / `require_informes` / `require_eliminacion`
+    /// protegen comandos administrativos (eliminar_*, backups, claves PII,
+    /// informes, SIMIT) que NO pasan por `commands::require_session`. Sin
+    /// este chequeo, un `admin/admin123` con el cambio pendiente podía
+    /// alcanzarlos por IPC saltándose el redirect del frontend (hallazgo H-1
+    /// de la revisión del 26-10). El unlock en caliente sigue funcionando:
+    /// `marcar_cambio_password_hecho` limpia el flag y el gate reabre.
     pub fn validate_role(
         &mut self,
         token: &str,
@@ -82,6 +91,11 @@ impl SessionStore {
     ) -> Result<SessionData, AppError> {
         let session = self.validate(token)?;
         if required_roles.is_empty() || required_roles.contains(&session.role.as_str()) {
+            if session.debe_cambiar_password {
+                return Err(AppError::Business(
+                    "Debe cambiar su contraseña antes de continuar.".into(),
+                ));
+            }
             Ok(session)
         } else {
             Err(AppError::Permission)
@@ -182,6 +196,22 @@ mod tests {
         let token = s.create(1, "x", "Operador", "X", false);
         s.destroy(&token);
         assert!(s.validate(&token).is_err());
+    }
+
+    #[test]
+    fn role_gate_bloquea_cambio_pendiente_y_reabre_tras_cambiar() {
+        // H-1: los gates de rol (require_usuario_admin / informes /
+        // eliminacion) deben bloquear igual que require_session mientras
+        // el cambio de contraseña esté pendiente.
+        let mut s = store();
+        let token = s.create(1, "nuevo", "Administrador", "Nuevo", true);
+        assert!(s.validate_role(&token, &["Administrador"]).is_err());
+        // El rol sigue siendo correcto: el bloqueo es SOLO por el flag
+        s.marcar_cambio_password_hecho("nuevo");
+        assert!(s.validate_role(&token, &["Administrador"]).is_ok());
+        // Un rol equivocado sigue dando Permission aunque el flag esté limpio
+        let token_op = s.create(2, "op", "Operador", "Op", false);
+        assert!(s.validate_role(&token_op, &["Administrador"]).is_err());
     }
 
     #[test]
