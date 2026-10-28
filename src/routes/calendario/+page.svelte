@@ -1,20 +1,25 @@
 <script lang="ts">
+	// Página del Calendario: orquestador de la carga y la navegación mensual.
+	//
+	// Tras P1-Calendario la página conserva la consulta de rentas/reservas, el
+	// índice por día, los solapamientos y el día seleccionado. La UI vive en:
+	//   - `components/CalendarioGrid.svelte` (cuadrícula mensual + chips)
+	//   - `components/CalendarioDetalleDia.svelte` (modal de detalle del día)
 	import { onMount } from 'svelte';
 	import { rentaApi, reservaApi, ApiError, type Renta, type Reserva } from '#lib/api.js';
 	import { sid } from '#lib/stores/session.svelte.js';
 	import { toast } from '#lib/stores/toast.svelte.js';
 	import { guardSesion } from '#lib/utils/guards.js';
-	import { formatLocalDateISO, formatMoney } from '#lib/utils/format.js';
+	import { formatLocalDateISO } from '#lib/utils/format.js';
 	import {
 		celdasDelMes,
-		diasSemanaCorto,
 		detectarSolapamientos,
 		nombreMes,
 		rangoCubreDia
 	} from '#lib/utils/calendario.js';
-	import Modal from '#lib/components/Modal.svelte';
-	import Icon from '#lib/components/Icon.svelte';
 	import Spinner from '#lib/components/Spinner.svelte';
+	import CalendarioGrid from './components/CalendarioGrid.svelte';
+	import CalendarioDetalleDia from './components/CalendarioDetalleDia.svelte';
 
 	// sid() viene del store (reemplaza `const sid = () => session.token ?? ''`). Ver TAREA E3.
 
@@ -164,19 +169,6 @@
 		return itemsPorDia[dia] ?? SIN_ITEMS;
 	}
 
-	function totalDia(dia: string): number {
-		const { rentas: r, reservas: rs } = itemsDelDia(dia);
-		return r.length + rs.length;
-	}
-
-	// Chip de color según tipo/estado
-	function chipClases(tipo: 'renta' | 'reserva', conflicto: boolean): string {
-		if (conflicto) return 'bg-peligro/15 text-peligro border-peligro/40';
-		return tipo === 'renta'
-			? 'bg-primary/10 text-primary border-primary/25'
-			: 'bg-alerta/10 text-alerta border-alerta/25';
-	}
-
 	// ── Panel de detalle del día ──
 	const detalleDia = $derived.by(() => {
 		if (!diaSeleccionado) return null;
@@ -211,11 +203,6 @@
 		].sort((a, b) => a.fechaRecogida.localeCompare(b.fechaRecogida));
 		return { dia: diaSeleccionado, items };
 	});
-
-	function fmtFecha(iso: string): string {
-		const d = new Date(iso + 'T00:00:00');
-		return d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
-	}
 </script>
 
 <svelte:head>
@@ -293,159 +280,9 @@
 		</div>
 	{:else}
 		<!-- Grid -->
-		<div class="card overflow-hidden">
-			<div class="grid grid-cols-7 border-b border-border">
-				{#each diasSemanaCorto() as d, i (d)}
-					<div
-						class="px-2 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-text-secondary {i >=
-						5
-							? 'text-alerta/80'
-							: ''}"
-					>
-						{d}
-					</div>
-				{/each}
-			</div>
-			{#each semanas as semana, si (si)}
-				<div class="grid grid-cols-7">
-					{#each semana as celda (celda.dia)}
-						{@const nDia = totalDia(celda.dia)}
-						{@const esDiaActual = celda.dia === diaSeleccionado}
-						<button
-							class="min-h-24 p-1.5 border-b border-r border-border/60 text-left align-top transition-colors
-								{celda.enMes ? 'bg-surface' : 'bg-alt-row/30'}
-								hover:bg-primary/5
-								{esDiaActual ? 'ring-2 ring-primary ring-inset' : ''}"
-							onclick={() => (diaSeleccionado = celda.dia)}
-							aria-label={`Día ${celda.dia}${nDia > 0 ? `, ${nDia} evento${nDia === 1 ? '' : 's'}` : ''}`}
-						>
-							<div class="flex items-center justify-between">
-								<span
-									class="text-xs font-semibold tabular-nums {celda.enMes
-										? celda.hoy
-											? 'text-primary'
-											: 'text-text-primary'
-										: 'text-text-secondary/50'}"
-								>
-									{Number(celda.dia.slice(8, 10))}
-								</span>
-								{#if nDia > 0}
-									<span
-										class="inline-flex items-center justify-center rounded-full bg-primary/10 text-primary text-[10px] font-bold tabular-nums px-1.5 py-0.5"
-									>
-										{nDia}
-									</span>
-								{/if}
-							</div>
-							{#if celda.enMes}
-								{@const { rentas: r, reservas: rs } = itemsDelDia(celda.dia)}
-								<div class="mt-1 space-y-1">
-									{#each r.slice(0, 3) as x (x.id)}
-										<span
-											class="block truncate rounded border px-1 py-0.5 text-[10px] font-semibold leading-tight {chipClases(
-												'renta',
-												idsEnConflicto.has(x.id)
-											)}"
-											title={`Renta #${x.id} · ${x.nombreCliente}`}
-										>
-											R{x.id} · {x.nombreCliente.split(' ')[0]}
-										</span>
-									{/each}
-									{#each rs.slice(0, 3) as x (x.id)}
-										<span
-											class="block truncate rounded border px-1 py-0.5 text-[10px] font-semibold leading-tight {chipClases(
-												'reserva',
-												idsEnConflicto.has(x.id)
-											)}"
-											title={`Reserva #${x.id} · ${x.nombreCliente}`}
-										>
-											Rv{x.id} · {x.nombreCliente.split(' ')[0]}
-										</span>
-									{/each}
-									{#if r.length + rs.length > 3}
-										<span class="block text-[10px] text-text-secondary font-medium"
-											>+{r.length + rs.length - 3} más</span
-										>
-									{/if}
-								</div>
-							{/if}
-						</button>
-					{/each}
-				</div>
-			{/each}
-		</div>
+		<CalendarioGrid {semanas} {itemsPorDia} {idsEnConflicto} bind:diaSeleccionado />
 	{/if}
 </div>
 
 <!-- Panel de detalle del día -->
-<Modal
-	open={detalleDia !== null}
-	title={detalleDia
-		? `Ocupación del ${new Date(detalleDia.dia + 'T00:00:00').toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })}`
-		: ''}
-	subtitle="Rentas y reservas que cubren este día. En rojo: vehículos con fechas solapadas."
-	onClose={() => (diaSeleccionado = null)}
-	width="max-w-2xl"
->
-	{#if detalleDia}
-		{#if detalleDia.items.length === 0}
-			<p class="text-sm text-text-secondary py-6 text-center">
-				Sin rentas ni reservas este día. <Icon
-					name="sparkles"
-					class="w-4 h-4 inline-block align-[-2px] text-primary"
-				/>
-			</p>
-		{:else}
-			<div class="space-y-2">
-				{#each detalleDia.items as it (`${it.tipo}-${it.id}`)}
-					<div
-						class="rounded-xl border p-3.5 flex items-start justify-between gap-3 transition-colors
-						{it.conflicto ? 'border-peligro/40 bg-peligro/5' : 'border-border bg-alt-row/40'}"
-					>
-						<div class="min-w-0">
-							<p class="font-semibold text-text-primary flex items-center gap-2">
-								<span
-									class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide {it.tipo ===
-									'renta'
-										? 'bg-primary/10 text-primary'
-										: 'bg-alerta/10 text-alerta'}"
-								>
-									{it.tipo === 'renta' ? `Renta #${it.id}` : `Reserva #${it.id}`}
-								</span>
-								<span class="truncate">{it.nombre}</span>
-							</p>
-							<p class="text-xs text-text-secondary mt-1 truncate">
-								<span class="font-mono">{it.placa}</span> · {it.vehiculo} · {fmtFecha(
-									it.fechaRecogida
-								)} → {fmtFecha(it.fechaRetorno)}
-							</p>
-							{#if it.conflicto}
-								<p class="text-xs font-semibold text-peligro mt-1">
-									<Icon name="alert" class="w-3.5 h-3.5 inline-block align-[-2px] mr-1" />Vehículo
-									con fechas solapadas con otra renta/reserva
-								</p>
-							{/if}
-						</div>
-						<div class="text-right shrink-0">
-							<p class="font-bold text-text-primary tabular-nums">
-								<!-- Total con la moneda activa de la empresa (formatMoney dinámico
-								     vía el store de empresa; COP por defecto, sin decimales). -->
-								{Number(it.total) > 0 ? formatMoney(Number(it.total)) : '—'}
-							</p>
-							<span
-								class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold mt-1
-								{it.estado === 'Cancelada'
-									? 'border-peligro/30 text-peligro'
-									: it.estado === 'Cerrada'
-										? 'border-exito/30 text-exito'
-										: 'border-primary/30 text-primary'}"
-							>
-								{it.estado}
-							</span>
-						</div>
-					</div>
-				{/each}
-			</div>
-		{/if}
-	{/if}
-</Modal>
+<CalendarioDetalleDia detalle={detalleDia} onClose={() => (diaSeleccionado = null)} />
