@@ -6,12 +6,14 @@
 > `INSTALACION_OPERACIONES.md` (instalación + historial de versiones),
 > `DEPLOYMENT_CLIENTES.md` (despliegue a clientes) y `ANUNCIO_RELEASE_TEMPLATE.md` (mensajes de anuncio).
 >
-> **📋 Objetivo actual: v1.2.8 — PUBLICADA (2026-10-27).**
-> Bypass del cambio obligatorio de contraseña cerrado en los gates de rol (H-1),
-> montos con coma decimal seguros, pagos con guard estructural, sync web
-> endurecido, change_password/PII en spawn_blocking, calendario O(1) y 4
-> RUSTSEC del stack TLS parcheadas. E2E del updater validada sin máquina;
-> 5 assets firmados.
+> **📋 Objetivo actual: v1.2.9 — EN PREPARACIÓN (2026-10-28).**
+> Mantenimiento y calidad: rentas/reservas/comparendos/usuarios/autos
+> descompuestas en componentes (1946→750, 1248→328, 1147→507, 745→186,
+> 712→190) sin cambios de comportamiento, `cancelarImpresion()` para el blanco
+> total al cerrar la impresión, moneda del calendario según empresa, login async
+> por fases, `gbak` sin contraseña en `argv`, `ts-rs` retirado, Vitest 5 y flake
+> de comparendos cerrado. Cobertura 82.29 % (799 tests). Sin migraciones ni
+> cambios de esquema.
 
 ---
 

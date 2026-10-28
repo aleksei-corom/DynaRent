@@ -6,6 +6,82 @@ Las versiones se publican como [releases en GitHub](https://github.com/CORJAR-Co
 
 ---
 
+## [v1.2.9] — 2026-10-28
+
+Versión de mantenimiento: descompone las cinco rutas más grandes en componentes
+(sin cambios de comportamiento), cierra deuda técnica del backend y actualiza el
+stack de pruebas. No hay cambios de esquema ni migraciones: la BD existente abre
+tal cual.
+
+### Corregido
+- **Cerrar el modal de impresión dejaba la app en blanco**: si se cerraba durante
+  la ventana de espera de fuentes/logo (hasta 1500 ms), `printing-clone` quedaba
+  huérfano en el `body` y `app.css` ocultaba todo lo demás hasta completar el
+  diálogo de impresión. Nuevo `cancelarImpresion()` (cancela los timers, evita el
+  print fantasma y ejecuta la misma limpieza que `afterprint`), aplicado en
+  rentas y reservas; +1 test de regresión con fake timers.
+- **`confirm()` nativo → `ConfirmDialog`** en claves PII y truncado de logs: ahora
+  hay focus trap, botón deshabilitado mientras procesa y Spinner (el `confirm()`
+  de WebView2 permitía doble clic y disparaba dos truncados).
+- **Calendario multi-moneda**: el panel de detalle formateaba siempre en COP con
+  un `Intl.NumberFormat` propio; ahora usa `formatMoney()` (moneda del store de
+  empresa). +1 test con `setCurrency('USD')`.
+- **Exportación sin doble clic** en los informes; iconos del dashboard
+  corregidos y el badge de reservas web ya no muestra un conteo obsoleto cuando
+  la consulta falla (marca el error en vez de fingir «0 pendientes»).
+
+### Rendimiento
+- **Login async por fases** (H-3): `AuthService::login` se divide en
+  `login_checks` → `login_verify` (Argon2id + re-hash legacy) → `login_finish`;
+  el comando Tauri corre la verificación en `spawn_blocking`, así que los
+  ~100-300 ms de cómputo ya no congelan la ventana de login. `login()` queda
+  como composición síncrona para no romper los tests de integración.
+- **`gbak` sin contraseña en `argv`**: backup y restauración la pasan por
+  `ISC_PASSWORD` (entorno) — antes era legible por cualquier proceso local
+  (Task Manager / WMI).
+
+### Cambiado
+- **Refactor de las cinco rutas más grandes**, sin cambios de comportamiento:
+  - `rentas/+page.svelte` **1946 → 750** líneas (`ModalFormRenta`,
+    `RentasListado`, `ModalImpresionRenta`).
+  - `reservas/+page.svelte` **1248 → 328** (`ModalFormReserva`,
+    `ReservasListado`, `ModalImpresionReserva`).
+  - `comparendos/+page.svelte` **1147 → 507** (`ComparendosListado`,
+    `PanelAgenteSimit`, `ModalFormComparendo`, `ModalImpresionComparendo`).
+  - `usuarios/+page.svelte` **745 → 186** (`UsuariosListado`,
+    `ModalFormUsuario`, `ModalForzarPassword`).
+  - `autos/+page.svelte` **712 → 190** (`AutosListado`, `ModalFormAuto`).
+
+  Las páginas quedan como orquestadores (datos, filtros con debounce, secuencia
+  anti-carrera, confirmaciones); los formularios reinician el borrador con un
+  token `sesion` no reactivo + `$effect` guardado, así que recargas de
+  clientes/vehículos/listas ya no pisan lo que el usuario está escribiendo. El
+  markup y los textos se movieron verbatim y los tests de cada página (33
+  reservas, 60 comparendos, 16 usuarios, 20 autos) pasan sin tocarlos.
+- **Debounce centralizado** en las 7 rutas que aún duplicaban el patrón manual
+  (`useDebouncedEffect`); `immediateIf` agrupa los cambios del mismo tick en una
+  sola recarga (antes «desde»+«hasta» en auditoría disparaban dos).
+
+### Mantenimiento
+- **`ts-rs` retirado**: generaba tipos en `src/lib/types/generated/`, carpeta que
+  no existía y que ningún consumidor importaba. El contrato FE↔BE sigue manual
+  en `src/lib/api.ts`, cubierto por `devGuard` y los tests de comportamiento.
+- **SQL muerto eliminado** en `repositories/renta.rs`: 6 métodos sin llamadores
+  cuyo SQL ya había divergido del servicio (no actualizaban `valor_neto`).
+- **Dependencias**: Vitest 5.0.5 + `@vitest/coverage-v8` 5.0.5 (en pareja),
+  testing-library/jsdom, `serial_test` 4.0.1, `@tauri-apps/api` y `cli` 2.12.x,
+  stack Rust de Tauri emparejado con el JS (tauri 2.12.5 y plugins), `sha2`,
+  `actions/cache` v6, `actions/upload-artifact` v7. `bun.lock` regenerado.
+- **CI**: `cargo-audit` vía binario precompilado (~10 s en vez de 2-4 min por
+  run); el smoke sube sus PDF/capturas con `include-hidden-files` y reintenta el
+  clic de «Imprimir orden» cuando el listado se recarga tras el pago.
+- **Flake de comparendos corregido en el test** (esperaba a que «Descargar
+  Excel» estuviera habilitado, carrera contra `simit_sync_status`): suite
+  paralela estable.
+- Cobertura de ramas **82.29 %** (799 tests, 63 archivos; piso 81.9).
+
+---
+
 ## [v1.2.8] — 2026-10-27
 
 ### Corregido

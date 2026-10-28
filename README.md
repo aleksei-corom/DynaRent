@@ -7,18 +7,18 @@
 
 ## ⬇️ Descarga e instalación (usuarios finales)
 
-> **Última versión estable: [v1.2.8](https://github.com/aleksei-corom/DynaRent/releases/tag/v1.2.8)** — con auto-update activo (firma validada contra la clave de producción), bypass de cambio de contraseña cerrado en los gates de rol, montos con coma decimal seguros (financiero), sync web endurecido, UI sin bloqueos ampliada (cambio de contraseña, PII) y 4 vulnerabilidades RUSTSEC parcheadas.
+> **Última versión estable: [v1.2.9](https://github.com/aleksei-corom/DynaRent/releases/tag/v1.2.9)** — mantenimiento y calidad: rentas, reservas, comparendos, usuarios y autos descompuestas en componentes sin cambiar comportamiento, la app ya no queda en blanco al cerrar la vista previa de impresión, moneda del calendario según la empresa, login sin congelar la ventana y stack de pruebas al día (Vitest 5).
 
 ### 1. Descargar el instalador
 
-Ve a la página de [releases de GitHub](https://github.com/aleksei-corom/DynaRent/releases) y descarga la **v1.2.8**:
+Ve a la página de [releases de GitHub](https://github.com/aleksei-corom/DynaRent/releases) y descarga la **v1.2.9**:
 
 | Instalador | Cuándo usarlo |
 |---|---|
-| `DynaRent_1.2.8_x64-setup.exe` (NSIS, ~22 MB) | **Recomendado** — instalación asistida con selección de modo (per-user / per-machine) |
-| `DynaRent_1.2.8_x64_en-US.msi` (MSI, ~32 MB) | Despliegue empresarial / GPO (instalación silenciosa con `msiexec`) |
+| `DynaRent_1.2.9_x64-setup.exe` (NSIS, ~22 MB) | **Recomendado** — instalación asistida con selección de modo (per-user / per-machine) |
+| `DynaRent_1.2.9_x64_en-US.msi` (MSI, ~32 MB) | Despliegue empresarial / GPO (instalación silenciosa con `msiexec`) |
 
-> ⚠️ **No uses la v1.0.0** (descontinuada): en equipos nuevos sin BD previa se colgaba antes de llegar al Login. Si ya la tienes instalada **con datos**, no necesitas desinstalar — la v1.2.8 abre tu BD actual tal cual.
+> ⚠️ **No uses la v1.0.0** (descontinuada): en equipos nuevos sin BD previa se colgaba antes de llegar al Login. Si ya la tienes instalada **con datos**, no necesitas desinstalar — la v1.2.9 abre tu BD actual tal cual.
 
 ### 2. Instalar
 

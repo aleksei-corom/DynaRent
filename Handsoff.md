@@ -1,6 +1,6 @@
 # Handsoff — Dynarent ERP (Tauri + SvelteKit + Firebird)
 
-> Última actualización: **2026-10-27** · Estado: **release v1.2.8 publicada y verificada** (bypass del cambio de contraseña cerrado en los gates de rol — H-1; montos con coma decimal normalizados antes del IPC; pagos con UPDATE con guard antes del INSERT — H-2; change_password y PII en spawn_blocking — H-3; sync web endurecido; calendario O(1); 4 RUSTSEC TLS parcheadas; 795 tests con 82.05% de ramas) · E2E del updater validada · auto-update plenamente funcional desde v1.2.5 · CI en Node 24
+> Última actualización: **2026-10-28** · Estado: **v1.2.9 etiquetada** — mantenimiento y calidad: cinco rutas descompuestas sin cambios de comportamiento — §7.7; `cancelarImpresion()` para el blanco al cerrar la vista previa; `ConfirmDialog` en PII/logs; calendario con la moneda de la empresa; login async por fases — H-3; `gbak` sin contraseña en `argv`; `ts-rs` retirado; Vitest 5 · auto-update plenamente funcional desde v1.2.5 · CI en Node 24 · 799 tests con 82.29 % de ramas
 
 > **Instalación limpia validada de punta a punta (11-08, noche):** se cerró el hueco del
 > release v1.0.0 en equipos nuevos (la app se colgaba esperando una BD inexistente).
@@ -305,13 +305,14 @@ Proyecto de renta de vehículos: frontend **SvelteKit 5** (`src/`), backend **Ta
 
 | Validación | Resultado |
 |---|---|
-| Vitest (frontend) | **190/190** en 25 archivos |
+| Vitest (frontend) | **799/799** en 63 archivos (ramas 82.29 %; piso del ratchet 81.9) |
 | `npm run check` (svelte-check) | **0 errores / 0 warnings** |
 | `npm run build` (vite) | ✅ |
-| `cargo test` (Rust) | ✅ unit (32, incl. 9 del Agente SIMIT) + integraciones por módulo (comparendos ahora 4) |
+| `cargo test` (Rust) | ✅ **104** unit en la lib + integraciones por módulo |
 | `cargo check --tests` | ✅ 0 errores |
-| `cargo clippy --lib` | ✅ código nuevo limpio; quedan 6 warnings pre-existentes (migrations.rs ×2, informe.rs ×1, renta.rs ×2, services/renta.rs ×1) |
-| `npm run lint` | ✅ **0 problemas** (config corregida el 10-08 — ver §3) |
+| `cargo clippy --lib` | ✅ **0 warnings** (`-D warnings` en el pre-commit) |
+| `npm run lint` | ✅ **0 problemas** |
+| Prettier | ✅ `npx prettier --check src` (el hook NO lo corre: ejecutarlo antes de push) |
 
 **Regla crítica de rsfbclient:** solo implementa `FromRow` para tuplas de **≤26 elementos**
 y `IntoParams` para tuplas de **≤15**. Cualquier SELECT largo debe partirse en dos consultas
@@ -1147,3 +1148,43 @@ abortada (os error 10053). Fix en el helper compartido `servidor_http` de `simit
   `TimedOut` sigue siendo el único panic legítimo.
 
 Validación: simit 14/14, 5 corridas consecutivas verdes, lib 80/80, y el CI del push en verde.
+
+### 7.7 - Páginas como orquestadores: fin de los monolitos de ruta (2026-10-28, v1.2.9)
+
+Las cinco rutas con más lógica (`rentas`, `reservas`, `comparendos`, `usuarios`,
+`autos`) mezclaban en un solo `+page.svelte` el estado de datos, los filtros, las
+confirmaciones y toda la UI. Ya están partidas con el mismo patrón; **usarlo al
+tocar una ruta grande o al crear una nueva**:
+
+| Ruta | Antes | Después | Componentes |
+|---|---|---|---|
+| `rentas` | 1946 | 750 | `ModalFormRenta`, `RentasListado`, `ModalImpresionRenta` |
+| `reservas` | 1248 | 328 | `ModalFormReserva`, `ReservasListado`, `ModalImpresionReserva` |
+| `comparendos` | 1147 | 507 | `ComparendosListado`, `PanelAgenteSimit`, `ModalFormComparendo`, `ModalImpresionComparendo` |
+| `usuarios` | 745 | 186 | `UsuariosListado`, `ModalFormUsuario`, `ModalForzarPassword` |
+| `autos` | 712 | 190 | `AutosListado`, `ModalFormAuto` |
+
+Reglas del patrón:
+
+- **La página es el orquestador**: `onMount`/cargas, secuencia anti-carrera
+  (`crearSecuencia`), `useDebouncedEffect` para filtros, toasts, `ConfirmDialog` y las
+  llamadas al backend. Los componentes reciben datos y devuelven intenciones por
+  callback (`onEditar`, `onPagar`, …).
+- **Los filtros se comparten con `bind:`** (búsqueda/estado/placa/checkbox) para que la
+  página siga decidiendo cuándo recargar; el listado no llama al backend.
+- **Apertura del formulario con token `sesion`**: la página incrementa un contador en
+  cada apertura y el modal lo recibe como prop. Dentro, `let ultimaSesion = -1`
+  (NO reactivo) + `$effect` que solo reinicia el borrador cuando `sesion` cambia. Sin
+  esto, un re-render por `clientes`/`autos` pisaba lo que el usuario escribía.
+- **Paneles auxiliares como `Snippet`**: `ComparendosListado` recibe el panel del Agente
+  SIMIT por `panel` y lo renderiza entre encabezado y filtros, conservando el orden del
+  layout sin que el listado conozca al agente.
+- **Markup verbatim**: al mover bloques no se reescriben clases, textos ni `aria-label`
+  (los tests de la página son el contrato). Para verificarlo se comparó el texto y los
+  atributos (`placeholder`, `title`, `aria-label`, `emptyTitle`, …) del `HEAD` anterior
+  contra la suma de los componentes nuevos; solo deben aparecer los callbacks/props.
+- **Impresión**: el modal de impresión cierra con `onClose()` + `cancelarImpresion()`
+  (deja limpio `printing-clone`); no reimplementar la limpieza a mano.
+
+Pendientes con el mismo patrón (por tamaño): `mantenimiento` (646) y `gastos`
+(579).
