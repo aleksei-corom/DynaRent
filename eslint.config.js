@@ -110,6 +110,13 @@ export default [
 			// (p. ej. `T` en DataTable.svelte) ni las runes; svelte-check
 			// (npm run check) sí detecta variables indefinidas.
 			'no-undef': 'off',
+			// La regla exige `resolve()` (typed routes) para goto()/href.
+			// El proyecto NO usa typedRoutes: todas las rutas son strings
+			// planos validados por svelte-check contra las rutas reales.
+			// Activada por defecto desde eslint-plugin-svelte 3.24 (bump de
+			// la cascada de Dependabot del 28-10). Reactivar junto con
+			// `kit.typedRoutes` si algún día se adopta.
+			'svelte/no-navigation-without-resolve': 'off',
 			// Sin `any` sin justificación. Si necesitas uno, usa `eslint-disable-next-line`
 			// con un comentario explicando por qué. No es error para no romper el build.
 			'@typescript-eslint/no-explicit-any': 'error',
