@@ -50,7 +50,7 @@
 	import ModalInspeccionRenta from './components/ModalInspeccionRenta.svelte';
 	import ModalEditarCerrada from './components/ModalEditarCerrada.svelte';
 	import ModalExtenderRenta from './components/ModalExtenderRenta.svelte';
-	import { imprimirDocumento } from '#lib/utils/imprimir.js';
+	import { imprimirDocumento, cancelarImpresion } from '#lib/utils/imprimir.js';
 	import { useDebouncedEffect } from '#lib/utils/debounce.svelte.js';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
@@ -851,9 +851,9 @@
 
 	function cerrarImpresion() {
 		imprimirRenta = null;
-		if (typeof document !== 'undefined') {
-			document.body.classList.remove('printing');
-		}
+		// Si se cierra durante la ventana de espera, cancela la impresión
+		// (sin esto, printing-clone queda en el body y oculta toda la app).
+		cancelarImpresion();
 	}
 
 	// ── Contrato (documento separado de la orden, papel Carta) ──
@@ -864,9 +864,9 @@
 
 	function cerrarContrato() {
 		imprimirContrato = null;
-		if (typeof document !== 'undefined') {
-			document.body.classList.remove('printing');
-		}
+		// Si se cierra durante la ventana de espera, cancela la impresión
+		// (sin esto, printing-clone queda en el body y oculta toda la app).
+		cancelarImpresion();
 	}
 
 	// ── Presentación ──

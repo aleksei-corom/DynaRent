@@ -1,9 +1,10 @@
 // src/lib/utils/imprimir.test.ts — impresión de documentos:
 // clonado del área imprimible, renombrado de document.title según el
-// documento, guardas (sin área / impresión en curso) y limpieza con
-// el evento afterprint.
+// documento, guardas (sin área / impresión en curso), limpieza con
+// el evento afterprint y cancelación a mitad de la espera
+// (regresión de la pantalla en blanco por `printing-clone`).
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { imprimirDocumento } from './imprimir';
+import { imprimirDocumento, cancelarImpresion } from './imprimir';
 
 function montarArea(clase: string, conImg = false) {
 	const area = document.createElement('div');
@@ -115,6 +116,47 @@ describe('imprimirDocumento', () => {
 			window.dispatchEvent(new Event('afterprint'));
 		} finally {
 			Reflect.deleteProperty(document as unknown as object, 'fonts');
+		}
+	});
+
+	it('cancelarImpresion aborta la espera y limpia TODO el estado (regresión: pantalla en blanco)', async () => {
+		vi.useFakeTimers();
+		// fonts.ready que nunca resuelve: la carrera solo puede ganarla el
+		// tope de 1500 ms, así la impresión queda realmente «en espera».
+		Object.defineProperty(document, 'fonts', {
+			value: { ready: new Promise(() => {}) },
+			configurable: true
+		});
+		try {
+			montarArea('contrato-carta');
+			const tituloOriginal = document.title;
+
+			imprimirDocumento();
+
+			// Impresión en curso: clases, clon, título renombrado y tope pendiente.
+			expect(document.body.classList).toContain('printing');
+			expect(document.body.classList).toContain('printing-clone');
+			expect(document.getElementById('print-clone')).toBeInTheDocument();
+			expect(document.title).toBe('Contrato de renta');
+			expect(vi.getTimerCount()).toBe(1);
+
+			// El usuario cierra el modal a mitad de la espera:
+			cancelarImpresion();
+
+			// Mismo estado que limpiar(): AMBAS clases fuera, sin clon,
+			// título original y sin timers pendientes.
+			expect(document.body.classList).not.toContain('printing');
+			expect(document.body.classList).not.toContain('printing-clone');
+			expect(document.getElementById('print-clone')).not.toBeInTheDocument();
+			expect(document.title).toBe(tituloOriginal);
+			expect(vi.getTimerCount()).toBe(0);
+
+			// El tope cancelado ya no dispara window.print().
+			await vi.advanceTimersByTimeAsync(2000);
+			expect(printSpy).not.toHaveBeenCalled();
+		} finally {
+			Reflect.deleteProperty(document as unknown as object, 'fonts');
+			vi.useRealTimers();
 		}
 	});
 });

@@ -7,6 +7,7 @@
 	import Modal from './Modal.svelte';
 	import Icon from './Icon.svelte';
 	import Spinner from '#lib/components/Spinner.svelte';
+	import ConfirmDialog from './ConfirmDialog.svelte';
 
 	let {
 		open,
@@ -26,6 +27,9 @@
 	let guardando = $state(false);
 	let probandoError = $state('');
 	let probandoInfo = $state('');
+	// Diálogo de confirmación de borrado (en vez de window.confirm nativo)
+	let confirmarEliminarOpen = $state(false);
+	let confirmandoEliminar = $state(false);
 
 	// Cargar el estado actual al abrir
 	$effect(() => {
@@ -94,21 +98,20 @@
 	}
 
 	async function eliminar() {
-		if (
-			!confirm('¿Eliminar la clave PII configurada? Los datos Fernet legacy volverán a ocultarse.')
-		)
-			return;
-		guardando = true;
+		confirmandoEliminar = true;
 		try {
 			const r = await piiApi.eliminar(sid());
 			estado = r.analisis;
 			toast.success('Clave PII eliminada.');
+			confirmarEliminarOpen = false;
 			onSaved?.();
 			onClose();
 		} catch (e) {
 			probandoError = e instanceof ApiError ? e.message : 'No se pudo eliminar la clave.';
+			// Cerrar el diálogo para que la alerta del formulario sea visible.
+			confirmarEliminarOpen = false;
 		} finally {
-			guardando = false;
+			confirmandoEliminar = false;
 		}
 	}
 
@@ -249,8 +252,8 @@
 		{#if tieneClave}
 			<button
 				class="btn-ghost px-3! py-1.5! text-xs text-peligro hover:text-peligro"
-				onclick={eliminar}
-				disabled={guardando}
+				onclick={() => (confirmarEliminarOpen = true)}
+				disabled={guardando || confirmandoEliminar}
 			>
 				Eliminar clave
 			</button>
@@ -269,3 +272,14 @@
 		</button>
 	{/snippet}
 </Modal>
+
+<!-- Confirmación de eliminación (diálogo accesible apilado, no confirm()) -->
+<ConfirmDialog
+	open={confirmarEliminarOpen}
+	title="Eliminar clave PII"
+	message="¿Eliminar la clave PII configurada? Los datos Fernet legacy volverán a ocultarse."
+	confirmLabel="Eliminar"
+	loading={confirmandoEliminar}
+	onConfirm={eliminar}
+	onCancel={() => (confirmarEliminarOpen = false)}
+/>

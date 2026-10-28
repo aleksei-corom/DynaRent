@@ -3,7 +3,7 @@
 // clave con sus tres resultados (descifra / no descifra / error), visibilidad
 // de la clave y bloqueos durante el guardado.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/svelte';
 import PiiKeyDialog from './PiiKeyDialog.svelte';
 import { tauri } from '../../test/tauri';
 import type { PiiAnalisis } from '#lib/api.js';
@@ -37,7 +37,6 @@ beforeEach(() => {
 	tauri.register('probar_clave_pii', probarSpy);
 	tauri.register('guardar_clave_pii', guardarSpy);
 	tauri.register('eliminar_clave_pii', eliminarSpy);
-	vi.spyOn(window, 'confirm').mockReturnValue(true);
 });
 
 afterEach(() => {
@@ -235,23 +234,40 @@ describe('PiiKeyDialog — guardar clave', () => {
 });
 
 describe('PiiKeyDialog — eliminar clave', () => {
-	it('cancelar el confirm NO elimina', async () => {
-		vi.spyOn(window, 'confirm').mockReturnValue(false);
-		statusSpy.mockResolvedValue(analisis({ claveConfigurada: true }));
-		renderDialog();
-		await screen.findByText('Clave configurada');
-
+	/** Abre el diálogo de confirmación apilado y lo devuelve para interactuar. */
+	async function abrirConfirmacion() {
 		await fireEvent.click(screen.getByRole('button', { name: 'Eliminar clave' }));
+		// El ConfirmDialog se apila sobre el modal principal (pila de modales):
+		// localizarlo por su título accesible para no chocar con los botones
+		// «Cancelar»/«Eliminar clave» del diálogo de abajo.
+		return await screen.findByRole('dialog', { name: 'Eliminar clave PII' });
+	}
 
-		expect(eliminarSpy).not.toHaveBeenCalled();
-	});
-
-	it('confirmar elimina, refresca y cierra', async () => {
+	it('cancelar el diálogo de confirmación NO elimina', async () => {
 		statusSpy.mockResolvedValue(analisis({ claveConfigurada: true }));
 		const { onClose, onSaved } = renderDialog();
 		await screen.findByText('Clave configurada');
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Eliminar clave' }));
+		const confirmacion = await abrirConfirmacion();
+		await fireEvent.click(within(confirmacion).getByRole('button', { name: 'Cancelar' }));
+
+		expect(eliminarSpy).not.toHaveBeenCalled();
+		expect(onSaved).not.toHaveBeenCalled();
+		expect(onClose).not.toHaveBeenCalled();
+		// El diálogo de confirmación se cierra; el principal sigue abierto.
+		await waitFor(() =>
+			expect(screen.queryByRole('dialog', { name: 'Eliminar clave PII' })).not.toBeInTheDocument()
+		);
+		expect(screen.getByRole('dialog', { name: /Clave de cifrado/ })).toBeInTheDocument();
+	});
+
+	it('confirmar el diálogo SÍ elimina, refresca y cierra', async () => {
+		statusSpy.mockResolvedValue(analisis({ claveConfigurada: true }));
+		const { onClose, onSaved } = renderDialog();
+		await screen.findByText('Clave configurada');
+
+		const confirmacion = await abrirConfirmacion();
+		await fireEvent.click(within(confirmacion).getByRole('button', { name: 'Eliminar' }));
 
 		await waitFor(() => expect(eliminarSpy).toHaveBeenCalledTimes(1));
 		expect(onSaved).toHaveBeenCalledTimes(1);
@@ -264,7 +280,8 @@ describe('PiiKeyDialog — eliminar clave', () => {
 		const { onClose } = renderDialog();
 		await screen.findByText('Clave configurada');
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Eliminar clave' }));
+		const confirmacion = await abrirConfirmacion();
+		await fireEvent.click(within(confirmacion).getByRole('button', { name: 'Eliminar' }));
 
 		expect(await screen.findByRole('alert')).toHaveTextContent('config.ini bloqueado');
 		expect(onClose).not.toHaveBeenCalled();

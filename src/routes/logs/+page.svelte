@@ -5,6 +5,7 @@
 	import { toast } from '#lib/stores/toast.svelte.js';
 	import { formatLocalDateISO } from '#lib/utils/format.js';
 	import { guardSesion, tieneRol } from '#lib/utils/guards.js';
+	import ConfirmDialog from '#lib/components/ConfirmDialog.svelte';
 	import { goto } from '$app/navigation';
 
 	// Solo admin
@@ -18,6 +19,8 @@
 	let lineasFrontend = $state(200);
 	let exportando = $state(false);
 	let limpiando = $state(false);
+	// Diálogo de confirmación del truncado (en vez de confirm() nativo)
+	let confirmarTruncarOpen = $state(false);
 
 	// Flechas del patrón APG para tabs: el foco y la selección se mueven juntos
 	// (roving tabindex); Home/End van a los extremos.
@@ -95,11 +98,11 @@
 	}
 
 	async function limpiarLogs() {
-		if (!confirm('¿Truncar los archivos de log? Esta acción no se puede deshacer.')) return;
 		limpiando = true;
 		try {
 			const eliminados = await logApi.limpiar(sid());
 			toast.success(`Logs truncados: ${eliminados} archivo(s)`);
+			confirmarTruncarOpen = false;
 			await cargarLogs();
 		} catch (e) {
 			toast.error(e instanceof ApiError ? e.message : 'Error limpiando logs');
@@ -137,7 +140,11 @@
 						<span aria-hidden="true">💾</span> Exportar archivo
 					{/if}
 				</button>
-				<button class="btn-ghost text-sm text-peligro" onclick={limpiarLogs} disabled={limpiando}>
+				<button
+					class="btn-ghost text-sm text-peligro"
+					onclick={() => (confirmarTruncarOpen = true)}
+					disabled={limpiando}
+				>
 					<span aria-hidden="true">🗑️</span> Truncar
 				</button>
 			</div>
@@ -202,3 +209,14 @@
 		</div>
 	</div>
 {/if}
+
+<!-- Confirmación del truncado (diálogo accesible, no confirm()) -->
+<ConfirmDialog
+	open={confirmarTruncarOpen}
+	title="Truncar logs"
+	message="¿Truncar los archivos de log? Esta acción no se puede deshacer."
+	confirmLabel="Truncar logs"
+	loading={limpiando}
+	onConfirm={limpiarLogs}
+	onCancel={() => (confirmarTruncarOpen = false)}
+/>

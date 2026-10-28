@@ -20,6 +20,19 @@
 //   - el clon raíz (`.print-clone`) cuando `body.printing-clone` está activo
 //   - el `.print-area` original en el caso de una sola área (backup)
 
+// ── Estado de la impresión en curso (a nivel de módulo) ──
+// `cancelarImpresion()` (ver abajo) necesita abortar la impresión desde
+// cualquier consumidor: guardar aquí el timer de espera y una referencia a
+// la limpieza. Si el usuario cierra el modal de vista previa DURANTE la
+// ventana de espera, `printing-clone` quedaría en el body y `app.css`
+// (`body.printing-clone > *:not(.print-clone) { display:none }`) ocultaría
+// TODA la app (pantalla en blanco) hasta completar el diálogo de impresión.
+let timerEspera: ReturnType<typeof setTimeout> | null = null;
+let timerRespaldo: ReturnType<typeof setTimeout> | null = null;
+let tituloOriginal: string | null = null;
+let limpiarActiva: (() => void) | null = null;
+let cancelada = false;
+
 /** Imprime el documento `.print-area` visible en la página. */
 export function imprimirDocumento(): void {
 	if (typeof document === 'undefined') return;
@@ -27,6 +40,7 @@ export function imprimirDocumento(): void {
 	if (!area) return;
 	if (document.querySelector('#print-clone')) return; // impresión en curso
 
+	cancelada = false;
 	const clon = area.cloneNode(true) as HTMLElement;
 	clon.classList.add('print-clone');
 	clon.id = 'print-clone';
@@ -42,16 +56,26 @@ export function imprimirDocumento(): void {
 	// durante la impresión y lo restauramos al terminar. Las clases marcadoras
 	// están en la RAÍZ del área imprimible (el propio clon), por eso se usa
 	// classList.contains y no querySelector.
-	const tituloOriginal = document.title;
+	tituloOriginal = document.title;
 	if (clon.classList.contains('contrato-carta')) document.title = 'Contrato de renta';
 	else if (clon.classList.contains('orden-carta')) document.title = 'Orden de renta';
 
 	function limpiar() {
+		if (timerRespaldo !== null) {
+			clearTimeout(timerRespaldo);
+			timerRespaldo = null;
+		}
 		document.body.classList.remove('printing', 'printing-clone');
 		clon.remove();
-		document.title = tituloOriginal;
+		if (tituloOriginal !== null) {
+			document.title = tituloOriginal;
+			tituloOriginal = null;
+		}
 		window.removeEventListener('afterprint', limpiar);
+		limpiarActiva = null;
 	}
+
+	limpiarActiva = limpiar;
 
 	// Espera a que fuentes e imágenes del clon estén listas antes de imprimir
 	// (el logo del encabezado puede tardar); con tope por si algo no carga.
@@ -67,12 +91,50 @@ export function imprimirDocumento(): void {
 		)
 	]);
 
-	const conTope = Promise.race([esperarCarga, new Promise((res) => setTimeout(res, 1500))]);
+	const tope = new Promise((res) => {
+		timerEspera = setTimeout(() => {
+			timerEspera = null;
+			res(null);
+		}, 1500);
+	});
+	const conTope = Promise.race([esperarCarga, tope]);
 
 	conTope.then(() => {
+		// La carrera la ganó esperarCarga: liberar el tope si sigue pendiente.
+		if (timerEspera !== null) {
+			clearTimeout(timerEspera);
+			timerEspera = null;
+		}
+		// Se canceló durante la ventana de espera: no abrir el diálogo.
+		if (cancelada) return;
 		window.addEventListener('afterprint', limpiar);
 		window.print();
 		// Respaldo por si el evento afterprint no llega (p. ej. cancelación).
-		setTimeout(limpiar, 1000);
+		timerRespaldo = setTimeout(limpiar, 1000);
 	});
+}
+
+/**
+ * Cancela una impresión en curso y deja el body en el mismo estado que
+ * `limpiar()`: sin clases `printing`/`printing-clone`, sin nodo
+ * `#print-clone`, con el título original y sin timers pendientes.
+ *
+ * Se llama al cerrar el modal de vista previa a mitad de la espera (antes
+ * de que se abra el diálogo del navegador); sin esto, `printing-clone`
+ * quedaba pegado al body y la app entera desaparecía (pantalla en blanco).
+ * El ciclo normal (print → afterprint → limpiar) no se ve afectado.
+ */
+export function cancelarImpresion(): void {
+	if (typeof document === 'undefined') return;
+	cancelada = true;
+	// Abortar la ventana de espera: ni print ni su respaldo deben dispararse.
+	if (timerEspera !== null) {
+		clearTimeout(timerEspera);
+		timerEspera = null;
+	}
+	// Misma limpieza que tras afterprint (clases, clon, título, listener).
+	limpiarActiva?.();
+	// Respaldo idempotente por si el estado quedó a medias.
+	document.body.classList.remove('printing', 'printing-clone');
+	document.querySelector('#print-clone')?.remove();
 }

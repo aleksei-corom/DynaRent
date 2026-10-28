@@ -3,7 +3,7 @@
 // (roving tabindex + ArrowLeft/ArrowRight/Home/End), más la estructura
 // WAI-ARIA (tablist/tab/tabpanel asociados) y la carga del contenido.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/svelte';
 import { tauri } from '../../test/tauri';
 import { session } from '#lib/stores/session.svelte.js';
 import LogsPage from './+page.svelte';
@@ -193,5 +193,43 @@ describe('Logs — carga y errores', () => {
 		await waitFor(() => expect(screen.queryByText(/Cargando logs/)).not.toBeInTheDocument());
 		// La página no crashea: los tabs siguen montados con su estructura.
 		expect(document.getElementById('logs-tab-backend')).toBeTruthy();
+	});
+});
+
+describe('Logs — truncar con diálogo de confirmación', () => {
+	it('confirmar el diálogo llama a limpiar_logs y recarga', async () => {
+		const limpiar = vi.fn(() => 2);
+		const leerSpy = vi.fn(() => BACKEND);
+		tauri.register('limpiar_logs', limpiar);
+		tauri.register('leer_logs', leerSpy);
+		await montar();
+		const lecturasAntes = leerSpy.mock.calls.length;
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Truncar' }));
+		const confirmacion = await screen.findByRole('dialog', { name: 'Truncar logs' });
+		await fireEvent.click(within(confirmacion).getByRole('button', { name: 'Truncar logs' }));
+
+		await waitFor(() => expect(limpiar).toHaveBeenCalledTimes(1));
+		expect(limpiar).toHaveBeenCalledWith(expect.objectContaining({ sessionId: 'tok-test' }));
+		// Tras truncar se recarga el contenido y el diálogo se cierra.
+		await waitFor(() => expect(leerSpy.mock.calls.length).toBeGreaterThan(lecturasAntes));
+		await waitFor(() =>
+			expect(screen.queryByRole('dialog', { name: 'Truncar logs' })).not.toBeInTheDocument()
+		);
+	});
+
+	it('cancelar el diálogo NO llama a limpiar_logs', async () => {
+		const limpiar = vi.fn(() => 2);
+		tauri.register('limpiar_logs', limpiar);
+		await montar();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Truncar' }));
+		const confirmacion = await screen.findByRole('dialog', { name: 'Truncar logs' });
+		await fireEvent.click(within(confirmacion).getByRole('button', { name: 'Cancelar' }));
+
+		await waitFor(() =>
+			expect(screen.queryByRole('dialog', { name: 'Truncar logs' })).not.toBeInTheDocument()
+		);
+		expect(limpiar).not.toHaveBeenCalled();
 	});
 });

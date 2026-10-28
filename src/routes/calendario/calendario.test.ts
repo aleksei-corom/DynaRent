@@ -5,6 +5,7 @@ import { tauri } from '../../test/tauri';
 import { session } from '#lib/stores/session.svelte.js';
 import { toasts } from '#lib/stores/toast.svelte.js';
 import { rentaApi, type Renta, type Reserva } from '#lib/api.js';
+import { setCurrency } from '#lib/utils/format.js';
 import CalendarioPage from './+page.svelte';
 
 function setSesion() {
@@ -111,6 +112,8 @@ function reserva(overrides: Partial<Reserva> = {}): Reserva {
 beforeEach(() => {
 	session.clear();
 	setSesion();
+	// Reset de la moneda activa del módulo format (por si un test la cambió)
+	setCurrency('COP', 'es-CO');
 });
 
 describe('página de Calendario', () => {
@@ -365,5 +368,29 @@ describe('Calendario — ramas de navegación, errores y detalle', () => {
 		expect(
 			within(dialogo).getAllByText(/Vehículo con fechas solapadas con otra renta\/reserva/).length
 		).toBeGreaterThanOrEqual(1);
+	});
+
+	it('el detalle formatea el total con la moneda activa (multi-moneda)', async () => {
+		// La empresa opera en USD: el panel usa el catálogo de monedas
+		// (en-US, con decimales) en vez del COP/es-CO hardcodeado.
+		setCurrency('USD', 'en-US');
+		try {
+			tauri.register('listar_rentas', () => [renta({ total: '450000.00' })]);
+			tauri.register('listar_reservas', () => []);
+
+			render(CalendarioPage);
+			await screen.findAllByText(/R1 · Cliente/);
+
+			await fireEvent.click(
+				screen.getByRole('button', { name: new RegExp(`Día ${isoDelMes(1)}`) })
+			);
+
+			const dialogo = await screen.findByRole('dialog');
+			// USD en en-US → "$450,000.00"; el formato COP ("$ 450.000") ya no aplica
+			expect(dialogo).toHaveTextContent('$450,000.00');
+			expect(dialogo).not.toHaveTextContent(/450\.000/);
+		} finally {
+			setCurrency('COP', 'es-CO'); // restaurar el default del módulo
+		}
 	});
 });

@@ -4,7 +4,7 @@
 	import { sid } from '#lib/stores/session.svelte.js';
 	import { toast } from '#lib/stores/toast.svelte.js';
 	import { guardSesion } from '#lib/utils/guards.js';
-	import { formatLocalDateISO } from '#lib/utils/format.js';
+	import { formatLocalDateISO, formatMoney } from '#lib/utils/format.js';
 	import {
 		celdasDelMes,
 		diasSemanaCorto,
@@ -428,13 +428,9 @@
 						</div>
 						<div class="text-right shrink-0">
 							<p class="font-bold text-text-primary tabular-nums">
-								{Number(it.total) > 0
-									? new Intl.NumberFormat('es-CO', {
-											style: 'currency',
-											currency: 'COP',
-											maximumFractionDigits: 0
-										}).format(Number(it.total))
-									: '—'}
+								<!-- Total con la moneda activa de la empresa (formatMoney dinámico
+								     vía el store de empresa; COP por defecto, sin decimales). -->
+								{Number(it.total) > 0 ? formatMoney(Number(it.total)) : '—'}
 							</p>
 							<span
 								class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold mt-1

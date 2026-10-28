@@ -35,7 +35,7 @@
 	import OrdenReserva from '#lib/components/reports/OrdenReserva.svelte';
 	import AvisoImpresion from '#lib/components/AvisoImpresion.svelte';
 	import Icon from '#lib/components/Icon.svelte';
-	import { imprimirDocumento } from '#lib/utils/imprimir.js';
+	import { imprimirDocumento, cancelarImpresion } from '#lib/utils/imprimir.js';
 	import { goto } from '$app/navigation';
 	import Spinner from '#lib/components/Spinner.svelte';
 	import { useDebouncedEffect } from '#lib/utils/debounce.svelte.js';
@@ -487,9 +487,9 @@
 
 	function cerrarImpresion() {
 		imprimirReserva = null;
-		if (typeof document !== 'undefined') {
-			document.body.classList.remove('printing');
-		}
+		// Si se cierra durante la ventana de espera, cancela la impresión
+		// (sin esto, printing-clone queda en el body y oculta toda la app).
+		cancelarImpresion();
 	}
 
 	// ── Presentación ──
