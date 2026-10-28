@@ -177,17 +177,15 @@ fn crear_con_gbak(cfg: &AppConfig, destino: &Path) -> Result<(), AppError> {
     }
     // current_dir = carpeta de Firebird: gbak resuelve fbclient.dll/firebird.msg
     // desde su propio directorio (busca ahí primero), sin depender del PATH.
+    //
+    // La contraseña viaja por ISC_PASSWORD (no por argv): la línea de
+    // comandos de cualquier proceso es legible localmente (Task Manager,
+    // WMI) y la BD puede tener una password real si se migra a server.
     let firebird_dir = gbak.parent().unwrap_or(Path::new("."));
     let salida = Command::new(&gbak)
         .current_dir(firebird_dir)
-        .args([
-            "-b",
-            "-user",
-            &cfg.db_user,
-            "-password",
-            &cfg.db_password,
-            "-v",
-        ])
+        .env("ISC_PASSWORD", &cfg.db_password)
+        .args(["-b", "-user", &cfg.db_user, "-v"])
         .arg(&cfg.db_path)
         .arg(destino)
         .output()
@@ -564,16 +562,12 @@ pub fn restaurar_fdb_desde_fbk(
     let destino_tmp = db_path.with_extension("fdb.restore.tmp");
     let _ = std::fs::remove_file(&destino_tmp);
     let firebird_dir = gbak.parent().unwrap_or(Path::new("."));
+    // ISC_PASSWORD en env (no argv): la línea de comandos es legible por
+    // cualquier proceso local; el flujo de backup usa el mismo mecanismo.
     let salida = Command::new(&gbak)
         .current_dir(firebird_dir)
-        .args([
-            "-r",
-            "-user",
-            &cfg.db_user,
-            "-password",
-            &cfg.db_password,
-            "-v",
-        ])
+        .env("ISC_PASSWORD", &cfg.db_password)
+        .args(["-r", "-user", &cfg.db_user, "-v"])
         .arg(staging_fbk)
         .arg(&destino_tmp)
         .output()

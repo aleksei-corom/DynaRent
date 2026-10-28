@@ -65,26 +65,36 @@ pub struct LoginStatus {
     pub remaining_attempts: u32,
 }
 
+/// Resultado de la fase de verificación del login: el veredicto de la
+/// credencial y, si era hash legacy PBKDF2, el re-hash Argon2id ya
+/// calculado (ambas operaciones de CPU corren en el mismo hilo blocking).
+pub type VerificacionLogin = (VerifyResult, Option<String>);
+
+/// Estado del login entre fases (checks → verify → finish). La conexión
+/// viaja aquí porque `login_finish` persiste intentos/accesos y audita;
+/// el hash va aparte (owned) para que `login_verify` pueda ejecutarse en
+/// `spawn_blocking` sin locks ni referencias al estado.
+pub struct LoginPendiente {
+    pub conn: crate::core::PooledConnection,
+    pub hash: String,
+    pub id: i64,
+    pub nombre: Option<String>,
+    pub rol: Option<String>,
+    pub debe_cambiar_password: bool,
+}
+
 pub struct AuthService;
 
 impl AuthService {
-    pub fn login(
+    /// Fase 1 del login: validación, bloqueo, rate-limit y fetch del usuario.
+    /// No toca CPU costosa: es la fase previa a la verificación Argon2id.
+    pub fn login_checks(
         state: &AppState,
         username: &str,
-        password: &str,
         ip: Option<&str>,
-    ) -> Result<LoginResult, AppError> {
-        // ── Span de tracing (Bloque 4 / TAREA 4.1) ──
-        // El login concentra los eventos de seguridad más relevantes (cuenta
-        // bloqueada, rate-limit, rehash legacy, login OK/fallido). El span
-        // etiqueta todos los `tracing::info!`/`warn!` con el username y la IP
-        // para correlacionar con los registros de `auditoria`.
-        // Nota: el password NUNCA se loguea (ni siquiera en debug).
-        let span = tracing::info_span!("login", username = %username, ip = ?ip);
-        let _enter = span.enter();
-
-        if username.trim().is_empty() || password.is_empty() {
-            tracing::warn!("Login rechazado: username o password vacío");
+    ) -> Result<LoginPendiente, AppError> {
+        if username.trim().is_empty() {
+            tracing::warn!("Login rechazado: username vacío");
             return Err(AppError::InvalidCredentials);
         }
 
@@ -113,11 +123,11 @@ impl AuthService {
             }
         }
 
-        // 3) Verificar credenciales
+        // 3) Fetch del usuario (anti-enumeración: el inexistente registra
+        //    intento fallido igual que el de contraseña mala)
         let mut conn = state.pool.get()?;
         let usuario = UsuarioRepository::obtener_para_autenticacion(&mut conn, username)?;
         let Some(usuario) = usuario else {
-            // Usuario no existe → registrar intento fallido igualmente (anti-enumeración)
             let mut tracker = state
                 .login_tracker
                 .lock()
@@ -146,40 +156,71 @@ impl AuthService {
             return Err(AppError::InvalidCredentials);
         }
 
-        match security::verify_password(&usuario.password, password) {
-            VerifyResult::Valid => {
-                // Argon2id válido — no necesita re-hash
-                Self::finish_login(
-                    state,
-                    conn,
-                    usuario.id,
-                    username,
-                    usuario.nombre.as_deref(),
-                    usuario.rol.as_deref(),
-                    usuario.debe_cambiar_password,
-                    ip,
-                    None,
-                )
-            }
+        Ok(LoginPendiente {
+            hash: usuario.password,
+            id: usuario.id,
+            nombre: usuario.nombre,
+            rol: usuario.rol,
+            debe_cambiar_password: usuario.debe_cambiar_password,
+            conn,
+        })
+    }
+
+    /// Fase 2 del login: verificación de la credencial (Argon2id o PBKDF2
+    /// legacy) y, en el caso legacy, el re-hash a Argon2id. CPU pura, sin
+    /// locks ni BD: corre en `spawn_blocking` desde el comando Tauri.
+    pub fn login_verify(hash: &str, password: &str) -> Result<VerificacionLogin, AppError> {
+        match security::verify_password(hash, password) {
+            VerifyResult::Valid => Ok((VerifyResult::Valid, None)),
             VerifyResult::ValidNeedsRehash => {
-                // Legacy PBKDF2 válido → re-hash a Argon2id (write-back)
                 let new_hash = security::hash_password(password)?;
+                Ok((VerifyResult::ValidNeedsRehash, Some(new_hash)))
+            }
+            VerifyResult::Invalid => Ok((VerifyResult::Invalid, None)),
+        }
+    }
+
+    /// Fase 3 del login: aplica el veredicto — sesión + auditoría si es
+    /// válido (con re-hash legacy si aplica) o contabilidad de intento
+    /// fallido si no.
+    pub fn login_finish(
+        state: &AppState,
+        pendiente: LoginPendiente,
+        username: &str,
+        verif: VerificacionLogin,
+        ip: Option<&str>,
+    ) -> Result<LoginResult, AppError> {
+        let mut conn = pendiente.conn;
+        match verif {
+            (VerifyResult::Valid, _) => Self::finish_login(
+                state,
+                conn,
+                pendiente.id,
+                username,
+                pendiente.nombre.as_deref(),
+                pendiente.rol.as_deref(),
+                pendiente.debe_cambiar_password,
+                ip,
+                None,
+            ),
+            (VerifyResult::ValidNeedsRehash, Some(new_hash)) => {
                 UsuarioRepository::actualizar_password(&mut conn, username, &new_hash)?;
                 log::info!("Re-hash Argon2id aplicado para: {username}");
                 Self::finish_login(
                     state,
                     conn,
-                    usuario.id,
+                    pendiente.id,
                     username,
-                    usuario.nombre.as_deref(),
-                    usuario.rol.as_deref(),
-                    usuario.debe_cambiar_password,
+                    pendiente.nombre.as_deref(),
+                    pendiente.rol.as_deref(),
+                    pendiente.debe_cambiar_password,
                     ip,
                     Some(&new_hash),
                 )
             }
-            VerifyResult::Invalid => {
-                // Credenciales incorrectas
+            (VerifyResult::ValidNeedsRehash, None) | (VerifyResult::Invalid, _) => {
+                // Contraseña incorrecta (el re-hash sin hash nuevo es
+                // inalcanzable: login_verify solo lo omite en error).
                 let mut tracker = state
                     .login_tracker
                     .lock()
@@ -208,6 +249,36 @@ impl AuthService {
                 Err(AppError::InvalidCredentials)
             }
         }
+    }
+
+    /// Login completo (composición síncrona de las 3 fases).
+    ///
+    /// El comando Tauri usa las fases por separado para correr la
+    /// verificación Argon2id (CPU costosa) en `spawn_blocking`; esta
+    /// composición es la que usan los tests de integración y el camino
+    /// sin Tauri (verificar_instalacion_limpia, sync_dev).
+    pub fn login(
+        state: &AppState,
+        username: &str,
+        password: &str,
+        ip: Option<&str>,
+    ) -> Result<LoginResult, AppError> {
+        // ── Span de tracing (Bloque 4 / TAREA 4.1) ──
+        // El login concentra los eventos de seguridad más relevantes (cuenta
+        // bloqueada, rate-limit, rehash legacy, login OK/fallido). El span
+        // etiqueta todos los `tracing::info!`/`warn!` con el username y la IP
+        // para correlacionar con los registros de `auditoria`.
+        // Nota: el password NUNCA se loguea (ni siquiera en debug).
+        let span = tracing::info_span!("login", username = %username, ip = ?ip);
+        let _enter = span.enter();
+
+        if password.is_empty() {
+            tracing::warn!("Login rechazado: password vacío");
+            return Err(AppError::InvalidCredentials);
+        }
+        let pendiente = Self::login_checks(state, username, ip)?;
+        let verif = Self::login_verify(&pendiente.hash, password)?;
+        Self::login_finish(state, pendiente, username, verif, ip)
     }
 
     #[allow(clippy::too_many_arguments, clippy::type_complexity)]

@@ -368,8 +368,13 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      # Binario precompilado (~10 s) en vez de `cargo install --locked`
+      # (~2-4 min compilando desde fuente en CADA run). taiki-e/install-action
+      # descarga el release oficial de cargo-audit para la plataforma.
       - name: Install cargo-audit
-        run: cargo install cargo-audit --locked --force
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
 
       - name: Run cargo audit
         working-directory: src-tauri

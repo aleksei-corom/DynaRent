@@ -1,6 +1,6 @@
 //! commands/auth.rs — Comandos Tauri de autenticación
 
-use crate::core::error::ErrorPayload;
+use crate::core::error::{AppError, ErrorPayload};
 use crate::services::auth::{AuthService, LoginResult, LoginStatus};
 use crate::services::AppState;
 use tauri::State;
@@ -9,11 +9,41 @@ use super::en_blocking;
 
 type Cmd<T> = Result<T, ErrorPayload>;
 
-/// Login — no requiere sesión previa
+/// Login — no requiere sesión previa.
+///
+/// `async` por fases (quick win del 28-10): `login_checks` (rápido) →
+/// `login_verify` en `spawn_blocking` (la verificación Argon2id m=19MiB
+/// y el re-hash legacy son CPU costosa, ~100-300 ms: congelaba la ventana
+/// de login) → `login_finish` (rápido). El span etiqueta los eventos de
+/// seguridad de las fases síncronas; no se retiene un `Span` a través del
+/// `.await` (thread-local entre hilos del runtime).
 #[tauri::command]
-pub fn login(state: State<'_, AppState>, username: String, password: String) -> Cmd<LoginResult> {
+pub async fn login(
+    state: State<'_, AppState>,
+    username: String,
+    password: String,
+) -> Cmd<LoginResult> {
     // En Tauri desktop, "IP" = local. Se registra con "local" para auditoría.
-    AuthService::login(&state, &username, &password, Some("local")).map_err(|e| e.to_payload())
+    let span = tracing::info_span!("login", username = %username, ip = "local");
+    let pendiente = span
+        .in_scope(|| {
+            if password.is_empty() {
+                tracing::warn!("Login rechazado: password vacío");
+                return Err(AppError::InvalidCredentials);
+            }
+            AuthService::login_checks(&state, &username, Some("local"))
+        })
+        .map_err(|e| e.to_payload())?;
+    let hash = pendiente.hash.clone();
+    let verif =
+        tauri::async_runtime::spawn_blocking(move || AuthService::login_verify(&hash, &password))
+            .await
+            .map_err(|e| {
+                AppError::Generic(format!("La tarea login_verify falló: {e}")).to_payload()
+            })?
+            .map_err(|e| e.to_payload())?;
+    span.in_scope(|| AuthService::login_finish(&state, pendiente, &username, verif, Some("local")))
+        .map_err(|e| e.to_payload())
 }
 
 /// Cierra la sesión actual

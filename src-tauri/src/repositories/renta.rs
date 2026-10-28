@@ -13,7 +13,7 @@ use crate::core::PooledConnection;
 // localmente en este archivo. La migración los importa de `core::repository`
 // para DRY. Se conserva un wrapper `map_fb_error` (1 línea) que delega en
 // `map_fb_error_fk` con el mensaje FK específico de rentas (preserva UX).
-use crate::core::repository::{opt_str, params, parse_fecha, parse_fecha_opt, parse_hora_opt};
+use crate::core::repository::{opt_str, params, parse_fecha, parse_hora_opt};
 
 use serde::Serialize;
 // ts-rs (Bloque 4 / TAREA 4.3): genera tipos TypeScript en
@@ -515,48 +515,7 @@ impl RentaRepository {
             .collect())
     }
 
-    /// Lista todas las rentas
-    pub fn obtener_todos(conn: &mut PooledConnection) -> Result<Vec<Renta>, AppError> {
-        let empty = ParamsType::Positional(vec![]);
-        Self::consultar(conn, "", &empty)
-    }
-
-    /// Busca rentas por placa, cliente o estado (insensible a mayúsculas)
-    pub fn buscar(conn: &mut PooledConnection, term: &str) -> Result<Vec<Renta>, AppError> {
-        let like = format!("%{}%", term.trim());
-        Self::consultar(
-            conn,
-            "WHERE UPPER(r.nombre_cliente) LIKE UPPER(?) OR UPPER(COALESCE(r.placa, '')) LIKE UPPER(?) OR UPPER(r.estado) LIKE UPPER(?)",
-            &ParamsType::Positional(vec![like.clone().into_param(), like.clone().into_param(), like.into_param()]),
-        )
-    }
-
-    /// Filtra por estado
-    pub fn obtener_por_estado(
-        conn: &mut PooledConnection,
-        estado: &str,
-    ) -> Result<Vec<Renta>, AppError> {
-        Self::consultar(
-            conn,
-            "WHERE r.estado = ?",
-            &ParamsType::Positional(vec![estado.to_string().into_param()]),
-        )
-    }
-
-    /// Filtra por placa
-    pub fn obtener_por_placa(
-        conn: &mut PooledConnection,
-        placa: &str,
-    ) -> Result<Vec<Renta>, AppError> {
-        Self::consultar(
-            conn,
-            "WHERE r.placa = ?",
-            &ParamsType::Positional(vec![placa.to_string().into_param()]),
-        )
-    }
-
     /// Lista rentas aplicando filtros combinables (búsqueda, estado, placa, rango de fechas)
-    #[allow(clippy::too_many_arguments)]
     #[allow(clippy::too_many_arguments)]
     pub fn listar_con_filtros(
         conn: &mut PooledConnection,
@@ -831,50 +790,6 @@ impl RentaRepository {
         Ok(())
     }
 
-    /// Cierra una renta: estado 'Cerrada', devolución real, km/tanque finales y totales
-    pub fn cerrar(
-        conn: &mut PooledConnection,
-        id: i64,
-        d: &RentaCierreDatos,
-        subtotal: &str,
-        impuestos: &str,
-        total: &str,
-        saldo: &str,
-    ) -> Result<(), AppError> {
-        conn.execute(
-            "UPDATE rentas SET \
-                estado = 'Cerrada', \
-                fecha_devolucion_real = ?, hora_devolucion_real = ?, km_final = ?, tanque_final = ?, \
-                dias_calculados = COALESCE(?, dias_calculados), \
-                horas_extras = COALESCE(?, horas_extras), \
-                valor_dia = CAST(COALESCE(?, valor_dia) AS DECIMAL(12,2)), \
-                valor_hora_extra = CAST(COALESCE(?, valor_hora_extra) AS DECIMAL(12,2)), \
-                descuento = CAST(COALESCE(?, descuento) AS DECIMAL(12,2)), \
-                subtotal = CAST(? AS DECIMAL(12,2)), impuestos = CAST(? AS DECIMAL(12,2)), \
-                total = CAST(? AS DECIMAL(12,2)), saldo_pendiente = CAST(? AS DECIMAL(12,2)), \
-                observaciones = COALESCE(?, observaciones) \
-             WHERE id = ?",
-            params![
-                parse_fecha_opt(&d.fecha_devolucion_real)?,
-                parse_hora_opt(&d.hora_devolucion_real)?,
-                opt_str(&d.km_final),
-                opt_str(&d.tanque_final),
-                d.dias_calculados,
-                d.horas_extras,
-                d.valor_dia.as_deref().map(|s| s.trim().replace(',', ".")),
-                d.valor_hora_extra.as_deref().map(|s| s.trim().replace(',', ".")),
-                d.descuento.as_deref().map(|s| s.trim().replace(',', ".")),
-                subtotal,
-                impuestos,
-                total,
-                saldo,
-                opt_str(&d.observaciones),
-                id,
-            ],
-        )?;
-        Ok(())
-    }
-
     /// Marca una renta como cancelada
     pub fn cancelar(conn: &mut PooledConnection, id: i64) -> Result<(), AppError> {
         conn.execute("UPDATE rentas SET estado = 'Cancelada' WHERE id = ?", (id,))?;
@@ -938,54 +853,6 @@ impl RentaRepository {
             )
             .map_err(map_fb_error)?;
         Ok(id)
-    }
-
-    /// Edita campos financieros de una renta CERRADA (corrección de errores de digitación).
-    /// Recalcula subtotal/impuestos/total/saldo_pendiente/valor_neto con los nuevos valores.
-    /// NO toca abono (se gestiona por pagos) ni estado (permanece 'Cerrada').
-    #[allow(clippy::too_many_arguments)]
-    pub fn editar_cerrada(
-        conn: &mut PooledConnection,
-        id: i64,
-        d: &RentaCierreEditDatos,
-        subtotal: &str,
-        impuestos: &str,
-        total: &str,
-        saldo: &str,
-        valor_neto: &str,
-    ) -> Result<(), AppError> {
-        conn.execute(
-            "UPDATE rentas SET \
-                valor_dia = CAST(COALESCE(?, valor_dia) AS DECIMAL(12,2)), \
-                valor_hora_extra = CAST(COALESCE(?, valor_hora_extra) AS DECIMAL(12,2)), \
-                dias_calculados = COALESCE(?, dias_calculados), \
-                horas_extras = COALESCE(?, horas_extras), \
-                descuento = CAST(COALESCE(?, descuento) AS DECIMAL(12,2)), \
-                subtotal = CAST(? AS DECIMAL(12,2)), \
-                impuestos = CAST(? AS DECIMAL(12,2)), \
-                total = CAST(? AS DECIMAL(12,2)), \
-                saldo_pendiente = CAST(? AS DECIMAL(12,2)), \
-                valor_neto = CAST(? AS DECIMAL(12,2)), \
-                observaciones = COALESCE(?, observaciones) \
-             WHERE id = ?",
-            params![
-                d.valor_dia.as_deref().map(|s| s.trim().replace(',', ".")),
-                d.valor_hora_extra
-                    .as_deref()
-                    .map(|s| s.trim().replace(',', ".")),
-                d.dias_calculados,
-                d.horas_extras,
-                d.descuento.as_deref().map(|s| s.trim().replace(',', ".")),
-                subtotal,
-                impuestos,
-                total,
-                saldo,
-                valor_neto,
-                d.observaciones.as_deref().map(|s| s.trim().to_string()),
-                id,
-            ],
-        )?;
-        Ok(())
     }
 
     /// Rentas activas (para el calendario y el dashboard)
