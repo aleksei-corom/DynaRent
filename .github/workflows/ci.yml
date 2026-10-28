@@ -349,6 +349,9 @@ jobs:
           name: smoke-e2e-print
           path: .tmp-print/
           if-no-files-found: warn
+          # upload-artifact v4+ excluye archivos/dirs «ocultos» por defecto y
+          # `.tmp-print` empieza con punto: sin esto no se subía ningún PDF.
+          include-hidden-files: true
 
   # ── Security audit: CVEs conocidos en dependencias Cargo ──
   # cargo-audit consulta la base de datos RustSec (RUSTSEC-*) y falla si
