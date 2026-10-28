@@ -741,7 +741,7 @@ describe('Comparendos — ramas adicionales de tabla, SIMIT y guards', () => {
 		clickAnchor = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
 
 		render(ComparendosPage);
-		await fireEvent.click(await screen.findByRole('button', { name: 'Descargar Excel' }));
+		await clickDescargarExcel();
 
 		await waitFor(() => expect(createSpy).toHaveBeenCalledTimes(1), { timeout: 5000 });
 	});
@@ -760,7 +760,7 @@ describe('Comparendos — ramas adicionales de tabla, SIMIT y guards', () => {
 		clickAnchor = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
 
 		render(ComparendosPage);
-		await fireEvent.click(await screen.findByRole('button', { name: 'Descargar Excel' }));
+		await clickDescargarExcel();
 
 		await waitFor(() => expect(hayToast('error', 'No se pudo generar el Excel.')).toBe(true));
 	});
@@ -992,6 +992,20 @@ function hayToast(tipo: 'success' | 'error', mensaje: string): boolean {
 	return toasts.some((t) => t.type === tipo && t.message === mensaje);
 }
 
+/**
+ * Click sobre «Descargar Excel» esperando a que el botón esté habilitado.
+ *
+ * El botón se pinta desde el primer render pero queda `disabled` (y su
+ * handler sale con «No hay registros») hasta que resuelve `simit_sync_status`.
+ * Un click en ese hueco no exportaba nada y el test se quedaba 5 s esperando
+ * el blob: el flake solo aparecía en la corrida paralela, nunca en aislado.
+ */
+async function clickDescargarExcel(): Promise<void> {
+	const boton = await screen.findByRole('button', { name: 'Descargar Excel' });
+	await waitFor(() => expect(boton).toBeEnabled());
+	await fireEvent.click(boton);
+}
+
 /** Rellena la combobox de placa del modal (escribir + Enter selecciona). */
 async function escribirPlacaEnModal(dialogo: HTMLElement, placa: string): Promise<void> {
 	const combo = within(dialogo).getByPlaceholderText('Buscar placa, marca o modelo…');
@@ -1127,9 +1141,7 @@ describe('ramas de sincronización, exportación y eventos del Agente SIMIT', ()
 		clickAnchor = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
 
 		render(ComparendosPage);
-		const boton = await screen.findByRole('button', { name: 'Descargar Excel' });
-		expect(boton).toBeEnabled();
-		await fireEvent.click(boton);
+		await clickDescargarExcel();
 
 		await waitFor(() => expect(createSpy).toHaveBeenCalledTimes(1), { timeout: 5000 });
 		expect(revokeSpy).toHaveBeenCalledTimes(1);
@@ -1146,7 +1158,7 @@ describe('ramas de sincronización, exportación y eventos del Agente SIMIT', ()
 		clickAnchor = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
 
 		render(ComparendosPage);
-		await fireEvent.click(await screen.findByRole('button', { name: 'Descargar Excel' }));
+		await clickDescargarExcel();
 
 		await waitFor(() =>
 			expect(hayToast('error', 'No se pudo generar el Excel: blob no soportado')).toBe(true)
