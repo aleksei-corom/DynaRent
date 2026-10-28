@@ -16,20 +16,10 @@ use crate::core::PooledConnection;
 use crate::core::repository::{opt_str, params, parse_fecha, parse_hora_opt};
 
 use serde::Serialize;
-// ts-rs (Bloque 4 / TAREA 4.3): genera tipos TypeScript en
-// `src/lib/types/generated/` cuando se ejecuta `cargo test`. El frontend
-// puede importarlos en lugar de mantenerlos a mano en `src/lib/api.ts`.
-// El atributo `#[ts(export, export_to = "...")]` controla la generación.
-use ts_rs::TS;
 
 /// Pago registrado contra una renta
-///
-/// Contrato TypeScript generado por ts-rs en `src/lib/types/generated/Pago.ts`
-/// (Bloque 4 / TAREA 4.3). El frontend puede importarlo con:
-///   `import type { Pago } from '$lib/types/generated/Pago';`
-#[derive(Debug, Clone, Serialize, TS)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[ts(export, export_to = "../src/lib/types/generated/")]
 pub struct Pago {
     pub id: i64,
     pub id_renta: i64,
@@ -42,14 +32,8 @@ pub struct Pago {
 }
 
 /// Inspección de salida/entrada de una renta
-///
-/// Contrato TypeScript generado por ts-rs en `src/lib/types/generated/Inspeccion.ts`
-/// (Bloque 4 / TAREA 4.3). Necesario derivar `TS` aquí porque `Renta` la
-/// referencia como `Vec<Inspeccion>` (ts-rs requiere que todo tipo anidado
-/// tambien implemente `TS`).
-#[derive(Debug, Clone, Serialize, TS)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[ts(export, export_to = "../src/lib/types/generated/")]
 pub struct Inspeccion {
     pub id: i64,
     pub id_renta: i64,
@@ -68,13 +52,11 @@ pub struct Inspeccion {
 
 /// Renta completa (serializable al frontend, camelCase)
 ///
-/// Contrato TypeScript generado por ts-rs en `src/lib/types/generated/Renta.ts`
-/// (Bloque 4 / TAREA 4.3). Es el contrato FE<->BE mas importante: cualquier
-/// cambio en los campos de `Renta` se refleja automaticamente en el `.ts`
-/// generado al correr `cargo test`, evitando drift entre Rust y Svelte.
-#[derive(Debug, Clone, Serialize, TS)]
+/// Es el contrato FE<->BE más importante: el espejo TypeScript vive en
+/// `src/lib/api.ts` y `devGuard` + los tests de comportamiento cubren el
+/// drift entre ambos lados.
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[ts(export, export_to = "../src/lib/types/generated/")]
 pub struct Renta {
     pub id: i64,
     /// Número de contrato: secuencia DENTRO del año (2026-001, 2026-002, ...)
@@ -141,12 +123,9 @@ pub struct Renta {
 
 /// Datos de entrada para crear/actualizar (validados por el servicio)
 ///
-/// Contrato TypeScript generado por ts-rs en `src/lib/types/generated/RentaDatos.ts`
-/// (Bloque 4 / TAREA 4.3). El frontend usa este tipo para construir el body
-/// del command `crear_renta` / `actualizar_renta` (ver `src/lib/api.ts`).
-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, TS)]
+/// El espejo TypeScript vive en `src/lib/api.ts` (`RentaDatos`).
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 #[serde(default, rename_all = "camelCase")]
-#[ts(export, export_to = "../src/lib/types/generated/")]
 pub struct RentaDatos {
     pub placa: Option<String>,
     pub id_cliente: Option<i64>,

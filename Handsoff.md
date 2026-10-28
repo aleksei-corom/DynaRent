@@ -651,10 +651,13 @@ y `IntoParams` para tuplas de **≤15**. Cualquier SELECT largo debe partirse en
 - **Dependabot** (`.github/dependabot.yml`): actualizaciones semanales (lunes) de npm (frontend),
   Cargo (backend) y mensuales de GitHub Actions. Grupos: svelte, testing, eslint (npm);
   firebird, crypto (cargo). Prefijos de commit: `chore(deps)`, `chore(ci)`.
-- **ts-rs** (`Cargo.toml`): genera tipos TypeScript en `src/lib/types/generated/` a partir de
-  `#[derive(TS)]` en structs Rust. Los tipos generados (`Renta`, `Pago`, `Inspeccion`,
-  `RentaDatos`) se actualizan con `cargo test`. El frontend puede importarlos con
-  `import type { Pago } from '#lib/types/generated/Pago'`.
+- **Contrato FE↔BE**: los tipos TypeScript de los DTOs viven a mano en
+  `src/lib/api.ts` (espejo de los `struct` de `src-tauri/src/repositories/`).
+  El drift se cubre con `devGuard` (clasificación serde de los campos de
+  entrada, generada por `gen_devguard`) y con los tests de comportamiento de
+  cada ruta. Se retiró `ts-rs` por ser peso muerto: generaba 4 tipos en un
+  directorio que el frontend nunca importó (y abría una segunda fuente de
+  verdad potencial).
 - **domain/ scaffold** (`src-tauri/src/domain/`): documentación de la futura migración a value
   objects (Dinero, Placa, RangoFechas). No hay código de producción — solo guía para
   migración incremental (Fases 1-4 documentadas en `domain/README.md`).
