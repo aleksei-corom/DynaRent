@@ -12,7 +12,7 @@
 
 $ErrorActionPreference = 'Continue'
 $exe = "$env:LOCALAPPDATA\DinamoRent\dynarent.exe"
-$url = 'https://github.com/CORJAR-Computers/dynarent/releases/latest/download/latest.json'
+$url = 'https://github.com/aleksei-corom/DynaRent/releases/latest/download/latest.json'
 
 function Write-Diag([string]$msg) {
     Write-Host ("[{0}] {1}" -f (Get-Date -Format 'HH:mm:ss'), $msg)

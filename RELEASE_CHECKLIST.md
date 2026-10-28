@@ -1,12 +1,12 @@
 # Checklist de publicación de release — Dynarent ERP
 
 > Procedimiento operativo para publicar una versión nueva en
-> `github.com/CORJAR-Computers/dynarent`: el bump de versión, el tag que
+> `github.com/aleksei-corom/DynaRent`: el bump de versión, el tag que
 > dispara el CI, la verificación de los assets y el anuncio. Complementa a
 > `INSTALACION_OPERACIONES.md` (instalación + historial de versiones),
 > `DEPLOYMENT_CLIENTES.md` (despliegue a clientes) y `ANUNCIO_RELEASE_TEMPLATE.md` (mensajes de anuncio).
 >
-> **📋 Objetivo actual: v1.2.9 — EN PREPARACIÓN (2026-10-28).**
+> **✅ Última release: v1.2.9 — PUBLICADA (2026-10-28, tag `v1.2.9` sobre `be71b9f`; 5 assets firmados).**
 > Mantenimiento y calidad: rentas/reservas/comparendos/usuarios/autos
 > descompuestas en componentes (1946→750, 1248→328, 1147→507, 745→186,
 > 712→190) sin cambios de comportamiento, `cancelarImpresion()` para el blanco
@@ -17,64 +17,32 @@
 
 ---
 
-**Estado de la v1.0.17 — publicada (18-08, tag `v1.0.17` sobre `0e0180f`):**
+**Estado de la v1.2.9 — publicada (28-10, tag `v1.2.9` sobre `be71b9f`):**
 
-Ya en `main` y publicada por CI: release v1.0.17 con los 5 assets
-(NSIS 21 MB + MSI 32 MB + `.sig` ×2 + `latest.json`), firmada y
-auto-update verificado en máquina real.
+Publicada por CI desde el tag: **5 assets** (NSIS 22.831.594 B + MSI 34.195.151 B +
+`.sig` ×2 + `latest.json`), `isDraft: false`, body con el changelog automático y
+workflow `release.yml` en verde. **E2E del updater validada sin máquina**: un binario
+v1.2.8 detecta la v1.2.9, la firma minisign valida contra la pubkey de producción y
+los bytes descargados son idénticos al MSI publicado.
 
-**Features v1.0.17 (incluidas en v1.0.21):**
-- Versión REAL de la app (comando `app_version`, sin el v3.2.0 heredado)
-- Backups de la BD (Fase 8: automático en 4 horarios, rotación a 10, cifrado
-  AES-256-GCM, panel `/backups` y restauración con `gbak -r`)
-- **Edición de rentas cerradas** (solo Admin: recálculo de totales, auditoría
-  ANTES→DESPUÉS, motivo obligatorio)
-- **Extensiones acumulables de rentas** (migración 0024, historial de horas/días
-  extras, modal con preview del nuevo retorno)
-- **Mayúsculas automáticas** en todos los campos de texto (excepto email, rol,
-  web) con validaciones case-insensitive
-- Fix de selects de categoría/tipo (gastos/mantenimiento) alineados con la DB
-- Verificador de despliegue -DryRun en el CI
+**Checklist v1.2.9 completada:**
 
-**Features v1.0.21 (nuevas):**
-- **Tracing estructurado** (spans en login, cerrar_renta, registrar_pago)
-- **Informes optimizados** (UNION ALL: 13→5 round-trips en informe mensual)
-- **Store global BusinessLists** (TTL 5 min, cachea `businessApi.listas`)
-- **core::repository** (centraliza `map_fb_error`, `opt_str`, `parse_fecha/hora`, `params!`)
-- **Migración 0025 audit_inmutable** (triggers append-only para no-repudio)
-- **Accesibilidad WCAG 2.1** (Modal focus trap, FormField ARIA, skip-link, error page)
-- **ts-rs** para contratos TypeScript (genera tipos desde structs Rust)
-- **Dependabot** para actualizaciones automáticas de npm/cargo/CI
-- **domain/ scaffold** (guía para futura migración a value objects)
-
-**Checklist v1.0.17 completada:**
-
-- [x] CI verde en main (lint, svelte-check, vitest, cargo test --lib + integración)
-- [x] Bump a v1.0.17 en los 3 archivos (§2)
-- [x] Verificación local con `-DryRun` (§3)
-- [x] Commit `chore: versión 1.0.17` + tag `v1.0.17` (§4-5)
-- [x] Prueba de campo en máquina real — auto-update verificado ✅
-- [x] Anuncio en canal del equipo (§8)
-
----
-
-## Pendiente para la v1.0.21
-
-- [ ] Bump a v1.0.21 en los 3 archivos (§2)
-- [ ] Verificación local con `-DryRun` (§3)
-- [ ] Commit `chore: versión 1.0.21` + tag `v1.0.21` (§4-5)
-- [ ] Prueba de campo en máquina real — auto-update de v1.0.17→v1.0.21 (§6)
-- [ ] Anuncio en canal del equipo (§8)
+- [x] CI verde en main antes del tag (lint, svelte-check 0/0, vitest 799, cargo 104 + 21 suites)
+- [x] Bump a v1.2.9 en los 4 archivos (§2)
+- [x] `scripts/verificar-despliegue.ps1 -DryRun` en verde (OK exit 0 / `-SimularFallo` exit 1)
+- [x] Commit `chore(release): versión 1.2.9` + tag `v1.2.9` sobre `be71b9f` (§4-5)
+- [x] E2E del updater sin máquina (§6) — pendiente la prueba de campo en equipo real
+- [ ] Anuncio en canal del equipo (§8) — mensaje listo en `ANUNCIO_RELEASE_TEMPLATE.md`
 
 ---
 
 ## 0. Regla de oro
 
-**El tag `vX.Y.Z` debe apuntar a un commit donde los tres archivos de versión
+**El tag `vX.Y.Z` debe apuntar a un commit donde los cuatro archivos de versión
 ya estén bumpeados.** El CI (`release.yml`) compila el código del commit del tag
 y los instaladores se nombran con la versión de `src-tauri/tauri.conf.json`,
 NO con el nombre del tag. Un tag sobre un commit sin bumpear publicaría una
-release `v1.0.17` con instaladores `Dynarent_1.0.15_*` (si el bump quedara a medias).
+release `v1.2.9` con instaladores `DynaRent_1.2.8_*` (si el bump quedara a medias).
 
 ---
 
@@ -103,19 +71,21 @@ release `v1.0.17` con instaladores `Dynarent_1.0.15_*` (si el bump quedara a med
 
 ## 2. Bump de versión
 
-Editar la versión en los **tres** archivos (deben coincidir):
+Editar la versión en los **cuatro** archivos (deben coincidir):
 
 | Archivo | Campo |
 |---|---|
-| `package.json` | `"version": "1.0.17"` |
-| `src-tauri/Cargo.toml` | `version = "1.0.17"` (crate `dynarent`) |
-| `src-tauri/tauri.conf.json` | `"version": "1.0.17"` |
+| `package.json` | `"version": "1.2.9"` |
+| `src-tauri/Cargo.toml` | `version = "1.2.9"` (crate `dynarent`) |
+| `src-tauri/Cargo.lock` | `version = "1.2.9"` (entrada del paquete `dynarent`) |
+| `src-tauri/tauri.conf.json` | `"version": "1.2.9"` |
 
 Verificar la consistencia:
 
 ```bash
 grep '"version"' package.json src-tauri/tauri.conf.json
 grep -m1 '^version' src-tauri/Cargo.toml
+grep -A1 'name = "dynarent"' src-tauri/Cargo.lock
 ```
 
 Actualizar además (patrón del bump 43aa80b):
@@ -146,7 +116,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verificar-despliegue
 Mensaje con el estilo del repo (español, prefijo `chore:`):
 
 ```text
-chore: versión 1.0.17 — versión real de la app, backups de la BD (Fase 8: automático, cifrado, restauración) y documentación al día
+chore(release): versión 1.2.9 — mantenimiento y calidad (rutas descompuestas, blanco al cerrar impresión, Vitest 5)
 # (ajustar el resumen a lo que incluya la release al bumpear)
 ```
 
@@ -154,16 +124,16 @@ chore: versión 1.0.17 — versión real de la app, backups de la BD (Fase 8: au
 
 ```bash
 git push origin main
-git tag v1.0.17
-git push origin v1.0.17
+git tag v1.2.9
+git push origin v1.2.9
 ```
 
 El push del tag dispara `release.yml` (GitHub Actions, `windows-latest`):
 `checkout` (fetch-depth 0) → **test de paginación** (orden 1 página Carta,
 contrato 3-4 páginas con pie, informe A4 — bloquea la release si falla) →
 changelog automático → `tauri build` (NSIS + MSI) → crea la release
-**publicada** (no draft) y sube los assets. ~10 minutos (referencia v1.0.2:
-11 min · v1.0.3: ~10 min).
+**publicada** (no draft) y sube los assets. ~8-12 minutos (referencia v1.2.9:
+7 min 52 s).
 
 La **E2E del auto-update en máquina real** no puede correr en el CI (necesita la
 release ya publicada): se valida en el §6 como contraparte de campo del test de
@@ -180,41 +150,41 @@ paginación.
 
 ## 6. Verificar la release (no confiar a ciegas en el CI)
 
-- [ ] Release `v1.0.17` existe en <https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.17>
-      con **5 assets**: los 2 instaladores (`Dynarent_1.0.17_x64-setup.exe` NSIS ~21 MB y
-      `Dynarent_1.0.17_x64_en-US.msi` ~33 MB), sus firmas del updater (`*.exe.sig` / `*.msi.sig`)
-      y `latest.json`. Los `.sig` son de **minisign** (verificación del updater), NO firma de
-      código Authenticode.
+- [ ] Release `v1.2.9` existe en <https://github.com/aleksei-corom/DynaRent/releases/tag/v1.2.9>
+      con **5 assets**: los 2 instaladores (`DynaRent_1.2.9_x64-setup.exe` NSIS
+      22.831.594 B y `DynaRent_1.2.9_x64_en-US.msi` 34.195.151 B), sus firmas del updater
+      (`*.exe.sig` / `*.msi.sig`) y `latest.json`. Los `.sig` son de **minisign**
+      (verificación del updater), NO firma de código Authenticode.
 - [ ] `latest.json` existe y `platforms.windows-x86_64.url` apunta al instalador de esta
-      release (el CI elige cuál sube al publicar — en la v1.0.3 fue el `.msi`) — es lo que la
-      app instalada (v1.0.3+) consulta al arrancar para auto-actualizarse. En la v1.0.17 la app
+      release (el CI elige cuál sube al publicar — en la v1.2.9 fue el `.msi`) — es lo que la
+      app instalada (v1.0.3+) consulta al arrancar para auto-actualizarse. En la v1.2.9 la app
       instalada debe DETECTAR la release nueva y ofrecer instalarla (prueba de campo del
       auto-update).
 - [ ] **E2E del auto-update — validación sin máquina** (antes de la prueba de campo):
-      desde un árbol dev **aún en v1.0.15** (antes del bump local o desde el commit previo),
+      desde un árbol dev **aún en v1.2.8** (antes del bump local o desde el commit previo),
       verificar que la release publicada se detecta, su firma valida y los bytes coinciden,
       con el binario de desarrollo `updater_e2e`:
 
       ```bash
       cd src-tauri && cargo run --features dev --bin updater_e2e -- \
-        --endpoint https://github.com/CORJAR-Computers/dynarent/releases/latest/download/latest.json \
-        --expect-version 1.0.17 \
-        --expect-file ./Dynarent_1.0.17_x64_en-US.msi
+        --endpoint https://github.com/aleksei-corom/DynaRent/releases/latest/download/latest.json \
+        --expect-version 1.2.9 \
+        --expect-file ./DynaRent_1.2.9_x64_en-US.msi
       ```
 
-      Debe terminar con `[OK]` (check() detecta v1.0.17, firma minisign verificada contra
+      Debe terminar con `[OK]` (check() detecta v1.2.9, firma minisign verificada contra
       la pubkey de producción y bytes idénticos al instalador).
 
       > ⚠️ El updater sirve por defecto la plataforma `windows-x86_64` = **MSI** — el
-      > `--expect-file` debe ser el `.msi` (verificado el 18-08 contra la release real).
-      > Para validar el NSIS en su lugar, usar `--expect-file ./Dynarent_1.0.17_x64-setup.exe`
+      > `--expect-file` debe ser el `.msi` (verificado el 28-10 contra la release real).
+      > Para validar el NSIS en su lugar, usar `--expect-file ./DynaRent_1.2.9_x64-setup.exe`
       > apuntando el endpoint a una copia local del `latest.json` con `windows-x86_64-nsis`
       > como plataforma por defecto (o verificar el NSIS con `verificar-updater-e2e.sh`).
 - [ ] **E2E del auto-update en máquina real** (la contraparte de campo del test de
       paginación de `release.yml`, que sí corre en CI): en un equipo con una **v1.0.14+
-      instalada** (p. ej. la v1.0.15), abrir la app y confirmar que **detecta la v1.0.17**
+      instalada** (p. ej. la v1.2.8), abrir la app y confirmar que **detecta la v1.2.9**
       («Actualización disponible»), descarga con verificación de firma minisign, instala
-      y **reinicia en la v1.0.17** — verificar la versión resultante (menú lateral / login
+      y **reinicia en la v1.2.9** — verificar la versión resultante (menú lateral / login
       o `scripts/verificar-despliegue.ps1` → VEREDICTO OK).
 - [ ] **Paginación en máquina real** (contraparte de campo del test de `release.yml`): desde
       una renta real, «Ver contrato (Carta)» → contrato en **3-4 páginas Carta** con pie
@@ -226,7 +196,9 @@ paginación.
 
 ```powershell
 # En el PC objetivo
-Get-FileHash .\Dynarent_1.0.17_x64-setup.exe -Algorithm SHA256
+Get-FileHash .\DynaRent_1.2.9_x64-setup.exe -Algorithm SHA256
+# NSIS: 5D26FBF1877BC2ADDB11EF79DDCE1CCBCD5BDBBB750BA9B11C2ED34667E5F379
+# MSI:  27ADA799560D1F70DC1B5DDAF826AA5E8494818A5D04F0901C4FBAC2FD3F1C49
 # comparar contra el sha256 publicado por GitHub en la página de la release
 ```
 
@@ -238,7 +210,7 @@ Get-FileHash .\Dynarent_1.0.17_x64-setup.exe -Algorithm SHA256
 
 Si el bump cambió algo de operación (p. ej. el check de versión del exe):
 
-- [ ] `scripts/verificar-despliegue.ps1` — `Check "Version 1.0.17" ($ver -like '1.0.17*')`.
+- [ ] `scripts/verificar-despliegue.ps1` — `Check "Version 1.2.9" ($ver -like '1.2.9*')`.
 - [ ] `DEPLOYMENT_CLIENTES.md` — versión esperada e instaladores en la tabla de verificación.
 - [ ] `RESUMEN_EJECUTIVO.md` — versión estable, assets, conteos.
 - [ ] `Handsoff.md` — cabecera y nota de portada de la release nueva.
@@ -246,9 +218,9 @@ Si el bump cambió algo de operación (p. ej. el check de versión del exe):
 
 ## 8. Anunciar
 
-- [x] Marcar releases anteriores si aplica (la v1.0.15 pasa a "estable anterior" en `RESUMEN_EJECUTIVO.md` §2; la v1.0.9 ya lo es — no se descontinúa salvo motivo).
+- [x] Marcar releases anteriores si aplica (la v1.2.8 pasa a "estable anterior" en `RESUMEN_EJECUTIVO.md` §2; no se descontinúa salvo motivo).
 - [ ] Pegar el mensaje de `ANUNCIO_RELEASE_TEMPLATE.md` (versión larga o corta, **ya con los
-      sha256 reales** `d0f043df…`/`ef93c9c1…`) en Slack/Teams con los enlaces de descarga y
+      sha256 reales** `5D26FBF1…`/`27ADA799…`) en Slack/Teams con los enlaces de descarga y
       el resumen de la release. **El bloque está listo para copiar tal cual** (18-08).
 
 ---
@@ -257,14 +229,14 @@ Si el bump cambió algo de operación (p. ej. el check de versión del exe):
 
 ```
 [ ] CI verde en main (incluye verificar-despliegue.ps1 -DryRun)
-[ ] Bump en package.json + Cargo.toml + tauri.conf.json (idénticos, 1.0.17)
+[ ] Bump en package.json + Cargo.toml + Cargo.lock + tauri.conf.json (idénticos, 1.2.9)
 [ ] Docs de descarga actualizadas (INSTALACION_OPERACIONES.md, README.md, ANUNCIO)
-[ ] commit chore: versión 1.0.17
-[ ] git push origin main && git push origin v1.0.17
+[ ] commit chore(release): versión 1.2.9
+[ ] git push origin main && git push origin v1.2.9
 [ ] Release publicada por CI con changelog y 5 assets (NSIS + MSI + .sig x2 + latest.json)
 [ ] sha256 verificado contra el publicado
 [ ] verificar-despliegue.ps1 → OK (equipo de prueba)
-[ ] E2E auto-update en máquina real → v1.0.17 detectada, instalada y reiniciada
+[ ] E2E auto-update en máquina real → v1.2.9 detectada, instalada y reiniciada
 [ ] Docs de operación al día (ps1, DEPLOYMENT_CLIENTES, RESUMEN, Handsoff)
 [ ] Anuncio en Slack/Teams
 ```

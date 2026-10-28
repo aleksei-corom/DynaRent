@@ -16,12 +16,12 @@ el texto de las dos secciones.
 
 | Dato | Valor v1.2.9 |
 |---|---|
-| Tag / release | `v1.2.9` — <https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.2.9> |
-| NSIS | `DynaRent_1.2.9_x64-setup.exe` — <tamaño tras publicar> |
-| sha256 NSIS | `<sha256 tras publicar>` |
-| MSI | `DynaRent_1.2.9_x64_en-US.msi` — <tamaño tras publicar> |
-| sha256 MSI | `<sha256 tras publicar>` |
-| Auto-update E2E | ✅ detecta v1.2.9 desde v1.2.8; firma minisign OK; bytes ídem |
+| Tag / release | `v1.2.9` — <https://github.com/aleksei-corom/DynaRent/releases/tag/v1.2.9> |
+| NSIS | `DynaRent_1.2.9_x64-setup.exe` — 22.831.594 B (22,8 MB) |
+| sha256 NSIS | `5D26FBF1877BC2ADDB11EF79DDCE1CCBCD5BDBBB750BA9B11C2ED34667E5F379` |
+| MSI | `DynaRent_1.2.9_x64_en-US.msi` — 34.195.151 B (34,2 MB) |
+| sha256 MSI | `27ADA799560D1F70DC1B5DDAF826AA5E8494818A5D04F0901C4FBAC2FD3F1C49` |
+| Auto-update E2E | ✅ binario v1.2.8 detecta v1.2.9; firma minisign OK contra la pubkey de producción; bytes ídem (34.195.151 B) |
 | Tests | 799 frontend (63 archivos, 82.29 % ramas) · 104 lib + 21 suites de integración · CI verde |
 
 ---
@@ -34,10 +34,10 @@ el texto de las dos secciones.
 La versión v1.2.9 ya está publicada en GitHub, construida y firmada por CI
 (auto-update plenamente funcional desde la v1.2.5).
 
-📦 Descarga: https://github.com/CORJAR-Computers/dynarent/releases/download/v1.2.9/DynaRent_1.2.9_x64-setup.exe
-(~22 MB, NSIS) o el .msi (~33 MB): https://github.com/CORJAR-Computers/dynarent/releases/download/v1.2.9/DynaRent_1.2.9_x64_en-US.msi
-sha256 NSIS: <sha256 tras publicar>
-sha256 MSI:  <sha256 tras publicar>
+📦 Descarga: https://github.com/aleksei-corom/DynaRent/releases/download/v1.2.9/DynaRent_1.2.9_x64-setup.exe
+(~22,8 MB, NSIS) o el .msi (~34,2 MB): https://github.com/aleksei-corom/DynaRent/releases/download/v1.2.9/DynaRent_1.2.9_x64_en-US.msi
+sha256 NSIS: 5D26FBF1877BC2ADDB11EF79DDCE1CCBCD5BDBBB750BA9B11C2ED34667E5F379
+sha256 MSI:  27ADA799560D1F70DC1B5DDAF826AA5E8494818A5D04F0901C4FBAC2FD3F1C49
 Credenciales iniciales: admin / admin123 (cambio forzado al primer ingreso;
 bloqueado también en el backend hasta cambiarla).
 ⚠️ No instalar versiones anteriores descontinuadas.
@@ -72,6 +72,6 @@ pubkey saldado en v1.2.5); de v1.2.5+ en adelante todo llega solo.
 🚀 Dynarent ERP v1.2.9 publicada: mantenimiento y calidad — impresión que ya no deja la app
    en blanco, diálogos accesibles en PII/logs, calendario con la moneda de la empresa, login sin
    bloqueos y las cinco rutas más grandes descompuestas (sin cambios de comportamiento).
-📦 https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.2.9 · sha256 en el anuncio largo / DEPLOYMENT_CLIENTES.md §5
+📦 https://github.com/aleksei-corom/DynaRent/releases/tag/v1.2.9 · sha256 en el anuncio largo / DEPLOYMENT_CLIENTES.md §5
 ⚠️ De v1.0.14 a v1.2.4: reinstalación manual una vez (bug de pubkey); de v1.2.5+ llega sola.
 ```

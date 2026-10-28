@@ -2,7 +2,17 @@
 
 Historial de cambios de **Dynarent ERP** (Tauri V2 + Rust + Firebird Embedded).
 
-Las versiones se publican como [releases en GitHub](https://github.com/CORJAR-Computers/dynarent/releases) con instaladores NSIS/MSI firmados y auto-update vía `tauri-plugin-updater`.
+Las versiones se publican como [releases en GitHub](https://github.com/aleksei-corom/DynaRent/releases) con instaladores NSIS/MSI firmados y auto-update vía `tauri-plugin-updater`.
+
+---
+
+## [Unreleased]
+
+### Cambiado
+- **`mantenimiento/+page.svelte` 646 → 234** líneas (`MantenimientoListado`,
+  `ModalFormMantenimiento`), con el mismo patrón de orquestador de §7.7 del
+  Handsoff. Sin cambios de comportamiento: los 31 tests de la página pasan sin
+  tocarlos. Cobertura de ramas 82.31 % (799 tests).
 
 ---
 
@@ -491,28 +501,28 @@ Primera release estable. Migración completa de Python a Tauri V2 + Rust + Fireb
 
 ---
 
-[v1.2.8]: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.2.8
-[v1.2.7]: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.2.7
-[v1.2.6]: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.2.6
-[v1.0.21]: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.21
-[v1.0.20]: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.20
-[v1.0.19]: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.19
-[v1.0.18]: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.18
-[v1.0.17]: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.17
-[v1.0.16]: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.16
-[v1.0.15]: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.15
-[v1.0.14]: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.14
-[v1.0.13]: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.13
-[v1.0.12]: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.12
-[v1.0.11]: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.11
-[v1.0.10]: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.10
-[v1.0.9]: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.9
-[v1.0.8]: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.8
-[v1.0.7]: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.7
-[v1.0.6]: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.6
-[v1.0.5]: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.5
-[v1.0.4]: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.4
-[v1.0.3]: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.3
-[v1.0.2]: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.2
-[v1.0.1]: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.1
-[v1.0.0]: https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.0
+[v1.2.8]: https://github.com/aleksei-corom/DynaRent/releases/tag/v1.2.8
+[v1.2.7]: https://github.com/aleksei-corom/DynaRent/releases/tag/v1.2.7
+[v1.2.6]: https://github.com/aleksei-corom/DynaRent/releases/tag/v1.2.6
+[v1.0.21]: https://github.com/aleksei-corom/DynaRent/releases/tag/v1.0.21
+[v1.0.20]: https://github.com/aleksei-corom/DynaRent/releases/tag/v1.0.20
+[v1.0.19]: https://github.com/aleksei-corom/DynaRent/releases/tag/v1.0.19
+[v1.0.18]: https://github.com/aleksei-corom/DynaRent/releases/tag/v1.0.18
+[v1.0.17]: https://github.com/aleksei-corom/DynaRent/releases/tag/v1.0.17
+[v1.0.16]: https://github.com/aleksei-corom/DynaRent/releases/tag/v1.0.16
+[v1.0.15]: https://github.com/aleksei-corom/DynaRent/releases/tag/v1.0.15
+[v1.0.14]: https://github.com/aleksei-corom/DynaRent/releases/tag/v1.0.14
+[v1.0.13]: https://github.com/aleksei-corom/DynaRent/releases/tag/v1.0.13
+[v1.0.12]: https://github.com/aleksei-corom/DynaRent/releases/tag/v1.0.12
+[v1.0.11]: https://github.com/aleksei-corom/DynaRent/releases/tag/v1.0.11
+[v1.0.10]: https://github.com/aleksei-corom/DynaRent/releases/tag/v1.0.10
+[v1.0.9]: https://github.com/aleksei-corom/DynaRent/releases/tag/v1.0.9
+[v1.0.8]: https://github.com/aleksei-corom/DynaRent/releases/tag/v1.0.8
+[v1.0.7]: https://github.com/aleksei-corom/DynaRent/releases/tag/v1.0.7
+[v1.0.6]: https://github.com/aleksei-corom/DynaRent/releases/tag/v1.0.6
+[v1.0.5]: https://github.com/aleksei-corom/DynaRent/releases/tag/v1.0.5
+[v1.0.4]: https://github.com/aleksei-corom/DynaRent/releases/tag/v1.0.4
+[v1.0.3]: https://github.com/aleksei-corom/DynaRent/releases/tag/v1.0.3
+[v1.0.2]: https://github.com/aleksei-corom/DynaRent/releases/tag/v1.0.2
+[v1.0.1]: https://github.com/aleksei-corom/DynaRent/releases/tag/v1.0.1
+[v1.0.0]: https://github.com/aleksei-corom/DynaRent/releases/tag/v1.0.0

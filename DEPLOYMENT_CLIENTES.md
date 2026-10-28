@@ -1,6 +1,6 @@
-# Plan de despliegue en equipos de clientes — Dynarent v1.2.8
+# Plan de despliegue en equipos de clientes — DynaRent v1.2.9
 
-> Procedimiento operativo para dejar los equipos de los clientes en la **v1.2.8** (última
+> Procedimiento operativo para dejar los equipos de los clientes en la **v1.2.9** (última
 > versión estable, con **auto-actualización** plenamente funcional desde la v1.2.5):
 > instalación silenciosa, verificación post-instalación y rollback. Complementa a
 > `INSTALACION_OPERACIONES.md` (enlaces de descarga, historial de versiones y credenciales
@@ -10,7 +10,7 @@
 
 ## 0. Reglas de oro
 
-1. **Siempre la v1.2.8 (o superior)** — la v1.0.0 está descontinuada (falla en
+1. **Siempre la v1.2.9 (o superior)** — la v1.0.0 está descontinuada (falla en
    instalaciones nuevas) y las ≤v1.0.2 no tienen updater. **Rutas de actualización**
    (historial completo en `INSTALACION_OPERACIONES.md` §0):
    - **v1.2.5+** → auto-update plenamente funcional (las siguientes llegan solas).
@@ -44,7 +44,7 @@
 | ¿Backup reciente de la BD? | Crearlo antes de tocar nada (ver §4) |
 
 > Si el equipo **ya tiene una versión anterior con datos**: no hay nada especial —
-> instalar la v1.2.8 encima y verificar (el arranque migra la BD). Solo hay que confirmar
+> instalar la v1.2.9 encima y verificar (el arranque migra la BD). Solo hay que confirmar
 > el backup antes.
 
 ---
@@ -53,14 +53,14 @@
 
 ```powershell
 # NSIS — silenciosa total (sin atajos, sin ejecutar al final)
-& "D:\deploy\Dynarent_1.2.8_x64-setup.exe" /S
+& "D:\deploy\DynaRent_1.2.9_x64-setup.exe" /S
 # Esperar a que termine (NSIS /S es síncrono al esperar al proceso)
-# Start-Process -Wait -FilePath "D:\deploy\Dynarent_1.2.8_x64-setup.exe" -ArgumentList "/S"
+# Start-Process -Wait -FilePath "D:\deploy\DynaRent_1.2.9_x64-setup.exe" -ArgumentList "/S"
 ```
 
 ```powershell
 # MSI — para GPO / Intune / SCCM
-msiexec /i "D:\deploy\Dynarent_1.2.8_x64_en-US.msi" /qn /norestart
+msiexec /i "D:\deploy\DynaRent_1.2.9_x64_en-US.msi" /qn /norestart
 ```
 
 > **WebView2**: si el equipo no lo tiene, el instalador lo descarga e instala
@@ -76,7 +76,7 @@ equipos y ejecutar con una herramienta de gestión (Intune, SCCM, GPO `msi` + `c
 
 ```powershell
 # Ejemplo con psexec (máquina de operaciones):
-psexec \\PC-CLIENTE-01 -s -d "D:\deploy\Dynarent_1.2.8_x64-setup.exe" /S
+psexec \\PC-CLIENTE-01 -s -d "D:\deploy\DynaRent_1.2.9_x64-setup.exe" /S
 ```
 
 ---
@@ -105,14 +105,14 @@ powershell -ExecutionPolicy Bypass -File scripts\verificar-despliegue.ps1 -DryRu
 
 | # | Comprobación | Esperado |
 |---|---|---|
-| 1 | Exe instalado (`%LOCALAPPDATA%\Dynarent\dynarent.exe`) | existe, versión **1.2.8** |
+| 1 | Exe instalado (`%LOCALAPPDATA%\Dynarent\dynarent.exe`) | existe, versión **1.2.9** |
 | 2 | Arranque: proceso vivo a los 10 s | **no** se cuelga ni muere (el bug del v1.0.0) |
 | 3 | `%APPDATA%\com.corjar.dynarent\` | existe (la crea el **primer arranque**; por eso se comprueba después del arranque) |
 | 4 | `config.ini` | existe |
 | 5 | `dynarent_v3.fdb` | existe y pesa > 0 (BD creada o migrada) |
 | 6 | Migraciones: `schema_migrations` tiene 30 versiones (0001–0030) | 30 (comprobación opcional con tooling dev) |
 | 7 | Login manual | `admin` + contraseña del cliente (primer ingreso: cambio forzado, enforce también en backend (completo desde v1.2.8)) |
-| 8 | Auto-update al día | la app **no** muestra «Actualización disponible» al arrancar (la v1.2.8 ya es la vigente) |
+| 8 | Auto-update al día | la app **no** muestra «Actualización disponible» al arrancar (la v1.2.9 ya es la vigente) |
 
 > Desde la v1.0.14 la app incluye el updater (plenamente operativo desde la v1.2.5): al
 > arrancar con internet chequea la release vigente y no muestra nada si ya está al día.
@@ -131,8 +131,8 @@ operativo con el auto-update:
    repetir.
 3. Comprobación opcional desde la máquina de operaciones: el endpoint del auto-update
    debe responder con la versión instalada:
-   `curl -s https://github.com/CORJAR-Computers/dynarent/releases/latest/download/latest.json`
-   → `"version": "1.2.8"`.
+   `curl -s https://github.com/aleksei-corom/DynaRent/releases/latest/download/latest.json`
+   → `"version": "1.2.9"`.
 
 > Los equipos **sin internet** no pueden auto-actualizarse: el chequeo falla silencioso y
 > la app sigue funcionando. Para esos casos, actualizar a mano con el instalador de la
@@ -142,9 +142,9 @@ operativo con el auto-update:
 
 | Síntoma | Acción |
 |---|---|
-| Exe no aparece / versión no es 1.2.8 | Reinstalar (¿el instalador correcto? ¿se descargó una versión anterior?) |
-| Instalación ≤v1.2.4 rechaza el update con «different key» | Comportamiento esperado de esas builds (pubkey errónea): instalar la v1.2.8 a mano una vez |
-| `config.ini` pero NO la BD | No borrar nada: reinstalar la v1.2.8 (el arranque crea la BD). Si persiste, revisar exclusión de Defender sobre la carpeta |
+| Exe no aparece / versión no es 1.2.9 | Reinstalar (¿el instalador correcto? ¿se descargó una versión anterior?) |
+| Instalación ≤v1.2.4 rechaza el update con «different key» | Comportamiento esperado de esas builds (pubkey errónea): instalar la v1.2.9 a mano una vez |
+| `config.ini` pero NO la BD | No borrar nada: reinstalar la v1.2.9 (el arranque crea la BD). Si persiste, revisar exclusión de Defender sobre la carpeta |
 | Proceso muere en <10 s | Capturar Event Log de Aplicación (módulo con errores) y volcar aquí |
 | La BD existente "no abre" | Nunca borrar la carpeta. Restaurar el backup (ver §4) y reinstalar |
 
@@ -192,9 +192,9 @@ Copy-Item "$env:APPDATA\com.corjar.dynarent\dynarent_v3.fdb" "D:\backups\dynaren
 
 ```
 [ ] Backup de la BD creado (si el equipo tiene datos) — o backup automático reciente en el panel /backups
-[ ] Instalador v1.2.8 descargado y verificado:
-      sha256 NSIS: 8A5308B5BB7F9169D08EAAB33DF52F364006BE389E824858A19FE89C164A0085
-      sha256 MSI:  BCC75CCB1151CB4ECE5BC272B37A57F8FD331AFD97183FEABBD92C41D619F9D8
+[ ] Instalador v1.2.9 descargado y verificado:
+      sha256 NSIS: 5D26FBF1877BC2ADDB11EF79DDCE1CCBCD5BDBBB750BA9B11C2ED34667E5F379
+      sha256 MSI:  27ADA799560D1F70DC1B5DDAF826AA5E8494818A5D04F0901C4FBAC2FD3F1C49
 [ ] Instalación silenciosa OK (código 0)
 [ ] scripts\verificar-despliegue.ps1 → VEREDICTO: OK (incluye comprobación 8: auto-update al día)
 [ ] Login con el usuario del cliente (no admin123 salvo primer ingreso — cambio forzado, ahora también en backend)
@@ -202,5 +202,5 @@ Copy-Item "$env:APPDATA\com.corjar.dynarent\dynarent_v3.fdb" "D:\backups\dynaren
 [ ] Agente SIMIT operativo (si aplica)
 [ ] Credenciales iniciales registradas y contraseña rotada si era admin123
 [ ] Auto-update confirmado: la app arrancó sin diálogo «Actualización disponible» y
-      latest.json responde version 1.2.8 (ver §3.1)
+      latest.json responde version 1.2.9 (ver §3.1)
 ```

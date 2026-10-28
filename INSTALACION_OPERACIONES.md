@@ -1,15 +1,15 @@
-# Instalación de Dynarent ERP — v1.2.8 (estable)
+# Instalación de DynaRent ERP — v1.2.9 (estable)
 
-> Guía para el equipo de operaciones. **Última versión estable: v1.2.8** — con el
-> **auto-update** activo desde la v1.0.14 (la app detecta y ofrece instalar las versiones
-> nuevas al arrancar, ver sección 6), el bypass del cambio de contraseña obligatorio
-> cerrado también en los comandos administrativos, los **montos con coma decimal
-> seguros** (financiero), sync web endurecido, cambio de contraseña y gestión de claves
-> PII sin congelar la UI, y 4 vulnerabilidades RUSTSEC del stack TLS parcheadas.
-> Construida y validada por CI.
+> Guía para el equipo de operaciones. **Última versión estable: v1.2.9** — release de
+> mantenimiento y calidad **sin cambios de esquema**: las cinco rutas más grandes
+> (`rentas`, `reservas`, `comparendos`, `usuarios`, `autos`) quedan descompuestas en
+> componentes sin cambiar el comportamiento, cerrar la vista previa de impresión ya no
+> deja la app en blanco, el calendario usa la moneda configurada por la empresa, el
+> login no congela la ventana y el stack de pruebas sube a Vitest 5. La **BD existente
+> abre tal cual**. Construida y validada por CI.
 >
-> Los enlaces de esta guía corresponden a la release v1.2.8, publicada el
-> 2026-10-27 (<https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.2.8>).
+> Los enlaces de esta guía corresponden a la release v1.2.9, publicada el
+> 2026-10-28 (<https://github.com/aleksei-corom/DynaRent/releases/tag/v1.2.9>).
 
 ---
 
@@ -20,7 +20,8 @@ versión actual» indica cómo actualiza **ese** equipo (detalle en la sección 
 
 | Versión | Fecha | Novedades | Ruta a la versión actual |
 |---|---|---|---|
-| **v1.2.8** | 2026-10-27 | Bypass del cambio de contraseña cerrado en los gates de rol (H-1); pagos: UPDATE con guard antes del INSERT; **montos con coma decimal seguros** (antes "85000,50" llegaba como 0 al backend); sync web: errores HTTP visibles y valorDia sin redondeo; change_password y PII en spawn_blocking; calendario O(1); 4 RUSTSEC TLS parcheadas | Auto desde v1.2.7 |
+| **v1.2.9** | 2026-10-28 | Mantenimiento y calidad: cinco rutas descompuestas sin cambios de comportamiento (`rentas` 1946→750, `reservas` 1248→328, `comparendos` 1147→507, `usuarios` 745→186, `autos` 712→190); `cancelarImpresion()` evita el blanco al cerrar la vista previa; `ConfirmDialog` en claves PII; calendario con la moneda de la empresa; login async por fases; `gbak` sin contraseña en `argv`; Vitest 5. **Sin migraciones** | Auto desde v1.2.8 |
+| v1.2.8 | 2026-10-27 | Bypass del cambio de contraseña cerrado en los gates de rol (H-1); pagos: UPDATE con guard antes del INSERT; **montos con coma decimal seguros** (antes "85000,50" llegaba como 0 al backend); sync web: errores HTTP visibles y valorDia sin redondeo; change_password y PII en spawn_blocking; calendario O(1); 4 RUSTSEC TLS parcheadas | Auto desde v1.2.7 |
 | v1.2.7 | 2026-10-20 | Fix crítico: cierre de renta incluye `valor_gasolina`; pagos anti-TOCTOU y cuantizados a 2 decimales; PII rechaza cifrar sin clave; cambio de contraseña obligatorio enforce en backend; ~40 comandos async (UI sin bloqueos) | Auto desde v1.2.6 (≤v1.2.4: manual 1 vez) |
 | v1.2.6 | 2026-10-11 | Guard de firma del updater en CI, modal stacking (Escape/Tab), sync web con errores propagados, 61 archivos de test (749 tests) | Auto (≤v1.2.4: manual 1 vez) |
 | v1.2.5 | 2026-10-06 | **Fix crítico del updater**: la pubkey embebida se alinea con la clave que realmente firma. Las instalaciones ≤v1.2.4 fallaban el auto-update | Auto desde v1.2.5+ (≤v1.2.4: manual 1 vez) |
@@ -70,15 +71,20 @@ versión actual» indica cómo actualiza **ese** equipo (detalle en la sección 
 
 ## 1. Descarga de los instaladores
 
-Página de la release: <https://github.com/CORJAR-Computers/dynarent/releases/tag/v1.2.8>
+Página de la release: <https://github.com/aleksei-corom/DynaRent/releases/tag/v1.2.9>
 
 | Instalador | Enlace directo | Tamaño | Uso |
 |---|---|---|---|
-| **NSIS** (`Dynarent_1.2.8_x64-setup.exe`) | <https://github.com/CORJAR-Computers/dynarent/releases/download/v1.2.8/Dynarent_1.2.8_x64-setup.exe> | ~22 MB | **Recomendado** — instalación asistida, elige per-user o per-machine |
-| **MSI** (`Dynarent_1.2.8_x64_en-US.msi`) | <https://github.com/CORJAR-Computers/dynarent/releases/download/v1.2.8/Dynarent_1.2.8_x64_en-US.msi> | ~33 MB | Despliegue empresarial / GPO |
+| **NSIS** (`DynaRent_1.2.9_x64-setup.exe`) | <https://github.com/aleksei-corom/DynaRent/releases/download/v1.2.9/DynaRent_1.2.9_x64-setup.exe> | 22.831.594 B (~22,8 MB) | **Recomendado** — instalación asistida, elige per-user o per-machine |
+| **MSI** (`DynaRent_1.2.9_x64_en-US.msi`) | <https://github.com/aleksei-corom/DynaRent/releases/download/v1.2.9/DynaRent_1.2.9_x64_en-US.msi> | 34.195.151 B (~34,2 MB) | Despliegue empresarial / GPO |
+
+**Verificación de integridad** (descargados desde la release y comprobados el 28-10):
+
+- sha256 NSIS: `5D26FBF1877BC2ADDB11EF79DDCE1CCBCD5BDBBB750BA9B11C2ED34667E5F379`
+- sha256 MSI: `27ADA799560D1F70DC1B5DDAF826AA5E8494818A5D04F0901C4FBAC2FD3F1C49`
 
 > ⚠️ **No usar la v1.0.0** (descontinuada): falla en equipos sin BD previa. Si un equipo
-> ya la tiene instalada **con datos**, no hay que desinstalar — la v1.2.8 abre la BD
+> ya la tiene instalada **con datos**, no hay que desinstalar — la v1.2.9 abre la BD
 > existente tal cual (arranque idempotente, solo aplica migraciones pendientes).
 
 ---
@@ -98,19 +104,19 @@ Página de la release: <https://github.com/CORJAR-Computers/dynarent/releases/ta
 ## 3. Instalación
 
 ### Opción A — Asistida (NSIS, recomendada)
-1. Ejecutar `Dynarent_1.2.8_x64-setup.exe` como usuario normal.
+1. Ejecutar `DynaRent_1.2.9_x64-setup.exe` como usuario normal.
 2. Elegir **Solo para mí** (%LOCALAPPDATA%) o **Para todos los usuarios** (Program Files).
 3. Seguir el asistente (siguiente → instalar → finalizar).
 
 ### Opción B — Silenciosa (NSIS)
 ```powershell
 # Instala sin interacción, sin atajo ni ejecución al final
-Dynarent_1.2.8_x64-setup.exe /S
+DynaRent_1.2.9_x64-setup.exe /S
 ```
 
 ### Opción C — Silenciosa (MSI, para GPO/Intune)
 ```powershell
-msiexec /i Dynarent_1.2.8_x64_en-US.msi /qn /norestart
+msiexec /i DynaRent_1.2.9_x64_en-US.msi /qn /norestart
 ```
 
 ---
@@ -146,7 +152,7 @@ los usuarios y datos — solo se aplican las migraciones pendientes.
 ## 5. Verificación post-instalación
 
 1. La app abre el **Login** sin colgarse (el bug del v1.0.0 se manifestaba justo aquí).
-2. Confirmar la versión **v1.2.8** en el menú lateral / login (o con
+2. Confirmar la versión **v1.2.9** en el menú lateral / login (o con
    `scripts\verificar-despliegue.ps1` → VEREDICTO OK).
 3. Ingresar con `admin` / contraseña ya cambiada.
 4. Confirmar en el Dashboard que la flota, clientes y rentas aparecen (datos existentes)
@@ -167,14 +173,15 @@ embebida y reinicia la app al terminar).
 
 **Rutas de actualización por versión instalada** (detalle en la sección 0):
 
-| Instalación con… | Cómo llega a la v1.2.8 |
+| Instalación con… | Cómo llega a la v1.2.9 |
 |---|---|
-| **v1.2.7** | Sola: el diálogo de auto-update la detecta e instala al arrancar |
+| **v1.2.8** | Sola: el diálogo de auto-update la detecta e instala al arrancar |
+| **v1.2.7** | Sola (auto-update) |
 | **v1.2.6** | Sola (auto-update) |
 | **v1.2.5** | Sola (auto-update) |
-| **v1.0.14 – v1.2.4** | **Manual una sola vez**: esas builds embebían una pubkey del updater errónea y rechazan cualquier firma («The signature was created with a different key…», bug saldado en v1.2.5). Instalar la v1.2.8 encima (idempotente, sin pérdida de datos); desde ahí el auto-update vuelve a funcionar solo |
-| **v1.0.3 – v1.0.13** | **Manual** (el diálogo nunca aparece: updater roto por ACL hasta la v1.0.13). Instalar la v1.2.8 encima |
-| **≤ v1.0.2** | **Manual** (sin updater). Instalar la v1.2.8 encima |
+| **v1.0.14 – v1.2.4** | **Manual una sola vez**: esas builds embebían una pubkey del updater errónea y rechazan cualquier firma («The signature was created with a different key…», bug saldado en v1.2.5). Instalar la v1.2.9 encima (idempotente, sin pérdida de datos); desde ahí el auto-update vuelve a funcionar solo |
+| **v1.0.3 – v1.0.13** | **Manual** (el diálogo nunca aparece: updater roto por ACL hasta la v1.0.13). Instalar la v1.2.9 encima |
+| **≤ v1.0.2** | **Manual** (sin updater). Instalar la v1.2.9 encima |
 
 Notas comunes:
 
@@ -194,6 +201,6 @@ Notas comunes:
 
 ## 7. Soporte
 
-- Issues del proyecto: <https://github.com/CORJAR-Computers/dynarent/issues>
+- Issues del proyecto: <https://github.com/aleksei-corom/DynaRent/issues>
 - Historial técnico por versión: `CHANGELOG.md`; políticas de seguridad: `SECURITY.md`;
   decisiones de desarrollo: `Handsoff.md`.

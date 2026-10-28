@@ -18,13 +18,13 @@ secret — **nunca se commitea al repo**.
   ```
   (El token debe pertenecer a un usuario con admin sobre el repo; verifícalo antes de continuar.)
 - La clave existe: `ls ~/.tauri/dynarent.key`
-- Permiso de verificación: `gh repo view CORJAR-Computers/dynarent` responde OK.
+- Permiso de verificación: `gh repo view aleksei-corom/DynaRent` responde OK.
 
 ## 2. Configurar el secret
 
 ```bash
 gh secret set TAURI_SIGNING_PRIVATE_KEY \
-  --repo CORJAR-Computers/dynarent \
+  --repo aleksei-corom/DynaRent \
   --body "$(cat ~/.tauri/dynarent.key)"
 ```
 
@@ -41,10 +41,10 @@ imprime la clave, el secret quedó mal configurado.
 
 ```bash
 # El nombre debe aparecer en la lista (el valor nunca se muestra):
-gh secret list --repo CORJAR-Computers/dynarent
+gh secret list --repo aleksei-corom/DynaRent
 
 # Confirmación por API de que existe (200 = OK, 404 = no existe):
-gh api repos/CORJAR-Computers/dynarent/actions/secrets/TAURI_SIGNING_PRIVATE_KEY \
+gh api repos/aleksei-corom/DynaRent/actions/secrets/TAURI_SIGNING_PRIVATE_KEY \
   --jq '{name: .name, updated_at: .updated_at}'
 ```
 

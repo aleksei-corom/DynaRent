@@ -1,6 +1,6 @@
 # Handsoff — Dynarent ERP (Tauri + SvelteKit + Firebird)
 
-> Última actualización: **2026-10-28** · Estado: **v1.2.9 etiquetada** — mantenimiento y calidad: cinco rutas descompuestas sin cambios de comportamiento — §7.7; `cancelarImpresion()` para el blanco al cerrar la vista previa; `ConfirmDialog` en PII/logs; calendario con la moneda de la empresa; login async por fases — H-3; `gbak` sin contraseña en `argv`; `ts-rs` retirado; Vitest 5 · auto-update plenamente funcional desde v1.2.5 · CI en Node 24 · 799 tests con 82.29 % de ramas
+> Última actualización: **2026-10-28** · Estado: **v1.2.9 etiquetada** — mantenimiento y calidad: cinco rutas descompuestas sin cambios de comportamiento — §7.7; `cancelarImpresion()` para el blanco al cerrar la vista previa; `ConfirmDialog` en PII/logs; calendario con la moneda de la empresa; login async por fases — H-3; `gbak` sin contraseña en `argv`; `ts-rs` retirado; Vitest 5 · auto-update plenamente funcional desde v1.2.5 · CI en Node 24 · 799 tests con 82.31 % de ramas (82.29 % en el tag v1.2.9)
 
 > **Instalación limpia validada de punta a punta (11-08, noche):** se cerró el hueco del
 > release v1.0.0 en equipos nuevos (la app se colgaba esperando una BD inexistente).
@@ -30,7 +30,7 @@
 > intento (el exe quedó en 19:50, anterior a los fixes de las 20:56), se relanzó
 > `npm run tauri build` completo desacoplado (`Start-Process`) y terminó sin el `os error 32`.
 > Artefactos en `src-tauri/target/release/bundle/`:
-> **`nsis/Dynarent_1.0.0_x64-setup.exe`** (23,8 MB) y **`msi/Dynarent_1.0.0_x64_en-US.msi`**
+> **`nsis/DynaRent_1.0.0_x64-setup.exe`** (23,8 MB) y **`msi/DynaRent_1.0.0_x64_en-US.msi`**
 > (35,4 MB) · `dynarent.exe` relinkeado a las 22:25 (v1.0.0, 12,2 MB) con las **16
 > migraciones embebidas verificadas** (grep de 0001/0005/0010/0016 en el binario). Suites
 > validadas antes del build: `cargo test --lib` **43/43** · `migraciones_integration` **11/11**.
@@ -49,12 +49,12 @@
 > test **OPERATIVO** — BD creada (2.9 MB), proceso vivo a los 12 s, Login OK con admin sembrado.
 > Reproducible con `scripts/dynarent-sandbox.wsb` + `scripts/smoke-test-sandbox.ps1`
 > (resultado en `scripts/smoke-result.txt`).
-> 🚀 **Release v1.0.1 publicada (12-08):** [github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.1]
-> — instaladores `Dynarent_1.0.1_x64-setup.exe` (NSIS, 20 MB) y `.msi` (31 MB) construidos
+> 🚀 **Release v1.0.1 publicada (12-08):** [github.com/aleksei-corom/DynaRent/releases/tag/v1.0.1]
+> — instaladores `DynaRent_1.0.1_x64-setup.exe` (NSIS, 20 MB) y `.msi` (31 MB) construidos
 > **por CI** (workflow `release.yml`, disparado por el tag `v1.0.1`) con los fixes de
 > instalación limpia ya fusionados en main. Notas de la release documentan el bug.
-> 🚀 **Release v1.0.2 publicada (14-08):** [github.com/CORJAR-Computers/dynarent/releases/tag/v1.0.2]
-> — instaladores `Dynarent_1.0.2_x64-setup.exe` (NSIS, ~21 MB) y `.msi` (~31 MB)
+> 🚀 **Release v1.0.2 publicada (14-08):** [github.com/aleksei-corom/DynaRent/releases/tag/v1.0.2]
+> — instaladores `DynaRent_1.0.2_x64-setup.exe` (NSIS, ~21 MB) y `.msi` (~31 MB)
 > construidos por CI. Añade IVA por renta (checkbox, migración 0019), auto-cálculo de
 > días/horas al cerrar, cambio de vehículo sin cerrar la renta y combos con búsqueda
 > (§7.2/§7.3). `release.yml` ahora genera el **body de la release con changelog automático**
@@ -136,7 +136,7 @@
 > comparendos 5/5) · vitest ✅ · `svelte-check` 0/0 · `eslint` 0.
 
 > **Publicado en origin/main (11-08):** el trabajo del Agente SIMIT de estos días quedó
-> empujado a `github.com/CORJAR-Computers/dynarent` (rama `main`) como **6 commits
+> empujado a `github.com/aleksei-corom/DynaRent` (rama `main`) como **6 commits
 > temáticos**: `9561b2a` Fase 1 (jar persistente + siembra de sesión + token de una solución +
 > `sync_dev`), `1e7bf80` fixes (fechas DD/MM/YYYY y pre-check de fecha antes de dedup),
 > `1e53fd6` herramientas de monitoreo/test (`check-simit`, `watch-simit`, `test-check-simit`,
@@ -305,7 +305,7 @@ Proyecto de renta de vehículos: frontend **SvelteKit 5** (`src/`), backend **Ta
 
 | Validación | Resultado |
 |---|---|
-| Vitest (frontend) | **799/799** en 63 archivos (ramas 82.29 %; piso del ratchet 81.9) |
+| Vitest (frontend) | **799/799** en 63 archivos (ramas 82.31 %; piso del ratchet 81.9) |
 | `npm run check` (svelte-check) | **0 errores / 0 warnings** |
 | `npm run build` (vite) | ✅ |
 | `cargo test` (Rust) | ✅ **104** unit en la lib + integraciones por módulo |
@@ -973,7 +973,7 @@ no los de Dinamo:
 
 ⚠️ El `origin` del clon apunta a `D:/dynarent` (ruta local) — **no hacer
 `git push` dentro del clon**; al distribuir hay que crear un repo nuevo
-(ej. `CORJAR-Computers/dynarent`) y cambiar el remote.
+(ej. `aleksei-corom/DynaRent`) y cambiar el remote.
 
 ### 7.2 Ajustes del módulo de rentas (2026-08-13)
 
@@ -1163,6 +1163,7 @@ tocar una ruta grande o al crear una nueva**:
 | `comparendos` | 1147 | 507 | `ComparendosListado`, `PanelAgenteSimit`, `ModalFormComparendo`, `ModalImpresionComparendo` |
 | `usuarios` | 745 | 186 | `UsuariosListado`, `ModalFormUsuario`, `ModalForzarPassword` |
 | `autos` | 712 | 190 | `AutosListado`, `ModalFormAuto` |
+| `mantenimiento` | 646 | 234 | `MantenimientoListado`, `ModalFormMantenimiento` |
 
 Reglas del patrón:
 
