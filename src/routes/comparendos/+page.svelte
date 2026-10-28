@@ -1,4 +1,14 @@
 <script lang="ts">
+	// Página de Comparendos: orquestador del listado, el Agente SIMIT y las
+	// acciones.
+	//
+	// Tras P1-Comparendos la página conserva el estado de datos, los filtros
+	// con debounce, los listeners de eventos del SIMIT, las confirmaciones y el
+	// CRUD. La UI vive en:
+	//   - `components/ComparendosListado.svelte` (encabezado, filtros y tabla)
+	//   - `components/PanelAgenteSimit.svelte`  (estado/progreso/métricas/logs)
+	//   - `components/ModalFormComparendo.svelte` (alta/edición)
+	//   - `components/ModalImpresionComparendo.svelte` (notificación imprimible)
 	import { onMount } from 'svelte';
 	import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 	import type ExcelJS from 'exceljs';
@@ -9,7 +19,6 @@
 		simitApi,
 		ApiError,
 		type Comparendo,
-		type ComparendoDatos,
 		type Auto,
 		type BusinessLists,
 		type InfoAgenteSimit,
@@ -20,20 +29,16 @@
 	import { session, sid } from '#lib/stores/session.svelte.js';
 	import { empresa } from '#lib/stores/empresa.svelte.js';
 	import { toast } from '#lib/stores/toast.svelte.js';
-	import { formatCOP, formatContrato, formatDate, formatLocalDateISO } from '#lib/utils/format.js';
 	import { guardSesion, haySesion } from '#lib/utils/guards.js';
 	import { crearSecuencia } from '#lib/utils/carga.js';
-	import DataTable from '#lib/components/DataTable.svelte';
-	import Modal from '#lib/components/Modal.svelte';
 	import ConfirmDialog from '#lib/components/ConfirmDialog.svelte';
-	import SearchSelect, { type SearchSelectOpcion } from '#lib/components/SearchSelect.svelte';
-	import FormField from '#lib/components/FormField.svelte';
-	import OrdenComparendo from '#lib/components/reports/OrdenComparendo.svelte';
-	import AvisoImpresion from '#lib/components/AvisoImpresion.svelte';
-	import Icon from '#lib/components/Icon.svelte';
-	import { imprimirDocumento } from '#lib/utils/imprimir.js';
-	import Spinner from '#lib/components/Spinner.svelte';
 	import { useDebouncedEffect } from '#lib/utils/debounce.svelte.js';
+	import ComparendosListado from './components/ComparendosListado.svelte';
+	import PanelAgenteSimit from './components/PanelAgenteSimit.svelte';
+	import ModalFormComparendo, {
+		type ModoFormComparendo
+	} from './components/ModalFormComparendo.svelte';
+	import ModalImpresionComparendo from './components/ModalImpresionComparendo.svelte';
 
 	// Agente SIMIT vacío (para parchear el estado en la UI sin backend): con
 	// startDelayMinutes 0 el subtítulo cae a «aún sin sincronizar» en vez de
@@ -73,22 +78,12 @@
 	// (persistido en la BD — sobrevive al reinicio de la app).
 	let soloNuevos = $state(false);
 
-	// Modal crear/editar
+	// Modal crear/editar. `formSesion` es el token de apertura: se incrementa
+	// en cada apertura y el modal reinicia su borrador al verlo cambiar.
 	let modalOpen = $state(false);
-	let editando = $state(false);
-	let editandoId = $state<number | null>(null);
-	let guardando = $state(false);
-	let form = $state<ComparendoDatos>(defaultForm());
-	let formError = $state('');
-
-	// Opciones del combo de placa (filtra por placa, marca, modelo, tipo o color).
-	const opcionesAutos = $derived<SearchSelectOpcion[]>(
-		autos.map((a) => ({
-			value: a.placa,
-			label: `${a.placa} · ${a.marca} ${a.modelo}`,
-			sub: [a.tipo ?? '', a.color ?? ''].filter(Boolean).join(' ').trim()
-		}))
-	);
+	let formSesion = $state(0);
+	let formModo = $state<ModoFormComparendo>('nuevo');
+	let comparendoEditando = $state<Comparendo | null>(null);
 
 	// Marcar pagado / eliminar
 	let pagandoId = $state<number | null>(null);
@@ -214,24 +209,6 @@
 					: 'No se pudo generar el Excel.'
 			);
 		}
-	}
-
-	function defaultForm(): ComparendoDatos {
-		const hoy = new Date();
-		// Local, no UTC: `toISOString()` salta al día siguiente en zonas con
-		// offset negativo (Colombia UTC-5) después de las 7:00 PM.
-		const iso = (d: Date) => formatLocalDateISO(d);
-		return {
-			placa: '',
-			fechaInfraccion: iso(hoy),
-			horaInfraccion: '',
-			monto: '',
-			numeroComparendo: null,
-			idRenta: null,
-			idCliente: null,
-			estado: 'Pendiente',
-			observaciones: ''
-		};
 	}
 
 	// ── Carga de datos ──
@@ -379,62 +356,17 @@
 
 	// ── CRUD ──
 	function abrirNuevo() {
-		form = defaultForm();
-		editando = false;
-		editandoId = null;
-		formError = '';
+		formModo = 'nuevo';
+		comparendoEditando = null;
+		formSesion += 1;
 		modalOpen = true;
 	}
 
 	function abrirEditar(c: Comparendo) {
-		form = {
-			placa: c.placa,
-			fechaInfraccion: c.fechaInfraccion,
-			horaInfraccion: c.horaInfraccion,
-			monto: c.monto,
-			// Conserva el número oficial (Agente SIMIT) al editar, para no romper la deduplicación
-			numeroComparendo: c.numeroComparendo ?? null,
-			idRenta: c.idRenta,
-			idCliente: c.idCliente,
-			estado: c.estado,
-			observaciones: c.observaciones ?? ''
-		};
-		editando = true;
-		editandoId = c.id;
-		formError = '';
+		formModo = 'editar';
+		comparendoEditando = c;
+		formSesion += 1;
 		modalOpen = true;
-	}
-
-	async function guardar() {
-		formError = '';
-		if (!form.placa.trim()) {
-			formError = 'La placa es obligatoria.';
-			return;
-		}
-		if (!form.fechaInfraccion) {
-			formError = 'La fecha de la infracción es obligatoria.';
-			return;
-		}
-		if (!form.horaInfraccion) {
-			formError = 'La hora de la infracción es obligatoria.';
-			return;
-		}
-		guardando = true;
-		try {
-			if (editando && editandoId !== null) {
-				await comparendoApi.actualizar(sid(), editandoId, form);
-				toast.success(`Comparendo #${editandoId} actualizado.`);
-			} else {
-				const creado = await comparendoApi.crear(sid(), form);
-				toast.success(`Comparendo #${creado.id} registrado.`);
-			}
-			modalOpen = false;
-			await cargar();
-		} catch (e) {
-			formError = e instanceof ApiError ? e.message : 'No se pudo guardar el comparendo.';
-		} finally {
-			guardando = false;
-		}
 	}
 
 	async function confirmarPago() {
@@ -470,20 +402,6 @@
 		}
 	}
 
-	// ── Presentación y Utilidades ──
-	function cerrarImpresion() {
-		imprimirComparendo = null;
-	}
-
-	function imprimir() {
-		imprimirDocumento();
-	}
-
-	function estadoClases(estado: string): string {
-		if (estado === 'Pagado') return 'bg-exito/10 text-exito border-exito/25';
-		return 'bg-alerta/10 text-alerta border-alerta/25';
-	}
-
 	// ids de comparendos insertados en la ÚLTIMA sincronización del Agente SIMIT
 	// (persistidos en la BD; se restauran al arrancar) → badge 🆕 sobre la fila
 	// en la tabla y filtro «Solo nuevos» (client-side sobre la lista ya cargada).
@@ -502,591 +420,63 @@
 	const comparendosVisibles = $derived(
 		comparendos.filter((c) => !soloNuevos || idsNuevosUltimaSync.has(c.id))
 	);
-	const tablaComparendos = $derived(comparendosVisibles as unknown as Record<string, unknown>[]);
-
-	const columnas = [
-		{ key: 'id', header: 'No.' },
-		{ key: 'vehiculo', header: 'Vehículo' },
-		{ key: 'fecha', header: 'Infracción' },
-		{ key: 'responsable', header: 'Quién lo tenía' },
-		{ key: 'origen', header: 'Origen' },
-		{ key: 'monto', header: 'Monto' },
-		{ key: 'estado', header: 'Estado' },
-		{ key: 'observaciones', header: 'Observaciones' },
-		{ key: 'acciones', header: '', align: 'right' as const }
-	];
 </script>
 
 <svelte:head>
 	<title>Comparendos — DynaRent ERP</title>
 </svelte:head>
 
-<div class="space-y-5">
-	<!-- Encabezado -->
-	<div class="flex flex-wrap items-center justify-between gap-3">
-		<div>
-			<h2 class="text-2xl font-bold text-text-primary">Comparendos</h2>
-			<p class="text-sm text-text-secondary mt-0.5">
-				{comparendosVisibles.length} comparendo{comparendosVisibles.length === 1 ? '' : 's'} · multas
-				de tránsito por vehículo
-			</p>
-		</div>
-		<button class="btn-primary" onclick={abrirNuevo}>
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="w-4 h-4"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-				stroke-width="2"
-				><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg
-			>
-			Registrar Comparendo
-		</button>
-	</div>
-
-	<!-- Agente SIMIT: consulta automática de comparendos por placa -->
-	{#if agente}
-		<div class="card p-4 space-y-3">
-			<div class="flex flex-wrap items-center justify-between gap-3">
-				<div class="flex items-center gap-3">
-					<div
-						class="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0"
-					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="w-5 h-5"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-							stroke-width="1.8"
-							><path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418"
-							/></svg
-						>
-					</div>
-					<div>
-						<p class="font-semibold text-text-primary">Agente SIMIT</p>
-						<p class="text-xs text-text-secondary">
-							Consulta automática de comparendos por placa · cada {agente.intervalHours} h
-							{#if agente.ultimaSincronizacion}
-								· última: {formatDate(agente.ultimaSincronizacion.slice(0, 10))}
-								{agente.ultimaSincronizacion.slice(11, 16)}
-							{:else if !agente.ultimoError && agente.startDelayMinutes > 0}
-								· primera corrida en ~{agente.startDelayMinutes} min
-							{:else}
-								· aún sin sincronizar
-							{/if}
-							{#if agente.proximaSincronizacion}
-								· próxima: {agente.proximaSincronizacion.slice(11, 16)}
-							{/if}
-						</p>
-					</div>
-				</div>
-				<div class="flex items-center gap-2">
-					{#if agente.ejecutando || sincronizando}
-						<div class="flex flex-col gap-2">
-							<span class="inline-flex items-center gap-2 text-xs font-semibold text-primary">
-								<Spinner class="h-4 w-4" />
-								{#if progreso}
-									Consultando SIMIT… {progreso.indicePlaca}/{progreso.totalPlacas}
-								{:else}
-									Consultando SIMIT…
-								{/if}
-							</span>
-							{#if progreso && progreso.tipo !== 'inicio'}
-								<div class="w-full bg-primary/10 rounded-full h-2 overflow-hidden">
-									<div
-										class="bg-primary h-full transition-[width] duration-500 ease-out rounded-full"
-										style="width: {Math.max(
-											2,
-											(progreso.indicePlaca / Math.max(1, progreso.totalPlacas)) * 100
-										)}%"
-									></div>
-								</div>
-								<p class="text-[10px] text-text-secondary truncate" title={progreso.mensaje}>
-									{progreso.mensaje}
-								</p>
-							{/if}
-						</div>
-					{:else if !agente.habilitado}
-						<span
-							class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold text-text-secondary border-border"
-							>Deshabilitado en config.ini</span
-						>
-					{/if}
-					<button
-						class="btn-ghost"
-						onclick={descargarExcelSimit}
-						disabled={!agente.ultimoResultado || agente.ultimoResultado.registros.length === 0}
-					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="w-4 h-4"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-							stroke-width="1.8"
-							><path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
-							/></svg
-						>
-						Descargar Excel
-					</button>
-					{#if puedeEliminar}
-						<button
-							class="btn-primary"
-							onclick={sincronizarAhora}
-							disabled={sincronizando || agente.ejecutando}
-						>
-							{#if sincronizando || agente.ejecutando}
-								<Spinner class="h-4 w-4" />
-								Sincronizando…
-							{:else}
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="w-4 h-4"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									stroke-width="2"
-									><path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
-									/></svg
-								>
-								Sincronizar ahora
-							{/if}
-						</button>
-					{/if}
-				</div>
-			</div>
-
-			{#if agente.ultimoResultado}
-				{@const r = agente.ultimoResultado}
-				<div class="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs">
-					<span class="text-text-secondary">
-						Placas consultadas: <strong class="text-text-primary tabular-nums"
-							>{r.placasConsultadas}</strong
-						>
-					</span>
-					<span class="text-text-secondary">
-						Encontrados: <strong class="text-text-primary tabular-nums">{r.encontrados}</strong>
-					</span>
-					<span class="text-text-secondary">
-						Nuevos en la BD: <strong class="text-exito tabular-nums">{r.insertados}</strong>
-					</span>
-					<span class="text-text-secondary">
-						Ya registrados: <strong class="text-text-primary tabular-nums">{r.duplicados}</strong>
-					</span>
-					{#if r.errores.length > 0}
-						<span class="text-text-secondary">
-							Placas con error: <strong class="text-peligro tabular-nums">{r.errores.length}</strong
-							>
-						</span>
-					{/if}
-					<span class="text-text-secondary">
-						Total pendiente: <strong class="text-alerta tabular-nums"
-							>{formatCOP(r.totalPendiente)}</strong
-						>
-					</span>
-					{#if r.metricas}
-						<button
-							class="text-primary hover:text-primary/80 transition-colors underline"
-							onclick={() => (mostrarMetricas = !mostrarMetricas)}
-						>
-							{mostrarMetricas ? 'Ocultar métricas' : 'Ver métricas'}
-						</button>
-						{#if logs.length > 0}
-							<button
-								class="text-primary hover:text-primary/80 transition-colors underline"
-								onclick={() => (mostrarLogs = !mostrarLogs)}
-							>
-								{mostrarLogs ? 'Ocultar logs' : `Ver logs (${logs.length})`}
-							</button>
-						{/if}
-					{/if}
-				</div>
-				{#if r.reporteHtml}
-					<p class="text-[11px] text-text-secondary font-mono truncate" title={r.reporteHtml}>
-						Reporte HTML: {r.reporteHtml}
-					</p>
-				{/if}
-				{#if mostrarMetricas && r.metricas}
-					<div class="mt-3 p-3 rounded-lg bg-primary/5 border border-primary/20">
-						<p class="text-xs font-semibold text-primary mb-2">📊 Métricas de Rendimiento</p>
-						<div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-							<div>
-								<span class="text-text-secondary">Tiempo total:</span>
-								<span class="font-semibold text-text-primary ml-1"
-									>{(r.metricas.tiempoTotalMs / 1000).toFixed(1)}s</span
-								>
-							</div>
-							<div>
-								<span class="text-text-secondary">Promedio/placa:</span>
-								<span class="font-semibold text-text-primary ml-1"
-									>{r.metricas.tiempoPromedioPlacaMs}ms</span
-								>
-							</div>
-							<div>
-								<span class="text-text-secondary">Tiempo captcha:</span>
-								<span class="font-semibold text-text-primary ml-1"
-									>{(r.metricas.tiempoCaptchaMs / 1000).toFixed(1)}s</span
-								>
-							</div>
-							<div>
-								<span class="text-text-secondary">Tiempo consulta:</span>
-								<span class="font-semibold text-text-primary ml-1"
-									>{(r.metricas.tiempoConsultaMs / 1000).toFixed(1)}s</span
-								>
-							</div>
-							<div>
-								<span class="text-text-secondary">Reintentos:</span>
-								<span class="font-semibold text-text-primary ml-1"
-									>{r.metricas.totalReintentos}</span
-								>
-							</div>
-							<div>
-								<span class="text-text-secondary">Circuit Breaker:</span>
-								<span
-									class="font-semibold ml-1 {r.metricas.circuitBreakerState === 'Closed'
-										? 'text-exito'
-										: 'text-alerta'}">{r.metricas.circuitBreakerState}</span
-								>
-							</div>
-							<div>
-								<span class="text-text-secondary">Placas timeout:</span>
-								<span class="font-semibold text-text-primary ml-1">{r.metricas.placasTimeout}</span>
-							</div>
-							<div>
-								<span class="text-text-secondary">Errores red:</span>
-								<span class="font-semibold text-text-primary ml-1">{r.metricas.placasErrorRed}</span
-								>
-							</div>
-						</div>
-					</div>
-				{/if}
-				{#if mostrarLogs && logs.length > 0}
-					<div class="mt-3 rounded-lg border border-border overflow-hidden">
-						<div
-							class="flex items-center justify-between px-3 py-2 bg-primary/5 border-b border-border"
-						>
-							<span class="text-xs font-semibold text-primary">📋 Logs en tiempo real</span>
-							<button
-								class="text-[10px] text-text-secondary hover:text-primary"
-								onclick={() => {
-									logs = [];
-									mostrarLogs = false;
-								}}
-							>
-								Limpiar
-							</button>
-						</div>
-						<div class="max-h-48 overflow-y-auto bg-gray-900 p-2 font-mono text-[11px] space-y-0.5">
-							{#each logs as log (log.timestamp + log.message)}
-								<div class="flex items-start gap-2">
-									<span class="text-gray-500 shrink-0">{log.timestamp}</span>
-									<span
-										class="shrink-0 w-12 text-center font-bold"
-										class:text-blue-400={log.level === 'info'}
-										class:text-green-400={log.level === 'success'}
-										class:text-yellow-400={log.level === 'warn'}
-										class:text-red-400={log.level === 'error'}
-									>
-										{log.level.toUpperCase()}
-									</span>
-									<span class="text-gray-300 break-all">{log.message}</span>
-								</div>
-							{/each}
-						</div>
-					</div>
-				{/if}
-				{#if r.errores.length > 0}
-					<div
-						class="rounded-lg bg-peligro/10 border border-peligro/25 px-3 py-2 text-[11px] text-peligro max-h-24 overflow-y-auto"
-					>
-						{#each r.errores as e (e.placa)}
-							<p>• {e.placa}: {e.error}</p>
-						{/each}
-					</div>
-				{/if}
-			{:else if agente.ultimoError}
-				<p class="text-xs text-peligro">
-					Último error de sincronización: {agente.ultimoError}
-				</p>
-			{/if}
-		</div>
-	{/if}
-
-	<!-- Filtros -->
-	<div class="flex flex-wrap items-center gap-3">
-		<div class="relative grow max-w-sm">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary/60 pointer-events-none"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-				stroke-width="2"
-				><path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
-				/></svg
-			>
-			<input
-				class="input pl-9"
-				type="search"
-				placeholder="Buscar por placa u observaciones…"
-				bind:value={busqueda}
+<ComparendosListado
+	comparendos={comparendosVisibles}
+	{idsNuevosUltimaSync}
+	{autos}
+	{loading}
+	{puedeEliminar}
+	hayResultadoSimit={!!agente?.ultimoResultado}
+	bind:busqueda
+	bind:estadoFiltro
+	bind:placaFiltro
+	bind:noConfirmados
+	bind:soloNuevos
+	onNueva={abrirNuevo}
+	onImprimir={(c) => (imprimirComparendo = c)}
+	onPagar={(c) => (pagandoId = c.id)}
+	onEditar={abrirEditar}
+	onEliminar={(c) => (eliminarId = c.id)}
+>
+	{#snippet panel()}
+		{#if agente}
+			<PanelAgenteSimit
+				{agente}
+				{sincronizando}
+				{progreso}
+				{logs}
+				{mostrarMetricas}
+				{mostrarLogs}
+				{puedeEliminar}
+				onSincronizar={sincronizarAhora}
+				onDescargarExcel={descargarExcelSimit}
+				onToggleMetricas={() => (mostrarMetricas = !mostrarMetricas)}
+				onToggleLogs={() => (mostrarLogs = !mostrarLogs)}
+				onLimpiarLogs={() => {
+					logs = [];
+					mostrarLogs = false;
+				}}
 			/>
-		</div>
-		<select class="input w-auto" bind:value={estadoFiltro} aria-label="Filtrar por estado">
-			<option value="">Todos los estados</option>
-			<option value="Pendiente">Pendiente</option>
-			<option value="Pagado">Pagado</option>
-		</select>
-		<select class="input w-auto" bind:value={placaFiltro} aria-label="Filtrar por placa">
-			<option value="">Todas las placas</option>
-			{#each autos as a (a.placa)}
-				<option value={a.placa}>{a.placa} · {a.marca} {a.modelo}</option>
-			{/each}
-		</select>
-		<label
-			class="inline-flex items-center gap-2 text-sm text-text-secondary cursor-pointer select-none"
-			title="Comparendos de origen SIMIT que el SIMIT dejó de confirmar (≥3 días) o que nunca se confirmaron — posiblemente pagados o eliminados en el portal."
-		>
-			<input type="checkbox" class="accent-primary" bind:checked={noConfirmados} />
-			<span>
-				No confirmadas por SIMIT
-				{#if noConfirmados}
-					<span class="text-peligro font-semibold">(≥3 días)</span>
-				{/if}
-			</span>
-		</label>
-		<label
-			class="inline-flex items-center gap-2 text-sm text-text-secondary cursor-pointer select-none"
-			title="Solo los comparendos que el Agente SIMIT insertó en la última sincronización (persistido en la BD — sobrevive al reinicio de la app)."
-			class:opacity-50={!agente?.ultimoResultado}
-		>
-			<input
-				type="checkbox"
-				class="accent-primary"
-				bind:checked={soloNuevos}
-				disabled={!agente?.ultimoResultado}
-			/>
-			<span>
-				Solo nuevos de la última sincronización
-				{#if soloNuevos && idsNuevosUltimaSync.size > 0}
-					<span class="text-exito font-semibold">({idsNuevosUltimaSync.size})</span>
-				{/if}
-			</span>
-		</label>
-	</div>
-
-	<!-- Tabla -->
-	{#if loading}
-		<div class="card flex items-center justify-center py-16">
-			<div class="flex flex-col items-center gap-3">
-				<Spinner class="h-8 w-8 text-primary" />
-				<p class="text-sm text-text-secondary">Cargando comparendos…</p>
-			</div>
-		</div>
-	{:else}
-		<DataTable
-			columns={columnas}
-			items={tablaComparendos}
-			emptyTitle="No hay comparendos"
-			emptyDescription="Registra el primer comparendo con el botón «Registrar Comparendo»."
-			emptyIcon="check"
-		>
-			{#snippet children(col, item)}
-				{@const c = item as unknown as Comparendo}
-				{#if col.key === 'id'}
-					<span class="font-bold text-primary tabular-nums">#{String(c.id).padStart(4, '0')}</span>
-				{:else if col.key === 'vehiculo'}
-					<div>
-						<p class="text-text-primary truncate max-w-40">{c.vehiculo || '—'}</p>
-						<p class="text-xs text-text-secondary font-mono">{c.placa}</p>
-					</div>
-				{:else if col.key === 'fecha'}
-					<div class="whitespace-nowrap">
-						<p class="text-text-primary tabular-nums">{formatDate(c.fechaInfraccion)}</p>
-						<p class="text-xs text-text-secondary">{c.horaInfraccion}</p>
-					</div>
-				{:else if col.key === 'responsable'}
-					{#if c.responsable}
-						<div class="max-w-50">
-							<p class="text-text-primary truncate">{c.responsable.nombreCliente || '—'}</p>
-							<p class="text-xs text-text-secondary truncate" title={c.responsable.estadoRenta}>
-								{formatContrato(c.responsable.anioContrato, c.responsable.noContrato)} ·
-								{formatDate(c.responsable.fechaRecogida)} → {formatDate(c.responsable.fechaRetorno)}
-							</p>
-						</div>
-					{:else}
-						<p class="text-sm text-text-secondary">—</p>
-					{/if}
-				{:else if col.key === 'origen'}
-					<div class="flex items-center gap-1.5">
-						<span
-							class="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap {c.origen ===
-							'SIMIT'
-								? 'bg-primary/10 text-primary border-primary/25'
-								: 'bg-black/5 text-text-secondary border-border'}"
-							title={c.origen === 'SIMIT' && c.ultimoVistoSimit
-								? `Confirmado por SIMIT el ${formatDate(c.ultimoVistoSimit.slice(0, 10))}`
-								: c.origen === 'SIMIT'
-									? 'Importado por el Agente SIMIT'
-									: 'Registrado manualmente'}
-						>
-							{c.origen === 'SIMIT' ? 'SIMIT' : 'Manual'}
-						</span>
-						{#if idsNuevosUltimaSync.has(c.id)}
-							<span
-								class="inline-flex items-center rounded-full border border-exito/25 bg-exito/10 px-1.5 py-0.5 text-[11px] font-bold text-exito whitespace-nowrap"
-								title="Nuevo en la última sincronización con el SIMIT"
-							>
-								🆕 Nuevo
-							</span>
-						{/if}
-					</div>
-				{:else if col.key === 'monto'}
-					<p class="font-bold text-text-primary tabular-nums text-right whitespace-nowrap">
-						{formatCOP(c.monto)}
-					</p>
-				{:else if col.key === 'estado'}
-					<span
-						class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap {estadoClases(
-							c.estado
-						)}"
-					>
-						<span class="w-1.5 h-1.5 rounded-full bg-current opacity-70"></span>
-						{c.estado}
-					</span>
-				{:else if col.key === 'observaciones'}
-					<p class="text-sm text-text-secondary truncate max-w-55">{c.observaciones || '—'}</p>
-				{:else if col.key === 'acciones'}
-					<div class="flex items-center justify-end gap-1">
-						<button
-							class="p-2 rounded-lg text-text-secondary hover:text-primary hover:bg-primary/10 transition-colors"
-							title="Imprimir notificación"
-							aria-label={`Imprimir comparendo #${c.id} de placa ${c.placa}`}
-							onclick={() => (imprimirComparendo = c)}
-						>
-							<Icon name="printer" class="w-4 h-4" />
-						</button>
-						{#if c.estado !== 'Pagado'}
-							<button
-								class="p-2 rounded-lg text-text-secondary hover:text-exito hover:bg-exito/10 transition-colors"
-								title="Marcar como pagado"
-								aria-label={`Marcar pagado comparendo #${c.id} de placa ${c.placa}`}
-								onclick={() => (pagandoId = c.id)}
-							>
-								<Icon name="check" class="w-4 h-4" />
-							</button>
-						{/if}
-						<button
-							class="p-2 rounded-lg text-text-secondary hover:text-primary hover:bg-primary/10 transition-colors"
-							title="Editar"
-							aria-label={`Editar comparendo #${c.id} de placa ${c.placa}`}
-							onclick={() => abrirEditar(c)}
-						>
-							<Icon name="pencil" class="w-4 h-4" />
-						</button>
-						{#if puedeEliminar}
-							<button
-								class="p-2 rounded-lg text-text-secondary hover:text-peligro hover:bg-peligro/10 transition-colors"
-								title="Eliminar"
-								aria-label={`Eliminar comparendo #${c.id} de placa ${c.placa}`}
-								onclick={() => (eliminarId = c.id)}
-							>
-								<Icon name="trash" class="w-4 h-4" />
-							</button>
-						{/if}
-					</div>
-				{:else}
-					<span>{String(item[col.key] ?? '—')}</span>
-				{/if}
-			{/snippet}
-		</DataTable>
-	{/if}
-</div>
+		{/if}
+	{/snippet}
+</ComparendosListado>
 
 <!-- Modal crear/editar -->
-<Modal
+<ModalFormComparendo
 	open={modalOpen}
-	title={editando ? `Editar comparendo #${editandoId}` : 'Registrar comparendo'}
-	subtitle={editando
-		? 'Modifica los datos y guarda los cambios.'
-		: 'Registra una multa de tránsito para un vehículo.'}
+	sesion={formSesion}
+	modo={formModo}
+	comparendo={comparendoEditando}
+	{autos}
+	onSaved={cargar}
 	onClose={() => (modalOpen = false)}
-	width="max-w-2xl"
-	dismissible={!guardando}
->
-	{#if formError}
-		<div
-			class="mb-4 rounded-lg bg-peligro/10 border border-peligro/30 px-3 py-2.5 text-sm text-peligro"
-			role="alert"
-		>
-			{formError}
-		</div>
-	{/if}
-
-	<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
-		<SearchSelect
-			label="Placa"
-			required
-			value={form.placa}
-			opciones={opcionesAutos}
-			onchange={(v) => (form.placa = v)}
-			placeholder="Buscar placa, marca o modelo…"
-			vacioLabel="— Seleccionar vehículo —"
-		/>
-		<FormField label="Monto (COP)" required>
-			<input class="input" inputmode="decimal" placeholder="Ej: 580000" bind:value={form.monto} />
-		</FormField>
-		<FormField label="Fecha de la infracción" required>
-			<input class="input" type="date" bind:value={form.fechaInfraccion} />
-		</FormField>
-		<FormField label="Hora de la infracción" required>
-			<input class="input" type="time" placeholder="HH:MM" bind:value={form.horaInfraccion} />
-		</FormField>
-		<FormField label="Estado">
-			<select class="input" bind:value={form.estado}>
-				<option value="Pendiente">Pendiente</option>
-				<option value="Pagado">Pagado</option>
-			</select>
-		</FormField>
-		<FormField label="Observaciones">
-			<!-- textarea (como en mantenimiento/gastos): maxlength 2000 no cabe
-			     en un input de una línea. -->
-			<textarea
-				class="input min-h-20 resize-y"
-				placeholder="Ej: Exceso de velocidad, foto-detección…"
-				bind:value={form.observaciones}
-				maxlength="2000"></textarea>
-		</FormField>
-	</div>
-
-	{#snippet footer()}
-		<button class="btn-ghost" onclick={() => (modalOpen = false)} disabled={guardando}
-			>Cancelar</button
-		>
-		<button class="btn-primary" onclick={guardar} disabled={guardando}>
-			{#if guardando}
-				<Spinner class="h-4 w-4" />
-				Guardando…
-			{:else}
-				{editando ? 'Guardar cambios' : 'Registrar comparendo'}
-			{/if}
-		</button>
-	{/snippet}
-</Modal>
+/>
 
 <!-- Confirmación de pago -->
 <ConfirmDialog
@@ -1111,37 +501,7 @@
 />
 
 <!-- Modal orden imprimible -->
-<Modal
-	open={imprimirComparendo !== null}
-	title={imprimirComparendo
-		? `Notificación de comparendo #${String(imprimirComparendo.id).padStart(4, '0')}`
-		: ''}
-	subtitle="Vista previa del documento. Al imprimir solo se muestra la orden."
-	onClose={cerrarImpresion}
-	width="max-w-3xl"
->
-	{#if imprimirComparendo}
-		<AvisoImpresion />
-		<OrdenComparendo comparendo={imprimirComparendo} />
-	{/if}
-
-	{#snippet footer()}
-		<button class="btn-ghost print-hidden" onclick={cerrarImpresion}>Cerrar</button>
-		<button class="btn-primary print-hidden" onclick={imprimir}>
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="w-4 h-4"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-				stroke-width="2"
-				><path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5z"
-				/></svg
-			>
-			Imprimir documento
-		</button>
-	{/snippet}
-</Modal>
+<ModalImpresionComparendo
+	comparendo={imprimirComparendo}
+	onClose={() => (imprimirComparendo = null)}
+/>
