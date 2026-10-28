@@ -17,6 +17,13 @@ Las versiones se publican como [releases en GitHub](https://github.com/aleksei-c
   `ModalFormGasto`), mismo patrón. Los 26 tests de la página pasan sin tocarlos:
   markup movido verbatim (solo cambian callbacks, el token `sesion` y
   `editando` → `modo`).
+- **`informes/+page.svelte` 464 → 218** líneas (`InformesResumen`,
+  `InformesGastosRentas`, `InformesUtilidad`). Los 18 tests de la página pasan
+  sin tocarlos; el `.print-area` mantiene los tres bloques, así que imprimir/PDF
+  no cambia.
+- **`calendario/+page.svelte` 451 → 288** líneas (`CalendarioGrid`,
+  `CalendarioDetalleDia`). Los 13 tests de la página pasan sin tocarlos; el
+  índice `itemsPorDia` y el token anti-carrera de carga siguen en la página.
 
 ### Mantenimiento
 - **Test de exportación a Excel de `comparendos` estabilizado**: fallaba solo en
@@ -25,7 +32,7 @@ Las versiones se publican como [releases en GitHub](https://github.com/aleksei-c
   más que la espera del test bajo carga) y `clickDescargarExcel()` re-consulta el
   botón dentro del `waitFor` en vez de pulsar un nodo capturado antes del
   re-render del panel SIMIT. Sin tocar timeouts ni el piso del ratchet.
-- Cobertura de ramas **82.33 %** (799 tests, 63 archivos; piso 81.9).
+- Cobertura de ramas **82.38 %** (799 tests, 63 archivos; piso 81.9).
 
 ---
 

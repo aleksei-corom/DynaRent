@@ -1,6 +1,6 @@
 # Handsoff — Dynarent ERP (Tauri + SvelteKit + Firebird)
 
-> Última actualización: **2026-10-28** · Estado: **v1.2.9 etiquetada** — mantenimiento y calidad: cinco rutas descompuestas sin cambios de comportamiento en el tag (más `mantenimiento` y `gastos` ya en `main`) — §7.7; `cancelarImpresion()` para el blanco al cerrar la vista previa; `ConfirmDialog` en PII/logs; calendario con la moneda de la empresa; login async por fases — H-3; `gbak` sin contraseña en `argv`; `ts-rs` retirado; Vitest 5 · auto-update plenamente funcional desde v1.2.5 · CI en Node 24 · 799 tests con 82.33 % de ramas (82.29 % en el tag v1.2.9)
+> Última actualización: **2026-10-28** · Estado: **v1.2.9 etiquetada** — mantenimiento y calidad: cinco rutas descompuestas sin cambios de comportamiento en el tag (más `mantenimiento`, `gastos`, `informes` y `calendario` ya en `main`) — §7.7; `cancelarImpresion()` para el blanco al cerrar la vista previa; `ConfirmDialog` en PII/logs; calendario con la moneda de la empresa; login async por fases — H-3; `gbak` sin contraseña en `argv`; `ts-rs` retirado; Vitest 5 · auto-update plenamente funcional desde v1.2.5 · CI en Node 24 · 799 tests con 82.38 % de ramas (82.29 % en el tag v1.2.9)
 
 > **Instalación limpia validada de punta a punta (11-08, noche):** se cerró el hueco del
 > release v1.0.0 en equipos nuevos (la app se colgaba esperando una BD inexistente).
@@ -305,7 +305,7 @@ Proyecto de renta de vehículos: frontend **SvelteKit 5** (`src/`), backend **Ta
 
 | Validación | Resultado |
 |---|---|
-| Vitest (frontend) | **799/799** en 63 archivos (ramas 82.33 %; piso del ratchet 81.9) |
+| Vitest (frontend) | **799/799** en 63 archivos (ramas 82.38 %; piso del ratchet 81.9) |
 | `npm run check` (svelte-check) | **0 errores / 0 warnings** |
 | `npm run build` (vite) | ✅ |
 | `cargo test` (Rust) | ✅ **104** unit en la lib + integraciones por módulo |
@@ -1152,9 +1152,10 @@ Validación: simit 14/14, 5 corridas consecutivas verdes, lib 80/80, y el CI del
 ### 7.7 - Páginas como orquestadores: fin de los monolitos de ruta (2026-10-28, desde v1.2.9)
 
 Las rutas con más lógica (`rentas`, `reservas`, `comparendos`, `usuarios`, `autos`,
-`mantenimiento` y `gastos`) mezclaban en un solo `+page.svelte` el estado de datos,
-los filtros, las confirmaciones y toda la UI. Ya están partidas con el mismo patrón;
-**usarlo al tocar una ruta grande o al crear una nueva**:
+`mantenimiento`, `gastos`, `informes` y `calendario`) mezclaban en un solo
+`+page.svelte` el estado de datos, los filtros, las confirmaciones y toda la UI.
+Ya están partidas con el mismo patrón; **usarlo al tocar una ruta grande o al
+crear una nueva**:
 
 | Ruta | Antes | Después | Componentes |
 |---|---|---|---|
@@ -1165,6 +1166,8 @@ los filtros, las confirmaciones y toda la UI. Ya están partidas con el mismo pa
 | `autos` | 712 | 190 | `AutosListado`, `ModalFormAuto` |
 | `mantenimiento` | 646 | 234 | `MantenimientoListado`, `ModalFormMantenimiento` |
 | `gastos` | 579 | 221 | `GastosListado`, `ModalFormGasto` |
+| `informes` | 464 | 218 | `InformesResumen`, `InformesGastosRentas`, `InformesUtilidad` |
+| `calendario` | 451 | 288 | `CalendarioGrid`, `CalendarioDetalleDia` |
 
 Reglas del patrón:
 
@@ -1188,5 +1191,4 @@ Reglas del patrón:
 - **Impresión**: el modal de impresión cierra con `onClose()` + `cancelarImpresion()`
   (deja limpio `printing-clone`); no reimplementar la limpieza a mano.
 
-Pendientes con el mismo patrón (por tamaño): `informes` (464), `calendario` (451)
-y `alertas` (428).
+Pendiente con el mismo patrón: `alertas` (428).
