@@ -1,5 +1,5 @@
 // src/routes/comparendos/comparendos.test.ts — Tests de la página de Comparendos
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/svelte';
 import { goto } from '$app/navigation';
 import { tauri } from '../../test/tauri';
@@ -34,6 +34,15 @@ const eventos = vi.hoisted(() => {
 	};
 });
 vi.mock('@tauri-apps/api/event', () => ({ listen: eventos.listen }));
+
+// `descargarExcelSimit()` carga `exceljs` con un import dinámico. En la suite
+// completa (63 archivos en paralelo + cobertura v8) ese import puede tardar más
+// que la espera del test y el fallo aparecía solo en la corrida completa, nunca
+// en aislado. Precargarlo una vez deja el camino del click sin trabajo de
+// módulos y el test mide la exportación, no el arranque de exceljs.
+beforeAll(async () => {
+	await import('exceljs');
+});
 
 function comparendo(overrides: Partial<Comparendo> = {}): Comparendo {
 	return {
@@ -999,11 +1008,17 @@ function hayToast(tipo: 'success' | 'error', mensaje: string): boolean {
  * handler sale con «No hay registros») hasta que resuelve `simit_sync_status`.
  * Un click en ese hueco no exportaba nada y el test se quedaba 5 s esperando
  * el blob: el flake solo aparecía en la corrida paralela, nunca en aislado.
+ *
+ * El botón se re-consulta dentro del `waitFor` (y se comprueba que siga
+ * conectado): así no se pulsa un nodo que un re-render dejó fuera del DOM.
  */
 async function clickDescargarExcel(): Promise<void> {
-	const boton = await screen.findByRole('button', { name: 'Descargar Excel' });
-	await waitFor(() => expect(boton).toBeEnabled());
-	await fireEvent.click(boton);
+	await waitFor(() => {
+		const boton = screen.getByRole('button', { name: 'Descargar Excel' });
+		expect(boton).toBeEnabled();
+		expect(boton.isConnected).toBe(true);
+	});
+	await fireEvent.click(screen.getByRole('button', { name: 'Descargar Excel' }));
 }
 
 /** Rellena la combobox de placa del modal (escribir + Enter selecciona). */
