@@ -433,9 +433,27 @@ async function main(opts) {
 
 	// 5) ORDEN
 	console.log('— abriendo modal de orden…');
-	await c.eval(`document.querySelector('button[title="Imprimir orden de renta"]')?.click()`);
+	// Tras el pago la página recarga el listado (`loading` desmonta la tabla),
+	// así que el botón puede no existir en el instante del click: esperar a que
+	// vuelva y reintentar. Un solo intento era flaky en runners lentos.
+	let ordenAbierta = false;
+	for (let intento = 1; intento <= 3 && !ordenAbierta; intento++) {
+		try {
+			await esperar(
+				c,
+				`!!document.querySelector('button[title="Imprimir orden de renta"]')`,
+				15000,
+				'botón imprimir orden'
+			);
+			await c.eval(`document.querySelector('button[title="Imprimir orden de renta"]')?.click()`);
+			await esperar(c, `!!document.querySelector('.print-area.orden-carta')`, 8000, 'modal orden');
+			ordenAbierta = true;
+		} catch {
+			// La tabla pudo re-renderizarse entre la espera y el click: reintentar.
+		}
+	}
 	try {
-		await esperar(c, `!!document.querySelector('.print-area.orden-carta')`, 20000, 'modal orden');
+		if (!ordenAbierta) throw new Error('timeout esperando: modal orden');
 	} catch (e) {
 		const diag = await c.eval(`JSON.stringify({
       botonOrden: !!document.querySelector('button[title="Imprimir orden de renta"]'),
