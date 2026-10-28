@@ -1,21 +1,31 @@
 <script lang="ts">
+	// Página de Informes (balance mensual): orquestador.
+	//
+	// Tras P1-Informes la página conserva la carga del informe, los guards de
+	// sesión/rol, el rango de fechas, la impresión y la exportación a Excel. La
+	// UI vive en:
+	//   - `components/InformesResumen.svelte` (tarjetas de ingresos/egresos/balance)
+	//   - `components/InformesGastosRentas.svelte` (gastos por categoría + rentas)
+	//   - `components/InformesUtilidad.svelte` (utilidad por vehículo)
 	import { onMount } from 'svelte';
 	import {
 		informeApi,
 		businessApi,
 		ApiError,
 		type InformeMensual,
-		type UtilidadVehiculo,
 		type BusinessLists
 	} from '#lib/api.js';
 	import { sid } from '#lib/stores/session.svelte.js';
 	import { toast } from '#lib/stores/toast.svelte.js';
-	import { formatCOP, formatDate, formatLocalDateISO } from '#lib/utils/format.js';
+	import { formatLocalDateISO } from '#lib/utils/format.js';
 	import { guardRole, guardSesion, haySesion, tieneRol } from '#lib/utils/guards.js';
 	import { construirLibroInforme } from '#lib/utils/informeExcel.js';
 	import { empresa } from '#lib/stores/empresa.svelte.js';
 	import { imprimirDocumento } from '#lib/utils/imprimir.js';
 	import Spinner from '#lib/components/Spinner.svelte';
+	import InformesResumen from './components/InformesResumen.svelte';
+	import InformesGastosRentas from './components/InformesGastosRentas.svelte';
+	import InformesUtilidad from './components/InformesUtilidad.svelte';
 
 	let informe = $state<InformeMensual | null>(null);
 	let loading = $state(true);
@@ -68,8 +78,6 @@
 		await cargar();
 	});
 
-	const balancePositivo = $derived(informe !== null && parseFloat(informe.balance) >= 0);
-
 	function imprimir() {
 		imprimirDocumento();
 	}
@@ -109,29 +117,6 @@
 	}
 
 	const rangoTexto = $derived(`${fechaInicio} al ${fechaFin}`);
-
-	// Utilidad por vehículo: barra proporcional al mayor valor absoluto
-	const maxUtilidad = $derived(
-		informe?.utilidadPorVehiculo.reduce(
-			(m, v) => Math.max(m, Math.abs(parseFloat(v.utilidad)) || 0),
-			0
-		) ?? 0
-	);
-
-	const vehiculosRentables = $derived(
-		informe?.utilidadPorVehiculo.filter((v) => parseFloat(v.utilidad) >= 0).length ?? 0
-	);
-
-	function utilidadClases(v: UtilidadVehiculo): string {
-		const u = parseFloat(v.utilidad);
-		if (u > 0) return 'text-exito';
-		if (u < 0) return 'text-peligro';
-		return 'text-text-secondary';
-	}
-
-	function barraClases(v: UtilidadVehiculo): string {
-		return parseFloat(v.utilidad) >= 0 ? 'bg-exito/70' : 'bg-peligro/70';
-	}
 </script>
 
 <svelte:head>
@@ -221,244 +206,13 @@
 	{:else if informe}
 		<div class="print-area bg-white">
 			<!-- Resumen -->
-			<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-				<div class="card p-5 border-l-4 border-l-exito">
-					<p class="text-[11px] font-bold uppercase tracking-wider text-text-secondary">
-						Ingresos del mes
-					</p>
-					<p class="text-3xl font-black text-exito tabular-nums mt-1">
-						{formatCOP(informe.totalIngresos)}
-					</p>
-					<p class="text-xs text-text-secondary mt-1 tabular-nums">
-						Pagos de rentas {formatCOP(informe.ingresosPagos)} · Abonos {formatCOP(
-							informe.ingresosReservas
-						)}
-					</p>
-					{#if parseFloat(informe.totalComisiones) > 0}
-						<p class="text-xs text-text-secondary mt-1 tabular-nums">
-							Comisiones −{formatCOP(informe.totalComisiones)} · Ingresos netos {formatCOP(
-								informe.ingresosNetos
-							)}
-						</p>
-					{/if}
-				</div>
-				<div class="card p-5 border-l-4 border-l-peligro">
-					<p class="text-[11px] font-bold uppercase tracking-wider text-text-secondary">
-						Egresos del mes
-					</p>
-					<p class="text-3xl font-black text-peligro tabular-nums mt-1">
-						{formatCOP(informe.totalEgresos)}
-					</p>
-					<p class="text-xs text-text-secondary mt-1 tabular-nums">
-						Gastos {formatCOP(informe.egresosGastos)} · Mantenimiento {formatCOP(
-							informe.egresosMantenimiento
-						)} · Comparendos {formatCOP(informe.egresosComparendos)}
-					</p>
-				</div>
-				<div
-					class="card p-5 border-l-4 {balancePositivo ? 'border-l-primary' : 'border-l-peligro'}"
-				>
-					<p class="text-[11px] font-bold uppercase tracking-wider text-text-secondary">Balance</p>
-					<p
-						class="text-3xl font-black {balancePositivo
-							? 'text-primary'
-							: 'text-peligro'} tabular-nums mt-1"
-					>
-						{formatCOP(informe.balance)}
-					</p>
-					<p class="text-xs text-text-secondary mt-1">{rangoTexto}</p>
-					{#if parseFloat(informe.totalComisiones) > 0}
-						<p class="text-xs text-text-secondary mt-1 tabular-nums">
-							Balance neto (tras comisiones): {formatCOP(informe.balanceNeto)}
-						</p>
-					{/if}
-				</div>
-			</div>
+			<InformesResumen {informe} {rangoTexto} />
 
-			<div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
-				<!-- Gastos por categoría -->
-				<section class="card">
-					<h3 class="text-sm font-bold uppercase tracking-wider text-text-primary mb-3">
-						Gastos por categoría
-					</h3>
-					{#if informe.gastosPorCategoria.length === 0}
-						<p class="text-sm text-text-secondary py-4 text-center">
-							Sin gastos registrados este mes.
-						</p>
-					{:else}
-						<div class="space-y-2">
-							{#each informe.gastosPorCategoria as [categoria, total] (categoria)}
-								{@const pct = Math.min(
-									100,
-									(parseFloat(total) / Math.max(1e-9, parseFloat(informe.egresosGastos))) * 100
-								)}
-								<div>
-									<div class="flex justify-between text-sm mb-1">
-										<span class="font-medium text-text-primary">{categoria}</span>
-										<span class="font-bold text-text-primary tabular-nums">{formatCOP(total)}</span>
-									</div>
-									<div class="h-2 rounded-full bg-alt-row overflow-hidden">
-										<div
-											class="h-full rounded-full bg-primary/70 transition-[width] duration-300 ease-out"
-											style="width: {pct}%"
-										></div>
-									</div>
-								</div>
-							{/each}
-						</div>
-					{/if}
-				</section>
-
-				<!-- Rentas del mes -->
-				<section class="card">
-					<h3 class="text-sm font-bold uppercase tracking-wider text-text-primary mb-3">
-						Rentas del mes ({informe.rentas.length})
-					</h3>
-					{#if informe.rentas.length === 0}
-						<p class="text-sm text-text-secondary py-4 text-center">
-							Sin rentas iniciadas este mes.
-						</p>
-					{:else}
-						<div class="overflow-x-auto max-h-90 overflow-y-auto">
-							<table class="w-full text-sm">
-								<thead class="sticky top-0 bg-surface">
-									<tr class="border-b border-border text-left">
-										<th class="py-2 pr-3 font-semibold text-text-secondary">No.</th>
-										<th class="py-2 pr-3 font-semibold text-text-secondary">Placa</th>
-										<th class="py-2 pr-3 font-semibold text-text-secondary">Cliente</th>
-										<th class="py-2 pr-3 font-semibold text-text-secondary">Fecha</th>
-										<th class="py-2 pr-3 font-semibold text-text-secondary">Estado</th>
-										<th class="py-2 pr-3 font-semibold text-text-secondary text-right">Total</th>
-										<th class="py-2 pr-3 font-semibold text-text-secondary text-right">Comisión</th>
-										<th class="py-2 font-semibold text-text-secondary text-right">Valor neto</th>
-									</tr>
-								</thead>
-								<tbody class="divide-y divide-border/60">
-									{#each informe.rentas as r (r.id)}
-										<tr class="hover:bg-alt-row/50 transition-colors">
-											<td class="py-2 pr-3 font-bold text-primary tabular-nums"
-												>#{String(r.id).padStart(4, '0')}</td
-											>
-											<td class="py-2 pr-3 font-mono text-xs">{r.placa || '—'}</td>
-											<td class="py-2 pr-3 text-text-primary truncate max-w-45"
-												>{r.nombreCliente}</td
-											>
-											<td class="py-2 pr-3 text-text-secondary tabular-nums whitespace-nowrap"
-												>{formatDate(r.fechaRecogida)}</td
-											>
-											<td class="py-2 pr-3">
-												<span
-													class="inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold
-												{r.estado === 'Cerrada'
-														? 'border-exito/30 text-exito'
-														: r.estado === 'Cancelada'
-															? 'border-peligro/30 text-peligro'
-															: 'border-primary/30 text-primary'}"
-												>
-													{r.estado}
-												</span>
-											</td>
-											<td
-												class="py-2 pr-3 text-right font-bold text-text-primary tabular-nums whitespace-nowrap"
-												>{formatCOP(r.total)}</td
-											>
-											<td
-												class="py-2 pr-3 text-right tabular-nums whitespace-nowrap {parseFloat(
-													r.comision
-												) > 0
-													? 'text-peligro'
-													: 'text-text-secondary/50'}"
-											>
-												{parseFloat(r.comision) > 0 ? `-${formatCOP(r.comision)}` : '—'}
-											</td>
-											<td
-												class="py-2 text-right font-semibold text-text-primary tabular-nums whitespace-nowrap"
-												>{formatCOP(r.valorNeto)}</td
-											>
-										</tr>
-									{/each}
-								</tbody>
-							</table>
-						</div>
-					{/if}
-				</section>
-			</div>
+			<!-- Gastos por categoría + rentas del mes -->
+			<InformesGastosRentas {informe} />
 
 			<!-- Utilidad por vehículo -->
-			<section class="card">
-				<div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-					<div class="flex items-center gap-2">
-						<span class="w-2 h-2 rounded-full bg-exito"></span>
-						<h3 class="text-sm font-bold uppercase tracking-wider text-text-primary">
-							Utilidad por vehículo ({informe.utilidadPorVehiculo.length})
-						</h3>
-					</div>
-					<p class="text-xs text-text-secondary">
-						{vehiculosRentables} rentable{vehiculosRentables === 1 ? '' : 's'} · {informe
-							.utilidadPorVehiculo.length - vehiculosRentables} en pérdida
-					</p>
-				</div>
-
-				{#if informe.utilidadPorVehiculo.length === 0}
-					<p class="text-sm text-text-secondary py-4 text-center">
-						Sin movimiento por vehículo este mes.
-					</p>
-				{:else}
-					<div class="overflow-x-auto">
-						<table class="w-full text-sm">
-							<thead>
-								<tr class="border-b border-border text-left">
-									<th class="py-2 pr-3 font-semibold text-text-secondary">Placa</th>
-									<th class="py-2 pr-3 font-semibold text-text-secondary">Vehículo</th>
-									<th class="py-2 pr-3 font-semibold text-text-secondary text-right">Ingresos</th>
-									<th class="py-2 pr-3 font-semibold text-text-secondary text-right">Costos</th>
-									<th class="py-2 pr-3 font-semibold text-text-secondary text-right">Utilidad</th>
-									<th class="py-2 font-semibold text-text-secondary w-45">Rentabilidad</th>
-								</tr>
-							</thead>
-							<tbody class="divide-y divide-border/60">
-								{#each informe.utilidadPorVehiculo as v (v.placa)}
-									{@const util = parseFloat(v.utilidad) || 0}
-									{@const ancho =
-										maxUtilidad > 0 ? Math.min(100, (Math.abs(util) / maxUtilidad) * 100) : 0}
-									<tr class="hover:bg-alt-row/50 transition-colors">
-										<td class="py-2.5 pr-3 font-mono text-xs font-bold text-primary">{v.placa}</td>
-										<td class="py-2.5 pr-3 text-text-primary truncate max-w-50"
-											>{v.vehiculo || '—'}</td
-										>
-										<td
-											class="py-2.5 pr-3 text-right text-text-primary tabular-nums whitespace-nowrap"
-											>{formatCOP(v.ingresos)}</td
-										>
-										<td
-											class="py-2.5 pr-3 text-right text-text-primary tabular-nums whitespace-nowrap"
-											>{formatCOP(v.costos)}</td
-										>
-										<td
-											class="py-2.5 pr-3 text-right font-bold tabular-nums whitespace-nowrap {utilidadClases(
-												v
-											)}"
-										>
-											{util >= 0 ? '' : '−'}{formatCOP(Math.abs(util))}
-										</td>
-										<td class="py-2.5">
-											<div class="h-2 rounded-full bg-alt-row overflow-hidden">
-												<div
-													class="h-full rounded-full transition-[width] duration-300 ease-out {barraClases(
-														v
-													)}"
-													style="width: {ancho}%"
-													title={formatCOP(v.utilidad)}
-												></div>
-											</div>
-										</td>
-									</tr>
-								{/each}
-							</tbody>
-						</table>
-					</div>
-				{/if}
-			</section>
+			<InformesUtilidad vehiculos={informe.utilidadPorVehiculo} />
 		</div>
 	{/if}
 </div>
