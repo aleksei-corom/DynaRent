@@ -12,7 +12,20 @@ Las versiones se publican como [releases en GitHub](https://github.com/aleksei-c
 - **`mantenimiento/+page.svelte` 646 → 234** líneas (`MantenimientoListado`,
   `ModalFormMantenimiento`), con el mismo patrón de orquestador de §7.7 del
   Handsoff. Sin cambios de comportamiento: los 31 tests de la página pasan sin
-  tocarlos. Cobertura de ramas 82.31 % (799 tests).
+  tocarlos.
+- **`gastos/+page.svelte` 579 → 221** líneas (`GastosListado`,
+  `ModalFormGasto`), mismo patrón. Los 26 tests de la página pasan sin tocarlos:
+  markup movido verbatim (solo cambian callbacks, el token `sesion` y
+  `editando` → `modo`).
+
+### Mantenimiento
+- **Test de exportación a Excel de `comparendos` estabilizado**: fallaba solo en
+  la corrida completa (798/799) con `createObjectURL` sin llamar. Se precarga
+  `exceljs` una vez por archivo (el `import()` dinámico de la página podía tardar
+  más que la espera del test bajo carga) y `clickDescargarExcel()` re-consulta el
+  botón dentro del `waitFor` en vez de pulsar un nodo capturado antes del
+  re-render del panel SIMIT. Sin tocar timeouts ni el piso del ratchet.
+- Cobertura de ramas **82.33 %** (799 tests, 63 archivos; piso 81.9).
 
 ---
 

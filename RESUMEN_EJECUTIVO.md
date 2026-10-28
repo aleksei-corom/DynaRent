@@ -11,7 +11,7 @@
 | **Aplicación** | Todos los módulos operativos (rentas, comparendos + agente SIMIT, alertas, calendario, informes, reservas, contratos, backups, multi-moneda) |
 | **Versión estable** | **v1.2.9** — publicada 2026-10-28 con auto-update activo |
 | **Instalación limpia** | ✅ Validada E2E en Windows Sandbox (equipo sin nada): la app crea su BD, migra y arranca sin colgarse |
-| **CI** | ✅ Verde en el tope de `main` (lint, svelte-check 0/0, vitest 799 tests con 82.29 % de ramas, cargo 104 lib + 21 suites de integración con BD sembrada, importador, verificador de despliegue -DryRun) |
+| **CI** | ✅ Verde en el tope de `main` (lint, svelte-check 0/0, vitest 799 tests con 82.33 % de ramas — 82.29 % en el tag v1.2.9, cargo 104 lib + 21 suites de integración con BD sembrada, importador, verificador de despliegue -DryRun) |
 | **Repositorio** | Árbol limpio y sincronizado con `origin/main` |
 | **Auto-actualización** | ✅ Activa desde la **v1.0.14** y **plenamente funcional desde la v1.2.5** (pubkey alineada) — la app chequea `latest.json` al arrancar y ofrece instalar (firma minisign verificada); E2E sin máquina ✅ (v1.2.8 → v1.2.9) |
 
@@ -39,7 +39,7 @@ La release incluye además los `.sig` ×2 y el `latest.json` (plataforma `window
 
 **Qué trae la v1.2.9** (mantenimiento y calidad — sin cambios de esquema):
 
-1. **Rutas descompuestas sin cambios de comportamiento**: `rentas` 1946→750, `reservas` 1248→328, `comparendos` 1147→507, `usuarios` 745→186, `autos` 712→190 (`mantenimiento` 646→234 ya en `main` para la próxima). La página queda como orquestador; formularios, listados y modales de impresión viven en `components/`.
+1. **Rutas descompuestas sin cambios de comportamiento**: `rentas` 1946→750, `reservas` 1248→328, `comparendos` 1147→507, `usuarios` 745→186, `autos` 712→190 (`mantenimiento` 646→234 y `gastos` 579→221 ya en `main`, para la próxima release). La página queda como orquestador; formularios, listados y modales de impresión viven en `components/`.
 2. **Cerrar la vista previa de impresión ya no deja la app en blanco**: `cancelarImpresion()` cancela los timers, evita el print fantasma y ejecuta la limpieza de `afterprint` (regresión cubierta con fake timers).
 3. **`ConfirmDialog` en claves PII y truncado de logs**: se elimina el `confirm()` nativo.
 4. **Calendario con la moneda de la empresa** (antes COP fijo).
@@ -87,4 +87,4 @@ La release incluye además los `.sig` ×2 y el `latest.json` (plataforma `window
 
 ## 6. Veredicto
 
-**El proyecto está en producción con la v1.2.9 publicada y verificada** (construida por CI, firmada para el auto-update, E2E del updater validada sin máquina — detección, firma minisign y bytes —, y suite completa en verde: 799 tests frontend, 104 lib + 21 suites de integración). El kit de operaciones (instalación con historial de versiones, verificación, importación de datos, monitoreo SIMIT, backups con restauración) está documentado y actualizado a la versión vigente. La **auto-actualización es plenamente funcional** (secret `TAURI_SIGNING_PRIVATE_KEY` + pubkey embebida alineadas desde la v1.2.5). Los pendientes conocidos son de mantenimiento fino (descomponer `gastos` con el patrón de §7.7 del Handsoff, cifrado de `no_doc`/nombres), no bloqueos.
+**El proyecto está en producción con la v1.2.9 publicada y verificada** (construida por CI, firmada para el auto-update, E2E del updater validada sin máquina — detección, firma minisign y bytes —, y suite completa en verde: 799 tests frontend, 104 lib + 21 suites de integración). El kit de operaciones (instalación con historial de versiones, verificación, importación de datos, monitoreo SIMIT, backups con restauración) está documentado y actualizado a la versión vigente. La **auto-actualización es plenamente funcional** (secret `TAURI_SIGNING_PRIVATE_KEY` + pubkey embebida alineadas desde la v1.2.5). Los pendientes conocidos son de mantenimiento fino (descomponer `informes`/`calendario`/`alertas` con el patrón de §7.7 del Handsoff, cifrado de `no_doc`/nombres), no bloqueos.
