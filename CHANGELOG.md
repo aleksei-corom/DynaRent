@@ -6,7 +6,12 @@ Las versiones se publican como [releases en GitHub](https://github.com/aleksei-c
 
 ---
 
-## [Unreleased]
+## [v1.2.10] — 2026-10-28
+
+Versión de mantenimiento: **cierra la descomposición de las rutas monolíticas**
+(§7.7 del Handsoff) y estabiliza el test de exportación a Excel de `comparendos`.
+Sin cambios de comportamiento visible, de esquema ni de migraciones: la BD
+existente abre tal cual.
 
 ### Cambiado
 - **`mantenimiento/+page.svelte` 646 → 234** líneas (`MantenimientoListado`,
