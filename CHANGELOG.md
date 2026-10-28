@@ -24,6 +24,12 @@ Las versiones se publican como [releases en GitHub](https://github.com/aleksei-c
 - **`calendario/+page.svelte` 451 → 288** líneas (`CalendarioGrid`,
   `CalendarioDetalleDia`). Los 13 tests de la página pasan sin tocarlos; el
   índice `itemsPorDia` y el token anti-carrera de carga siguen en la página.
+- **`alertas/+page.svelte` 428 → 189** líneas (`AlertasResumen`,
+  `AlertasVencimientos`, `AlertasMantenimientoKm`, `AlertasRentas`,
+  `AlertasComparendos`); los helpers de días/badges (`diasVencimiento`,
+  `badgeClases`, `diasLabel`, `diasClases`) pasan a `#lib/utils/alertas.ts`
+  porque los comparten las cuatro secciones. Los 16 tests de la página pasan
+  sin tocarlos.
 
 ### Mantenimiento
 - **Test de exportación a Excel de `comparendos` estabilizado**: fallaba solo en

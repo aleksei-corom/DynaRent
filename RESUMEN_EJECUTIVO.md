@@ -39,7 +39,7 @@ La release incluye además los `.sig` ×2 y el `latest.json` (plataforma `window
 
 **Qué trae la v1.2.9** (mantenimiento y calidad — sin cambios de esquema):
 
-1. **Rutas descompuestas sin cambios de comportamiento**: `rentas` 1946→750, `reservas` 1248→328, `comparendos` 1147→507, `usuarios` 745→186, `autos` 712→190 (`mantenimiento` 646→234, `gastos` 579→221, `informes` 464→218 y `calendario` 451→288 ya en `main`, para la próxima release). La página queda como orquestador; formularios, listados y modales de impresión viven en `components/`.
+1. **Rutas descompuestas sin cambios de comportamiento**: `rentas` 1946→750, `reservas` 1248→328, `comparendos` 1147→507, `usuarios` 745→186, `autos` 712→190 (`mantenimiento` 646→234, `gastos` 579→221, `informes` 464→218, `calendario` 451→288 y `alertas` 428→189 ya en `main`, para la próxima release). La página queda como orquestador; formularios, listados y modales de impresión viven en `components/`.
 2. **Cerrar la vista previa de impresión ya no deja la app en blanco**: `cancelarImpresion()` cancela los timers, evita el print fantasma y ejecuta la limpieza de `afterprint` (regresión cubierta con fake timers).
 3. **`ConfirmDialog` en claves PII y truncado de logs**: se elimina el `confirm()` nativo.
 4. **Calendario con la moneda de la empresa** (antes COP fijo).

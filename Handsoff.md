@@ -1,6 +1,6 @@
 # Handsoff — Dynarent ERP (Tauri + SvelteKit + Firebird)
 
-> Última actualización: **2026-10-28** · Estado: **v1.2.9 etiquetada** — mantenimiento y calidad: cinco rutas descompuestas sin cambios de comportamiento en el tag (más `mantenimiento`, `gastos`, `informes` y `calendario` ya en `main`) — §7.7; `cancelarImpresion()` para el blanco al cerrar la vista previa; `ConfirmDialog` en PII/logs; calendario con la moneda de la empresa; login async por fases — H-3; `gbak` sin contraseña en `argv`; `ts-rs` retirado; Vitest 5 · auto-update plenamente funcional desde v1.2.5 · CI en Node 24 · 799 tests con 82.38 % de ramas (82.29 % en el tag v1.2.9)
+> Última actualización: **2026-10-28** · Estado: **v1.2.9 etiquetada** — mantenimiento y calidad: cinco rutas descompuestas sin cambios de comportamiento en el tag (más `mantenimiento`, `gastos`, `informes`, `calendario` y `alertas` ya en `main`) — §7.7; `cancelarImpresion()` para el blanco al cerrar la vista previa; `ConfirmDialog` en PII/logs; calendario con la moneda de la empresa; login async por fases — H-3; `gbak` sin contraseña en `argv`; `ts-rs` retirado; Vitest 5 · auto-update plenamente funcional desde v1.2.5 · CI en Node 24 · 799 tests con 82.38 % de ramas (82.29 % en el tag v1.2.9)
 
 > **Instalación limpia validada de punta a punta (11-08, noche):** se cerró el hueco del
 > release v1.0.0 en equipos nuevos (la app se colgaba esperando una BD inexistente).
@@ -1152,7 +1152,7 @@ Validación: simit 14/14, 5 corridas consecutivas verdes, lib 80/80, y el CI del
 ### 7.7 - Páginas como orquestadores: fin de los monolitos de ruta (2026-10-28, desde v1.2.9)
 
 Las rutas con más lógica (`rentas`, `reservas`, `comparendos`, `usuarios`, `autos`,
-`mantenimiento`, `gastos`, `informes` y `calendario`) mezclaban en un solo
+`mantenimiento`, `gastos`, `informes`, `calendario` y `alertas`) mezclaban en un solo
 `+page.svelte` el estado de datos, los filtros, las confirmaciones y toda la UI.
 Ya están partidas con el mismo patrón; **usarlo al tocar una ruta grande o al
 crear una nueva**:
@@ -1168,6 +1168,7 @@ crear una nueva**:
 | `gastos` | 579 | 221 | `GastosListado`, `ModalFormGasto` |
 | `informes` | 464 | 218 | `InformesResumen`, `InformesGastosRentas`, `InformesUtilidad` |
 | `calendario` | 451 | 288 | `CalendarioGrid`, `CalendarioDetalleDia` |
+| `alertas` | 428 | 189 | `AlertasResumen`, `AlertasVencimientos`, `AlertasMantenimientoKm`, `AlertasRentas`, `AlertasComparendos` |
 
 Reglas del patrón:
 
@@ -1191,4 +1192,7 @@ Reglas del patrón:
 - **Impresión**: el modal de impresión cierra con `onClose()` + `cancelarImpresion()`
   (deja limpio `printing-clone`); no reimplementar la limpieza a mano.
 
-Pendiente con el mismo patrón: `alertas` (428).
+Ya no queda ningún monolito de ruta: las rutas restantes están todas por debajo de
+400 líneas (`backups` 387, `clientes` 374, `empresa` 331, `dashboard` 329, `reservas`
+328, `auditoria` 297). En `alertas` los helpers de días/badges se movieron a
+`src/lib/utils/alertas.ts` porque los comparten las cuatro secciones.
