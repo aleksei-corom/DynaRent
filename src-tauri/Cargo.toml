@@ -143,7 +143,7 @@ aes-gcm = "0.11"
 aes = "0.9"
 cbc = { version = "0.2", features = ["alloc"] }
 rand = "0.10"
-base64 = "0.22"
+base64 = "0.23"
 hex = "0.4"
 subtle = "2.5"
 
